@@ -1,4 +1,4 @@
-﻿using GlassDesk.Core;
+using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
 namespace GlassDesk.App;
@@ -106,9 +106,9 @@ internal static class WidgetBoardRenderer
             bool failed = result?.State is WidgetProviderState.Unavailable or WidgetProviderState.Faulted or WidgetProviderState.TimedOut;
             bool hasSnapshot = result?.Snapshot?.Elements is { Count: > 0 };
             bool isTime = instance.ProviderId == BuiltInWidgetIds.Time;
-            // The time widget is a clock face, not a paper card: its ring and hands sit directly
-            // on the glass. Editing and fallback states still get the shared card face.
-            if (!isTime || editing || !hasSnapshot) CardSurface(cards, local, tone, lightInk, highContrast, editing);
+            // A plain time card: one quiet number, no label and no caption. Editing and
+            // fallback states still share the card face.
+            CardSurface(cards, local, tone, lightInk, highContrast, editing);
 
             if (editing)
             {
@@ -143,9 +143,11 @@ internal static class WidgetBoardRenderer
             AddControl(actionBase, $"配置{identity}{(contents.Length > 0 ? "，" + contents : "")}", global,
                 new(WidgetBoardActionKind.Configure, instance.InstanceId), viewport);
 
-            if (hasSnapshot && isTime && TryClock(result!, out int hour, out int minute, out string display))
+            if (hasSnapshot && isTime && TryClock(result!, out _, out _, out string display))
             {
-                AnalogClock(cards, local, hour, minute, display, primary, secondary, lightInk, locale);
+                // The value is the widget. No label, no UTC caption, no decorative clock hands.
+                cards.Add(Text(display, TextRole.WidgetClock,
+                    new(local.X + 12, local.Y + 46, local.Width - 24, 44), primary, locale, true, TextFlags.TabularNumbers));
             }
             else
             {
