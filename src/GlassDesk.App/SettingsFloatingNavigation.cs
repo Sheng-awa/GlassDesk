@@ -48,7 +48,8 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
         _selection = new Border
         {
             Height = SelectionHeight, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left,
-            CornerRadius = new CornerRadius(UiRadius.Shell - 4), Background = Brush(SelectionFill), IsHitTestVisible = false
+            CornerRadius = new CornerRadius(UiRadius.Shell - 4), Background = Brush(SelectionFill),
+            RenderTransform = _translation, IsHitTestVisible = false
         };
         Children.Add(_selection);
         // The parent owns pointer capture for a continuous drag. Standard Buttons

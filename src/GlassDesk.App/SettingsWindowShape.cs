@@ -30,9 +30,9 @@ internal sealed class SettingsWindowShape : IDisposable
         var navPosition = navigation.TransformToVisual(root).TransformPoint(new Point());
         static int Pixel(double value, double scale) => (int)Math.Round(value * scale);
         var key = new ShapeKey(Pixel(panePosition.X, scale), Pixel(panePosition.Y, scale),
-            Pixel(panePosition.X + pane.ActualWidth, scale), Pixel(panePosition.Y + pane.ActualHeight, scale), Pixel(48, scale),
+            Pixel(panePosition.X + pane.ActualWidth, scale), Pixel(panePosition.Y + pane.ActualHeight, scale), Pixel(UiRadius.Shell * 2, scale),
             Pixel(navPosition.X, scale), Pixel(navPosition.Y, scale),
-            Pixel(navPosition.X + navigation.ActualWidth, scale), Pixel(navPosition.Y + navigation.ActualHeight, scale), Pixel(56, scale));
+            Pixel(navPosition.X + navigation.ActualWidth, scale), Pixel(navPosition.Y + navigation.ActualHeight, scale), Pixel(UiRadius.Shell * 2, scale));
         if (_last == key) return true;
         nint paneRegion = CreateRoundRectRgn(key.PaneLeft, key.PaneTop, key.PaneRight + 1, key.PaneBottom + 1, key.PaneDiameter, key.PaneDiameter);
         nint navRegion = CreateRoundRectRgn(key.NavLeft, key.NavTop, key.NavRight + 1, key.NavBottom + 1, key.NavDiameter, key.NavDiameter);

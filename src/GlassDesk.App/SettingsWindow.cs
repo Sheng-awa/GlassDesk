@@ -2,13 +2,11 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using GlassDesk.Core;
 using Microsoft.UI;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -54,7 +52,6 @@ public sealed class SettingsWindow : Window, IDisposable
         new TextBlock { Text = PageTitles[0], VerticalAlignment = VerticalAlignment.Center }, TextRole.PageTitle, InkRole.Primary);
     readonly Border _colorPickerHost = new() { CornerRadius = new CornerRadius(UiRadius.Control), Height = 240 };
     readonly RectangleGeometry _colorPickerClip = new();
-    CompositionRoundedRectangleGeometry? _colorPickerGeometry;
     readonly Slider _blur = new() { Minimum = 0, Maximum = 40, StepFrequency = 1 };
     readonly Slider _transparency = new() { Minimum = 10, Maximum = 90, StepFrequency = 1 };
     readonly Slider _hover = new() { Minimum = 100, Maximum = 1500, StepFrequency = 50 };
@@ -1168,31 +1165,14 @@ public sealed class SettingsWindow : Window, IDisposable
     }
 
     /// <summary>
-    /// A WinUI Border paints its corner radius but does not clip a child's square
-    /// corners, so the rounded well also needs a composition geometric clip.
-    /// The XAML rectangle clip keeps the layout bounds exact and updated.
+    /// Rounded well around the oversized template colour picker. Keep this to the
+    /// XAML clip only: a composition geometric clip on the picker's backing visual
+    /// crashed XAML (E_NOINTERFACE fail-fast) when the window was captured during a
+    /// page transition, so the material must stay inside the XAML layer.
     /// </summary>
     void ClipColorPicker(Windows.Foundation.Size size)
     {
         _colorPickerClip.Rect = new Windows.Foundation.Rect(0, 0, size.Width, size.Height);
-        if (size.Width <= 0 || size.Height <= 0) return;
-        try
-        {
-            var visual = ElementCompositionPreview.GetElementVisual(_colorPickerHost);
-            if (_colorPickerGeometry is null)
-            {
-                _colorPickerGeometry = visual.Compositor.CreateRoundedRectangleGeometry();
-                visual.Clip = visual.Compositor.CreateGeometricClip(_colorPickerGeometry);
-            }
-            _colorPickerGeometry.Size = new System.Numerics.Vector2((float)size.Width, (float)size.Height);
-            _colorPickerGeometry.CornerRadius = new System.Numerics.Vector2((float)UiRadius.Control);
-        }
-        catch (Exception error)
-        {
-            // Optional polish: fall back to the rectangular XAML clip instead of
-            // failing the whole settings window on a composition limitation.
-            Trace($"color-picker-clip-unavailable:{error.GetType().Name}");
-        }
     }
 
     void ResizeToWorkArea()
