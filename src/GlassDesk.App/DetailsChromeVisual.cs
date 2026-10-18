@@ -188,6 +188,9 @@ internal sealed class DetailsChromeVisual : IDisposable
         _ = sequence; _ = now;
         _reducedMotion = reducedMotion;
         _active = true;
+        // SetWidgetBoard normally publishes the real page before the open; re-derive the
+        // slot here so the capsule can never start on a stale destination.
+        _selectedIndex = DetailsDockItems.IndexOf(_pageId);
         _hoverHome = false; _hoverIndex = -1; _previewIndex = -1;
         _pressedHome = false; _pressedIndex = -1; _press.Opacity = 0;
         _homeGroup.StopAnimation("Scale"); _homeGroup.Scale = Vector3.One;

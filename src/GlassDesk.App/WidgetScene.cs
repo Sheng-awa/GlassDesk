@@ -807,7 +807,9 @@ public sealed partial class WidgetScene : IDisposable
                 // guard band so a future companion reveal can never cover the bottom chrome.
                 protectedRegions.Add(new(20,8,320,40));
                 protectedRegions.Add(new(16,size.Y-72,328,72));
-                if (_pluginPages.Count > 0) protectedRegions.Add(new(16,size.Y-48,32,32));
+                // The plugin tools affordance sits above the dock guard band with an 8 DIP
+                // gap: its bottom edge is size.Y-72, so the dock never covers it.
+                if (_pluginPages.Count > 0) protectedRegions.Add(new(16,size.Y-104,32,32));
                 float viewportBottom = 80 + DetailsBodyViewportHeight(size);
                 if(_media.Connected){float artTop=Math.Max(80,88-_detailsScroll),artBottom=Math.Min(viewportBottom,280-_detailsScroll);
                     var art=new FloatRect(84,artTop,192,Math.Max(0,artBottom-artTop));
@@ -1147,7 +1149,7 @@ public sealed partial class WidgetScene : IDisposable
         if (WidgetsPage) { DrawBoard(operations); return; }
         var size = LayoutSize(WidgetForm.Details);
         float width = size.X, height = size.Y;
-        if(_pluginPages.Count>0){RoundRect(operations,16,height-48,32,32,16,_button);Icon(operations,"\uE8A5",24,height-40,16,_secondary);}
+        if(_pluginPages.Count>0){RoundRect(operations,16,height-104,32,32,16,_button);Icon(operations,"\uE8A5",24,height-96,16,_secondary);}
         if (_media.Connected)
         {
             // The lower-left corner stays free for the next layout iteration.
@@ -1277,7 +1279,7 @@ public sealed partial class WidgetScene : IDisposable
             }
             var size = LayoutSize(form);
             if (WidgetsPage) continue;
-            if(_pluginPages.Count>0)Add(new(WidgetActions.PluginTools,"插件工具",16,size.Y-48,32,32));
+            if(_pluginPages.Count>0)Add(new(WidgetActions.PluginTools,"插件工具",16,size.Y-104,32,32));
             if (_media.Connected)
             {
                 float transportY = DetailsTransportY;
