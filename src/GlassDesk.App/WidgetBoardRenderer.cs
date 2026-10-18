@@ -1,3 +1,4 @@
+using System.Globalization;
 using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
@@ -143,17 +144,20 @@ internal static class WidgetBoardRenderer
             AddControl(actionBase, $"配置{identity}{(contents.Length > 0 ? "，" + contents : "")}", global,
                 new(WidgetBoardActionKind.Configure, instance.InstanceId), viewport);
 
-            if (hasSnapshot && isTime && TryClock(result!, out _, out _, out string display))
+            if (isTime)
             {
-                // The value is the widget. No label, no UTC caption, no decorative clock hands.
-                cards.Add(Text(display, TextRole.WidgetClock,
-                    new(local.X + 12, local.Y + 46, local.Width - 24, 44), primary, locale, true, TextFlags.TabularNumbers));
+                if (!hasSnapshot || !TryClock(result!, out int hour, out int minute, out string display))
+                {
+                    // The watch face can draw the local clock immediately; a provider snapshot
+                    // later wins when the user configured another time zone.
+                    var now = DateTime.Now;
+                    hour = now.Hour; minute = now.Minute; display = now.ToString("HH:mm", CultureInfo.InvariantCulture);
+                }
+                WatchFace(cards, local, hour, minute, display, locale);
             }
-            else
+            else if (hasSnapshot)
             {
                 cards.Add(Icon("\uE713", new(local.Right - 27, local.Y + 12, 14, 14), secondary));
-                if (hasSnapshot)
-                {
                 int elementIndex = 0;
                 foreach (var element in result!.Snapshot!.Elements.Take(64))
                 {
@@ -216,7 +220,6 @@ internal static class WidgetBoardRenderer
                 int controlIndex = controls.FindIndex(c => c.Id == actionBase);
                 if (controlIndex >= 0) controls[controlIndex] = controls[controlIndex] with
                 { Name = controls[controlIndex].Name + "，更新失败，当前保留上次成功内容" };
-            }
             }
         }
 
@@ -313,35 +316,59 @@ internal static class WidgetBoardRenderer
         return true;
     }
 
-    /// <summary>Analog clock face: a thin ring, two hands, a centre dot and a compact digital badge.</summary>
-    static void AnalogClock(List<SurfaceOp> cards, FloatRect local, int hour, int minute, string display,
-        uint primary, uint secondary, bool lightInk, string locale)
+    /// <summary>Apple-Watch-style dial: white face, minute ticks, black hour/minute hands,
+    /// a thin red second hand and a small digital time where the watch logo would sit.</summary>
+    static void WatchFace(List<SurfaceOp> cards, FloatRect local, int hour, int minute, string display, string locale)
     {
-        float cx = local.X + local.Width / 2, cy = local.Y + local.Height / 2 - 4, radius = 54;
-        uint ring = WithAlpha(secondary, 0xB8);
-        const int segments = 40;
-        for (int segment = 0; segment < segments; segment++)
+        float radius = Math.Min(local.Width, local.Height) / 2 - 10;
+        float cx = local.X + local.Width / 2, cy = local.Y + local.Height / 2 + 2;
+        const uint ink = 0xFF1A1C1F, tick = 0xB020252C, strongTick = 0xE020252C, red = 0xFFE5484D;
+        // Soft lifted shadow, then the white dial. Both are plain ellipses so the face reads
+        // as a watch crystal on top of the glass rather than a painted square card.
+        cards.Add(new SurfaceOp
         {
-            float a = segment * MathF.Tau / segments, b = (segment + 1) * MathF.Tau / segments;
-            float x1 = cx + MathF.Sin(a) * radius, y1 = cy - MathF.Cos(a) * radius;
-            float x2 = cx + MathF.Sin(b) * radius, y2 = cy - MathF.Cos(b) * radius;
-            cards.Add(Line(x1, y1, x2 - x1, y2 - y1, ring, 1.35f));
+            Kind = SurfaceOpKind.Ellipse, X = cx - radius - 1.5f, Y = cy - radius + 1.5f,
+            Width = (radius + 1.5f) * 2, Height = (radius + 1.5f) * 2, Color = 0x1A000000
+        });
+        cards.Add(new SurfaceOp
+        {
+            Kind = SurfaceOpKind.Ellipse, X = cx - radius, Y = cy - radius,
+            Width = radius * 2, Height = radius * 2, Color = 0xF5FFFFFF
+        });
+        // 60 minute ticks; every fifth tick is slightly longer and darker.
+        for (int i = 0; i < 60; i++)
+        {
+            float a = i * MathF.Tau / 60;
+            float outer = radius - 3;
+            float inner = outer - (i % 5 == 0 ? 5.5f : 3f);
+            float sx = cx + MathF.Sin(a) * inner, sy = cy - MathF.Cos(a) * inner;
+            float ex = cx + MathF.Sin(a) * outer, ey = cy - MathF.Cos(a) * outer;
+            cards.Add(Line(sx, sy, ex - sx, ey - sy, i % 5 == 0 ? strongTick : tick, i % 5 == 0 ? 1.2f : .8f));
         }
         float hourAngle = (hour % 12 + minute / 60f) * MathF.PI / 6;
         float minuteAngle = minute * MathF.PI / 30;
-        AddHand(hourAngle, 26, 2.8f); AddHand(minuteAngle, 38, 2.2f);
+        float secondAngle = DateTime.Now.Second * MathF.PI / 30;
+        AddHand(hourAngle, radius * .48f, 4.2f, 0, ink);
+        AddHand(minuteAngle, radius * .70f, 2.8f, 0, ink);
+        AddHand(secondAngle, radius * .78f, 1.2f, radius * .16f, red);
         cards.Add(new SurfaceOp
         {
-            Kind = SurfaceOpKind.Ellipse, X = cx - 3.2f, Y = cy - 3.2f, Width = 6.4f, Height = 6.4f, Color = primary
+            Kind = SurfaceOpKind.Ellipse, X = cx - 4, Y = cy - 4, Width = 8, Height = 8, Color = ink
         });
-        var badge = new FloatRect(cx + 8, cy - 11, 52, 22);
-        cards.Add(Round(badge, 11, lightInk ? 0x26FFFFFFu : 0x1A20252Cu));
-        cards.Add(Text(display, TextRole.WidgetLabel, badge, primary, locale, true, TextFlags.TabularNumbers));
-
-        void AddHand(float angle, float length, float stroke)
+        cards.Add(new SurfaceOp
         {
-            float ex = cx + MathF.Sin(angle) * length, ey = cy - MathF.Cos(angle) * length;
-            cards.Add(Line(cx, cy, ex - cx, ey - cy, primary, stroke));
+            Kind = SurfaceOpKind.Ellipse, X = cx - 1.6f, Y = cy - 1.6f, Width = 3.2f, Height = 3.2f, Color = red
+        });
+        // Small digital time at 12 o'clock, replacing the Apple logo of the reference.
+        var digital = SurfaceOp.Typography(display, TextRole.NavigationSemantic,
+            cx - 30, cy - radius + 13, 60, 14, ink, center: true,
+            numericFlags: TextFlags.TabularNumbers, locale: locale);
+        cards.Add(digital with { FontSize = 9.5f, LineHeightDip = 12f });
+
+        void AddHand(float angle, float length, float stroke, float tail, uint color)
+        {
+            float dx = MathF.Sin(angle), dy = -MathF.Cos(angle);
+            cards.Add(Line(cx - dx * tail, cy - dy * tail, dx * (length + tail), dy * (length + tail), color, stroke));
         }
     }
 

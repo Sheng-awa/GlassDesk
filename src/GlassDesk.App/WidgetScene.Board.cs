@@ -57,12 +57,16 @@ public sealed partial class WidgetScene
     void DrawBoard(List<SurfaceOp> operations)
     {
         var size = LayoutSize(WidgetForm.Details);
+        bool firstBoardRender = _boardRender is null;
         _boardRender = WidgetBoardRenderer.Build(_board,_boardResults,size.X,size.Y,_boardScroll,
             _boardEditing,_boardAddMenu,_lightText,CultureInfo.CurrentUICulture.Name,_accessibility.HighContrast);
         _boardScroll = _boardRender.ScrollOffset;
         _boardCards.Size = new(size.X, Math.Max(1,size.Y-WidgetBoardLayout.BottomInset-WidgetBoardLayout.Top));
         ReplaceSurface(ref _boardSurface,_boardBrush,RenderTextLayer("WidgetBoard",_boardCards.Size.X,_boardCards.Size.Y,_boardRender.CardOperations));
         operations.AddRange(_boardRender.ToolbarOperations);
+        // The first painted frame publishes its packing so the host can schedule providers.
+        // Without it, a page opened before its first render can stay in "preparing" forever.
+        if (firstBoardRender) BoardViewportChanged?.Invoke();
     }
 
     bool ScrollBoard(float delta)
