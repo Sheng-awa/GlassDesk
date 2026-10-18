@@ -23,7 +23,8 @@ public sealed partial class WidgetScene
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     public event Action<string>? DetailsPageRequested;
     public event Action? BoardViewportChanged;
-    public float BoardNaturalHeight => Math.Clamp(WidgetBoardLayout.Pack(_board, _detailsWidth).ContentBottom, 304, 512);
+    // The widget page is a fixed 512 DIP card; the board viewport is bounded above the dock.
+    public float BoardNaturalHeight => 512f;
 
     void InitializeBoardVisuals()
     {
@@ -31,11 +32,11 @@ public sealed partial class WidgetScene
         _boardBrush = _host.Compositor.CreateSurfaceBrush();
         _boardBrush.Stretch = CompositionStretch.Fill;
         _boardCards.Brush = _boardBrush;
-        _boardCards.Offset = new(0,132,0);
+        _boardCards.Offset = new(0, WidgetBoardLayout.Top, 0);
         _boardCards.Opacity = 0;
         // The toolbar owns transient menus and stays above the card viewport.
         _bodyRoot.Children.InsertBelow(_boardCards, _content);
-        _navigation.RealPageRequested += id => DetailsPageRequested?.Invoke(id);
+        _chrome.PageRequested += id => DetailsPageRequested?.Invoke(id);
     }
 
     internal void SetWidgetBoard(string pageId, WidgetBoardState board, IReadOnlyList<WidgetInstanceResult> results,
@@ -47,7 +48,7 @@ public sealed partial class WidgetScene
         _boardEditing = editing; _boardAddMenu = addMenuOpen;
         _boardScroll = float.IsFinite(scrollOffset) ? Math.Max(0,scrollOffset) : 0;
         if(!WidgetsPage)_detailsScroll=_boardScroll;
-        _navigation.SetRealPage(_detailsPageId);
+        _chrome.SetCurrentPage(_detailsPageId);
         if (changed) _drawingInvalidated = true;
     }
 
@@ -57,7 +58,7 @@ public sealed partial class WidgetScene
         _boardRender = WidgetBoardRenderer.Build(_board,_boardResults,size.X,size.Y,_boardScroll,
             _boardEditing,_boardAddMenu,_lightText,CultureInfo.CurrentUICulture.Name,_accessibility.HighContrast);
         _boardScroll = _boardRender.ScrollOffset;
-        _boardCards.Size = new(size.X, Math.Max(1,size.Y-156));
+        _boardCards.Size = new(size.X, Math.Max(1,size.Y-WidgetBoardLayout.BottomInset-WidgetBoardLayout.Top));
         ReplaceSurface(ref _boardSurface,_boardBrush,RenderTextLayer("WidgetBoard",_boardCards.Size.X,_boardCards.Size.Y,_boardRender.CardOperations));
         operations.AddRange(_boardRender.ToolbarOperations);
     }
@@ -65,7 +66,8 @@ public sealed partial class WidgetScene
     bool ScrollBoard(float delta)
     {
         if (_boardRender is null || _boardAddMenu) return false;
-        float maximum = Math.Max(0,_boardRender.ContentHeight-Math.Max(0,CurrentSize.Y-156));
+        float viewportHeight = Math.Max(0, CurrentSize.Y - WidgetBoardLayout.Top - WidgetBoardLayout.BottomInset);
+        float maximum = Math.Max(0,_boardRender.ContentHeight-viewportHeight);
         float next = Math.Clamp(_boardScroll+delta,0,maximum);
         if (Math.Abs(next-_boardScroll)<.1f) return false;
         _boardScroll=next; _drawingInvalidated=true;
@@ -76,7 +78,7 @@ public sealed partial class WidgetScene
 
     void ApplyBoardVisibility(Vector3 weights)
     {
-        _boardCards.Offset = new((_presentedSize.X-_detailsWidth)/2,132,0);
+        _boardCards.Offset = new((_presentedSize.X-_detailsWidth)/2,WidgetBoardLayout.Top,0);
         _boardCards.Opacity = WidgetsPage ? weights.Z : 0;
         if (!WidgetsPage) return;
         _detailsViewport.Opacity = _timeline.Opacity = _detailsButtons.Opacity = 0;

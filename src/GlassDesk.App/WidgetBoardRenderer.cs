@@ -27,7 +27,8 @@ internal sealed record WidgetBoardRenderResult(
 /// </summary>
 internal static class WidgetBoardRenderer
 {
-    const float CardsTop = 132, BottomInset = 24, Radius = 20, Rim = .65f;
+    // Cards start below the 58–86 toolbar row and the bottom inset keeps them clear of the Dock.
+    const float CardsTop = WidgetBoardLayout.Top, BottomInset = WidgetBoardLayout.BottomInset, Radius = 20, Rim = .65f;
     const int FirstCardAction = 1100, CardActionStride = 80;
 
     public static WidgetBoardRenderResult Build(WidgetBoardState board, IReadOnlyList<WidgetInstanceResult> results,
@@ -61,7 +62,7 @@ internal static class WidgetBoardRenderer
         float right = width - 24;
         float leftButton = right - buttonWidth * 2 - 8;
         if (leftButton > 112)
-            toolbar.Add(Text("我的组件", TextRole.SectionTitle, new(24, 100, leftButton - 32, 24), primary, locale));
+            toolbar.Add(Text("我的组件", TextRole.SectionTitle, new(24, 62, leftButton - 32, 24), primary, locale));
         if (editing)
         {
             ToolbarButton(1003, "完成", "完成组件布局编辑", WidgetBoardActionKind.Commit, leftButton, buttonWidth);
@@ -199,7 +200,7 @@ internal static class WidgetBoardRenderer
         if (!editing && addMenuOpen)
         {
             float menuWidth = Math.Min(152, width - 48), menuHeight = Math.Min(100, Math.Max(0, panelHeight - 140));
-            var menu = new FloatRect(Math.Max(24, right - menuWidth * 1.35f), 132, menuWidth, menuHeight);
+            var menu = new FloatRect(Math.Max(24, right - menuWidth * 1.35f), CardsTop, menuWidth, menuHeight);
             // A short owned menu belongs to the toolbar layer above the card surface.
             CardSurface(toolbar, menu, highContrast ? tone : lightInk ? 0xf020252c : 0xf0f4f5f7, lightInk, highContrast);
             MenuEntry(1005, "时间", WidgetBoardActionKind.AddTime, menu.Y + 4);
@@ -219,7 +220,7 @@ internal static class WidgetBoardRenderer
 
         void ToolbarButton(int id, string label, string name, WidgetBoardActionKind kind, float x, float targetWidth, bool enabled = true)
         {
-            var bounds = Intersect(new(x, 88, targetWidth, 44), panelBounds);
+            var bounds = Intersect(new(x, 58, targetWidth, 28), panelBounds);
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
             toolbar.Add(Text(label, TextRole.Label, bounds, enabled ? primary : secondary, locale, true));
             AddControl(id, name, bounds, new(kind), panelBounds, enabled);
