@@ -1,0 +1,735 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiet Glass · GlassDesk 改版视觉样张 v0.1</title>
+<style>
+/* ============ 基础 ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --page-bg:#F2F4F7;
+  --page-ink:#1F2328;
+  --page-ink-2:#5B6470;
+  --page-ink-3:#8A929C;
+  --page-line:#E1E5EA;
+  --font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","PingFang SC",system-ui,sans-serif;
+  --font-display:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{
+  font-family:var(--font);background:var(--page-bg);color:var(--page-ink);
+  padding:40px 32px 72px;line-height:1.5;
+}
+.wrap{max-width:1580px;margin:0 auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:8px}
+.page-head h1{font-family:var(--font-display);font-size:26px;font-weight:650;letter-spacing:-.01em}
+.page-head p{color:var(--page-ink-2);font-size:13px;margin-top:6px;max-width:760px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#fff;border:1px solid var(--page-line);font-size:12px;color:var(--page-ink-2)}
+.badge b{font-weight:600;color:var(--page-ink)}
+.scene-switch{display:flex;gap:4px;background:#fff;border:1px solid var(--page-line);padding:4px;border-radius:999px;font-size:12px}
+.scene-switch label{padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--page-ink-2);transition:.12s}
+.scene-switch input{position:absolute;opacity:0;pointer-events:none}
+#scene-light:checked ~ .wrap .scene-switch label[for="scene-light"],
+#scene-dark:checked ~ .wrap .scene-switch label[for="scene-dark"],
+#scene-busy:checked ~ .wrap .scene-switch label[for="scene-busy"]{background:#20252C;color:#fff}
+.scene-switch label:hover{background:#F0F2F5}
+#scene-light:checked ~ .wrap .scene-switch label[for="scene-light"]:hover,
+#scene-dark:checked ~ .wrap .scene-switch label[for="scene-dark"]:hover,
+#scene-busy:checked ~ .wrap .scene-switch label[for="scene-busy"]:hover{background:#20252C}
+
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:52px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--page-line)}
+.sec-head h2{font-family:var(--font-display);font-size:20px;font-weight:650;letter-spacing:-.01em}
+.sec-head span{font-size:12.5px;color:var(--page-ink-3)}
+.note{font-size:12.5px;color:var(--page-ink-3);margin-top:10px}
+.note b{color:var(--page-ink-2);font-weight:600}
+
+/* ============ 场景 / 壁纸 ============ */
+.stage{
+  position:relative;border-radius:20px;overflow:hidden;
+  background:linear-gradient(135deg,#dae4ef 0%,#eef3f8 42%,#dfe8f1 100%);
+  box-shadow:inset 0 0 0 1px rgba(13,20,30,.06);
+}
+.stage::before,.stage::after{content:"";position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none}
+.stage::before{width:520px;height:520px;left:-120px;top:-180px;background:radial-gradient(circle at 40% 40%,rgba(150,185,235,.55),rgba(150,185,235,0));}
+.stage::after{width:620px;height:620px;right:-180px;bottom:-260px;background:radial-gradient(circle at 50% 50%,rgba(235,190,205,.5),rgba(235,190,205,0));}
+body:has(#scene-dark:checked) .stage{background:linear-gradient(140deg,#10141c 0%,#1a2230 45%,#2a2030 100%)}
+body:has(#scene-dark:checked) .stage::before{background:radial-gradient(circle at 40% 40%,rgba(60,90,160,.5),rgba(60,90,160,0))}
+body:has(#scene-dark:checked) .stage::after{background:radial-gradient(circle at 50% 50%,rgba(120,70,140,.42),rgba(120,70,140,0))}
+body:has(#scene-busy:checked) .stage{background:linear-gradient(120deg,#7a4d9e 0%,#3e6ea8 35%,#c05f7e 70%,#d9a24a 100%)}
+body:has(#scene-busy:checked) .stage::before{background:radial-gradient(circle at 40% 40%,rgba(255,205,90,.55),rgba(255,205,90,0))}
+body:has(#scene-busy:checked) .stage::after{background:radial-gradient(circle at 50% 50%,rgba(90,220,200,.45),rgba(90,220,200,0))}
+
+/* 玻璃场景变量（默认浅色） */
+.stage{
+  --glass:rgba(255,255,255,.60);
+  --glass-strong:rgba(255,255,255,.76);
+  --glass-rim:rgba(255,255,255,.72);
+  --ink:#20252C; --ink-2:#48515B; --ink-3:#626C78;
+  --sep:rgba(32,37,44,.10);
+  --group:rgba(32,37,44,.045);
+  --btn:rgba(255,255,255,.58);
+  --hover:rgba(32,37,44,.06);
+  --accent:#1689F9; --accent-ink:#0B6BCB; --accent-tint:rgba(22,137,249,.12);
+  --play-bg:#20252C; --play-ink:#FFFFFF;
+  --ball:#20252C; --eye:#FFFFFF;
+  --win-shadow:0 24px 64px rgba(9,14,22,.26),0 2px 6px rgba(9,14,22,.10);
+  --win-inset:inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 1px rgba(255,255,255,.16);
+  --card-bg:rgba(255,255,255,.34);
+  --card-rim:rgba(255,255,255,.5);
+}
+body:has(#scene-dark:checked) .stage{
+  --glass:rgba(28,31,37,.60);
+  --glass-strong:rgba(38,42,49,.72);
+  --glass-rim:rgba(255,255,255,.16);
+  --ink:#F8FAFC; --ink-2:#DFE5EC; --ink-3:#B4C0CC;
+  --sep:rgba(255,255,255,.12);
+  --group:rgba(255,255,255,.06);
+  --btn:rgba(255,255,255,.08);
+  --hover:rgba(255,255,255,.08);
+  --accent:#3D9BFF; --accent-ink:#7EBDFF; --accent-tint:rgba(61,155,255,.18);
+  --play-bg:#F8FAFC; --play-ink:#20252C;
+  --ball:#F2F4F7; --eye:#20252C;
+  --win-shadow:0 24px 64px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.35);
+  --win-inset:inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px rgba(255,255,255,.05);
+  --card-bg:rgba(255,255,255,.055);
+  --card-rim:rgba(255,255,255,.12);
+}
+body:has(#scene-busy:checked) .stage{
+  --glass:rgba(255,255,255,.52);
+  --glass-strong:rgba(255,255,255,.70);
+  --glass-rim:rgba(255,255,255,.60);
+  --ink:#20252C; --ink-2:#3F4854; --ink-3:#59636F;
+  --sep:rgba(32,37,44,.12);
+  --group:rgba(32,37,44,.05);
+  --btn:rgba(255,255,255,.34);
+  --hover:rgba(32,37,44,.07);
+  --accent:#1689F9; --accent-ink:#0B6BCB; --accent-tint:rgba(255,255,255,.34);
+  --play-bg:#20252C; --play-ink:#FFFFFF;
+  --card-bg:rgba(255,255,255,.28);
+  --card-rim:rgba(255,255,255,.45);
+  --ball:#20252C; --eye:#FFFFFF;
+}
+
+/* ============ 通用玻璃件 ============ */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(30px) saturate(1.6);
+  backdrop-filter:blur(30px) saturate(1.6);
+  border:1px solid var(--glass-rim);
+  box-shadow:var(--win-shadow),var(--win-inset);
+}
+.ball{background:var(--ball,#20252C);border-radius:50%;position:relative;flex:none;box-shadow:inset 0 1px 1px rgba(255,255,255,.12),0 1px 3px rgba(0,0,0,.18)}
+.ball::before,.ball::after{content:"";position:absolute;background:var(--eye,#fff);border-radius:2px}
+.ball::before{left:34%;top:36%;width:9%;height:20%}
+.ball::after{left:57%;top:36%;width:9%;height:20%}
+
+/* ============ 主组件展示 ============ */
+.hero{padding:56px 40px 64px;display:flex;justify-content:center;align-items:flex-end;gap:44px;flex-wrap:wrap}
+.hero-col{display:flex;flex-direction:column;align-items:center;gap:30px}
+
+.capsule{width:200px;height:52px;border-radius:26px;display:flex;align-items:center;padding:0 16px 0 24px}
+.capsule .ball{width:32px;height:32px}
+.capsule .time{flex:1;text-align:center;font-size:25px;line-height:32px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:var(--ink);font-family:var(--font-display)}
+
+.peek{width:240px;height:144px;border-radius:24px;position:relative;overflow:hidden}
+.peek::before{content:"";position:absolute;left:20px;top:26px;width:200px;height:68px;border-radius:18px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16)}
+body:has(#scene-dark:checked) .peek::before{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.10)}
+.peek .t{position:absolute;left:0;right:0;top:30px;text-align:center;font-size:34px;line-height:44px;color:var(--ink);font-variant-numeric:tabular-nums;font-family:var(--font-display)}
+.peek .d{position:absolute;left:0;right:0;top:77px;text-align:center;font-size:12px;line-height:16px;color:var(--ink-3)}
+.peek .action{position:absolute;left:50%;transform:translateX(-50%);top:105px;height:24px;padding:0 10px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:16px;color:var(--ink-2);background:transparent;transition:.12s;white-space:nowrap}
+.peek .action:hover{background:var(--hover);color:var(--ink)}
+.peek .action svg{width:11px;height:11px;opacity:.7}
+.peek .ball{position:absolute;left:14px;bottom:14px;width:30px;height:30px;opacity:.94}
+
+.details{width:360px;height:476px;border-radius:24px;position:relative;overflow:hidden}
+.nav-body{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:264px;height:48px;border-radius:24px;background:#20252C;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.nav-body .slot{position:absolute;top:50%;transform:translateY(-50%);width:7px;border-radius:4px;background:rgba(255,255,255,.55)}
+.nav-body .s1{left:52.5px;height:14px}
+.nav-body .s2{left:90.5px;height:26px}
+.nav-body .s3{left:166.5px;height:26px}
+.nav-body .s4{left:204.5px;height:14px}
+.nav-body .eyes{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center;justify-content:center;width:22px}
+.nav-body .eyes i{display:block;width:8px;height:12px;border-radius:4px;background:#fff}
+.sat{position:absolute;top:26px;right:12px;width:28px;height:28px;border-radius:50%;background:rgba(248,250,252,.92);border:1px solid rgba(255,255,255,.6);display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.18);color:#20252C}
+.sat svg{width:13px;height:13px}
+.sat.on{box-shadow:0 0 0 2px #1689F9,0 1px 4px rgba(0,0,0,.18)}
+.page-name{position:absolute;top:68px;left:0;right:0;text-align:center;font-size:12px;line-height:16px;color:var(--ink-3);letter-spacing:.02em}
+.details .cover{position:absolute;left:84px;top:88px;width:192px;height:192px;border-radius:20px;overflow:hidden;box-shadow:0 8px 22px rgba(20,12,30,.28),inset 0 0 0 1px rgba(255,255,255,.16);
+  background:
+    radial-gradient(circle at 50% 40%,rgba(255,246,236,.95) 0%,rgba(255,246,236,0) 42%),
+    conic-gradient(from 210deg at 55% 45%,#c9a7b6,#7d6687,#3c3a63,#a5839d,#d8b9a8,#c9a7b6);
+  filter:saturate(.92)}
+.details .cover::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 40%,rgba(255,255,255,.10) 0 1px,rgba(255,255,255,0) 1px 7px)}
+.details .title{position:absolute;left:28px;top:290px;width:304px;text-align:center;font-size:20px;line-height:24px;font-weight:600;color:var(--ink);letter-spacing:-.01em;font-family:var(--font-display)}
+.details .artist{position:absolute;left:28px;top:318px;width:304px;text-align:center;font-size:14px;line-height:20px;color:var(--ink-2)}
+.details .timeline{position:absolute;left:56px;top:342px;width:248px;height:40px}
+.details .timeline .track{height:4px;border-radius:2px;background:rgba(32,37,44,.14);position:relative}
+body:has(#scene-dark:checked) .details .timeline .track{background:rgba(255,255,255,.18)}
+.details .timeline .fill{position:absolute;left:0;top:0;height:4px;border-radius:2px;background:var(--ink-2);opacity:.75;width:32%}
+.details .timeline .knob{position:absolute;top:-2px;left:calc(32% - 4px);width:8px;height:8px;border-radius:50%;background:var(--ink-2);opacity:.9}
+.details .timeline .tl{position:absolute;top:20px;font-size:12px;line-height:18px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.details .timeline .tl.a{left:0}
+.details .timeline .tl.b{right:0}
+.transport{position:absolute;left:96px;top:398px;width:168px;height:56px;display:flex;align-items:flex-start;gap:12px}
+.tbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2);transition:.12s;margin-top:6px}
+.tbtn:hover{background:var(--hover);color:var(--ink)}
+.tbtn svg{width:22px;height:22px}
+.tplay{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--play-bg);color:var(--play-ink);box-shadow:0 3px 10px rgba(0,0,0,.22);transition:.12s}
+.tplay:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.26)}
+.tplay svg{width:22px;height:22px;margin-left:2px}
+
+/* 小组件板 */
+.board{width:360px;height:304px;border-radius:24px;position:relative;overflow:hidden}
+.board .nav-body{top:16px}
+.board .page-name{top:68px}
+.board-toolbar{position:absolute;top:88px;left:24px;right:20px;height:44px;display:flex;align-items:center;justify-content:space-between}
+.board-toolbar h3{font-size:16px;line-height:24px;font-weight:600;color:var(--ink);letter-spacing:-.005em}
+.tool-actions{display:flex;align-items:center;gap:6px}
+.btn{height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;color:var(--ink-2);transition:.12s;white-space:nowrap}
+.btn svg{width:13px;height:13px}
+.btn:hover{background:var(--hover);color:var(--ink)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(15,90,180,.25)}
+.btn-primary:hover{background:#0F7BE8;color:#fff}
+.btn-ghost:hover{background:var(--hover)}
+.cards{position:absolute;top:132px;left:24px;right:24px;display:flex;gap:12px}
+.wcard{width:150px;height:148px;border-radius:20px;background:var(--card-bg);border:1px solid var(--card-rim);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:0 6px 18px rgba(9,14,22,.10),inset 0 1px 0 rgba(255,255,255,.35);padding:12px;display:flex;flex-direction:column;position:relative;transition:.12s}
+.wcard:hover{box-shadow:0 10px 24px rgba(9,14,22,.16),inset 0 1px 0 rgba(255,255,255,.4);transform:translateY(-1px)}
+.wcard .label{font-size:12px;line-height:16px;font-weight:500;color:var(--ink-3)}
+.wcard .gear{position:absolute;right:10px;top:10px;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:var(--ink-3);opacity:0;transition:.12s}
+.wcard:hover .gear{opacity:1}
+.wcard .gear:hover{background:var(--hover);color:var(--ink)}
+.wcard .gear svg{width:13px;height:13px}
+.wcard .big{font-size:36px;line-height:44px;font-family:var(--font-display);color:var(--ink);font-variant-numeric:tabular-nums;margin-top:14px}
+.wcard .big.date{font-size:48px;line-height:56px}
+.wcard .sub{margin-top:auto;font-size:12px;line-height:16px;color:var(--ink-2)}
+
+/* ============ 设置窗口 ============ */
+.window-stage{padding:48px 40px;display:flex;justify-content:center}
+.win{width:720px;height:680px;border-radius:24px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tabs{height:56px;display:flex;justify-content:center;align-items:flex-start;padding-top:8px;flex:none}
+.tabs-inner{width:440px;height:48px;border-radius:24px;background:var(--glass-strong);border:1px solid var(--glass-rim);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 4px;
+  box-shadow:0 2px 10px rgba(9,14,22,.08),inset 0 1px 0 rgba(255,255,255,.4)}
+.tab{height:38px;display:grid;place-items:center;font-size:13px;line-height:18px;color:var(--ink-2);border-radius:20px;transition:.12s}
+.tab:hover{background:var(--hover);color:var(--ink)}
+.tab.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600}
+.head{display:flex;align-items:center;gap:12px;padding:12px 24px 4px;flex:none}
+.head h3{font-family:var(--font-display);font-size:20px;line-height:28px;font-weight:600;color:var(--ink);letter-spacing:-.01em;flex:1}
+.icon-btn{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--ink-2);transition:.12s;flex:none}
+.icon-btn:hover{background:var(--hover);color:var(--ink)}
+.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.icon-btn svg{width:17px;height:17px}
+.head .divider{width:1px;height:22px;background:var(--sep)}
+.content{flex:1;overflow:hidden;padding:0 24px}
+.foot{height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-top:1px solid var(--sep);margin-top:8px}
+.foot .save{font-size:12px;line-height:16px;color:var(--ink-3)}
+.toast{position:absolute;bottom:64px;left:50%;transform:translateX(-50%);height:36px;padding:0 14px 0 10px;border-radius:999px;display:flex;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--ink);background:var(--glass-strong);border:1px solid var(--glass-rim);box-shadow:0 8px 24px rgba(9,14,22,.18);z-index:5}
+.toast svg{width:15px;height:15px;color:var(--accent)}
+.section{margin-top:14px}
+.section:first-of-type{margin-top:10px}
+.sec-title{font-size:13px;line-height:18px;font-weight:600;color:var(--ink-3);margin:0 0 7px 2px;letter-spacing:.01em}
+.group{background:var(--group);border-radius:14px;padding:0 16px}
+.row{display:flex;align-items:center;gap:16px;min-height:50px;border-bottom:1px solid var(--sep)}
+.row:last-child{border-bottom:0}
+.row .text{flex:1;min-width:0}
+.row .label{font-size:14px;line-height:20px;color:var(--ink)}
+.row .desc{font-size:12px;line-height:16px;color:var(--ink-3);margin-top:1px}
+.row .value{font-size:14px;line-height:20px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.slider-row{padding:11px 0 14px;border-bottom:1px solid var(--sep)}
+.slider-row:last-child{border-bottom:0}
+.slider-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px}
+.slider-top .label{font-size:14px;line-height:20px;color:var(--ink)}
+.slider-top .value{font-size:14px;line-height:20px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.track{height:4px;border-radius:2px;background:rgba(32,37,44,.14);position:relative}
+body:has(#scene-dark:checked) .track{background:rgba(255,255,255,.18)}
+.track .fill{position:absolute;left:0;top:0;height:4px;border-radius:2px;background:var(--accent)}
+.track .thumb{position:absolute;top:-7px;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 4px rgba(0,0,0,.22)}
+.sw{width:42px;height:24px;border-radius:12px;background:rgba(32,37,44,.18);position:relative;flex:none;transition:.18s;cursor:default}
+body:has(#scene-dark:checked) .sw{background:rgba(255,255,255,.24)}
+.sw::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:2px;left:2px;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:.18s}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:20px}
+.forms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0}
+.form-card{height:84px;border-radius:12px;background:var(--btn);border:1px solid var(--sep);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:.12s}
+.form-card:hover{background:var(--glass-strong)}
+.form-card.on{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-ink)}
+.form-card .name{font-size:12.5px;line-height:16px;color:var(--ink-2)}
+.form-card.on .name{color:var(--accent-ink);font-weight:600}
+.form-card svg{width:40px;height:40px}
+.form-card svg .body-fill{fill:var(--ball,#20252C)}
+.form-card svg ellipse[fill="#fff"]{fill:var(--eye,#fff)}
+.swatches{display:flex;align-items:center;gap:10px;padding:12px 0}
+.swatch{width:30px;height:30px;border-radius:50%;position:relative;border:1px solid rgba(0,0,0,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.swatch.on{box-shadow:0 0 0 2px var(--glass-strong),0 0 0 4px var(--accent)}
+.swatch.custom{border:1px dashed var(--ink-3);background:transparent;display:grid;place-items:center;color:var(--ink-3)}
+.swatch.custom svg{width:14px;height:14px}
+.preview-stage{height:128px;border-radius:12px;background:radial-gradient(circle at 50% 40%,rgba(32,37,44,.06),rgba(32,37,44,.10));display:grid;place-items:center;position:relative;margin:12px 0;overflow:hidden}
+body:has(#scene-dark:checked) .preview-stage{background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.07),rgba(255,255,255,.03))}
+.preview-stage .ball{width:60px;height:60px;box-shadow:inset 0 2px 2px rgba(255,255,255,.16),0 6px 18px rgba(0,0,0,.24)}
+.preview-stage .cap{position:absolute;bottom:10px;font-size:12px;line-height:16px;color:var(--ink-3)}
+.help{font-size:12px;line-height:16px;color:var(--ink-3);margin-top:6px}
+.import-row{display:flex;align-items:center;gap:10px;padding:14px 0}
+.btn-secondary{height:32px;padding:0 13px;border-radius:10px;background:var(--btn);border:1px solid var(--sep);color:var(--ink);font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+.btn-secondary:hover{background:var(--glass-strong)}
+.btn-secondary svg{width:14px;height:14px}
+.plugin-row{display:flex;align-items:center;gap:12px;min-height:54px;border-bottom:1px solid var(--sep)}
+.plugin-row:last-child{border-bottom:0}
+.plugin-row .icon{width:30px;height:30px;border-radius:9px;background:var(--btn);border:1px solid var(--sep);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.plugin-row .icon svg{width:15px;height:15px}
+.plugin-row .text{flex:1}
+.plugin-row .name{font-size:14px;line-height:20px;color:var(--ink)}
+.plugin-row .meta{font-size:12px;line-height:16px;color:var(--ink-3)}
+.plugin-row .more{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3)}
+.plugin-row .more:hover{background:var(--hover);color:var(--ink)}
+.plugin-row .more svg{width:15px;height:15px}
+.form-card svg .body-fill{fill:#20252C}
+
+/* ============ Token 区 ============ */
+.token-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.tile{background:#fff;border:1px solid var(--page-line);border-radius:14px;padding:18px}
+.tile h4{font-size:13px;font-weight:600;color:var(--page-ink);margin-bottom:12px}
+.colors{display:flex;flex-direction:column;gap:8px}
+.color-line{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--page-ink-2)}
+.sw-box{width:26px;height:26px;border-radius:8px;border:1px solid rgba(0,0,0,.08);flex:none}
+.color-line code{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--page-ink-3);margin-left:auto}
+.type-row{display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px dashed var(--page-line)}
+.type-row:last-child{border-bottom:0}
+.type-row .demo{color:var(--page-ink)}
+.type-row .meta{margin-left:auto;font-size:11px;color:var(--page-ink-3);font-family:ui-monospace,Consolas,monospace}
+.space-line{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--page-ink-2);padding:3px 0}
+.space-bar{height:10px;border-radius:3px;background:#CFE2FB}
+.radius-line{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--page-ink-2);padding:4px 0}
+.radius-box{width:34px;height:34px;background:#EAF2FE;border:1px solid #C9DDF7;flex:none}
+.material-line{font-size:12px;color:var(--page-ink-2);display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--page-line)}
+.material-line:last-child{border-bottom:0}
+.material-line b{color:var(--page-ink);font-weight:600}
+
+/* 决策卡 */
+.decisions{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.decision{background:#fff;border:1px solid var(--page-line);border-radius:14px;padding:18px 18px 16px}
+.decision .num{width:26px;height:26px;border-radius:8px;background:#EAF2FE;color:#0B6BCB;display:grid;place-items:center;font-size:12px;font-weight:700;margin-bottom:10px}
+.decision h4{font-size:14px;margin-bottom:6px}
+.decision p{font-size:12.5px;color:var(--page-ink-2);line-height:1.65}
+.footnote{margin-top:40px;padding-top:16px;border-top:1px solid var(--page-line);font-size:12px;color:var(--page-ink-3);line-height:1.8}
+.footnote b{color:var(--page-ink-2)}
+.kbd{display:inline-block;padding:1px 5px;border-radius:4px;border:1px solid var(--page-line);background:#fff;font-size:11px;font-family:ui-monospace,Consolas,monospace;color:var(--page-ink-2)}
+</style>
+</head>
+<body>
+
+<input type="radio" name="scene" id="scene-light" checked hidden>
+<input type="radio" name="scene" id="scene-dark" hidden>
+<input type="radio" name="scene" id="scene-busy" hidden>
+
+<!-- SVG 图标 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c5 0 8.5 4.6 9.5 6-.4.6-1.4 2-2.8 3.2M6.4 7.4C4.5 8.8 3.1 10.6 2.5 12c1 1.4 4.5 6 9.5 6 1.6 0 3.1-.5 4.4-1.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9.9 10.1a3 3 0 0 0 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13.5a7.7 7.7 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.7 7.7 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20l4.2-1 10.4-10.4a2.2 2.2 0 0 0-3.1-3.1L5.1 15.9 4 20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M9 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 6.8v10.4L10.5 12z" fill="currentColor"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M15 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 6.8v10.4L13.5 12z" fill="currentColor"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.2 5.6v12.8L19 12z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="7" y="5.5" width="3.6" height="13" rx="1.4" fill="currentColor"/><rect x="13.4" y="5.5" width="3.6" height="13" rx="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M10 17.2a2.6 2.6 0 1 1-2.6-2.6c.6 0 1.1.2 1.6.5V6.2l8-1.7v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="17" cy="16.2" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.4V12l3 1.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3.5v4M15 3.5v4M7 7.5h10v3.2a5 5 0 0 1-10 0z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 15.7V21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S6.1 6.4 12 6.4 21.4 12 21.4 12 17.9 17.6 12 17.6 2.6 12 2.6 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7.5 8.5L12 4l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15v3.2A1.8 1.8 0 0 0 6.8 20h10.4a1.8 1.8 0 0 0 1.8-1.8V15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="7" r="1.3" fill="currentColor"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="15" cy="12" r="1.3" fill="currentColor"/><circle cx="9" cy="17" r="1.3" fill="currentColor"/><circle cx="15" cy="17" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="5" y="5" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="13" y="5" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="5" y="13" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="13" y="13" width="6" height="6" rx="1.5" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="page-head">
+    <div>
+      <h1>Quiet Glass · GlassDesk UI 改版视觉样张</h1>
+      <p>方向：Google Material 的语义层级 + macOS 的材质克制。目标是“安静、清晰、每个信息都有位置”。本页是 CSS 绘制的方向示意，不是最终 WinUI 像素；数字按 DIP 1:1 标注。</p>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge">样张 <b>v0.1</b></span>
+        <span class="badge">浅色主题</span>
+        <span class="badge">玻璃 + 单一 accent</span>
+        <span class="badge">待批准，不改源码</span>
+      </div>
+    </div>
+    <div class="scene-switch">
+      <label for="scene-light">浅色背景</label>
+      <label for="scene-dark">深色背景</label>
+      <label for="scene-busy">花背景</label>
+    </div>
+  </div>
+
+  <!-- ================= 主组件 ================= -->
+  <div class="sec-head">
+    <h2>01 · 主组件三态</h2>
+    <span>胶囊 / 时钟小展开 / 音乐大展开 / 小组件板 —— 几何不变，只改层级与状态</span>
+  </div>
+
+  <div class="stage">
+    <div class="hero">
+      <div class="hero-col">
+        <div class="capsule glass">
+          <div class="ball"></div>
+          <div class="time">23:35</div>
+        </div>
+        <div class="peek glass">
+          <div class="t">23:35</div>
+          <div class="d">10月19日 周日</div>
+          <div class="action">连接网易云音乐 <svg><use href="#i-arrow"/></svg></div>
+          <div class="ball"></div>
+        </div>
+      </div>
+
+      <div class="details glass">
+        <div class="nav-body">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="eyes"><i></i><i></i></div>
+          <div class="slot s3"></div><div class="slot s4"></div>
+        </div>
+        <div class="sat" title="小组件"><svg><use href="#i-grid"/></svg></div>
+        <div class="page-name">音乐</div>
+        <div class="cover"></div>
+        <div class="title">天球(そら)のMúsica</div>
+        <div class="artist">Ave Mujica</div>
+        <div class="timeline">
+          <div class="track"><div class="fill"></div><div class="knob"></div></div>
+          <div class="tl a">1:12</div>
+          <div class="tl b">3:48</div>
+        </div>
+        <div class="transport">
+          <div class="tbtn"><svg><use href="#i-prev"/></svg></div>
+          <div class="tplay"><svg><use href="#i-play"/></svg></div>
+          <div class="tbtn"><svg><use href="#i-next"/></svg></div>
+        </div>
+      </div>
+
+      <div class="board glass">
+        <div class="nav-body">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="eyes"><i></i><i></i></div>
+          <div class="slot s3"></div><div class="slot s4"></div>
+        </div>
+        <div class="sat on" title="小组件（当前页）"><svg><use href="#i-grid"/></svg></div>
+        <div class="page-name">小组件</div>
+        <div class="board-toolbar">
+          <h3>我的组件</h3>
+          <div class="tool-actions">
+            <div class="btn btn-ghost">编辑</div>
+            <div class="btn btn-primary"><svg><use href="#i-plus"/></svg>添加</div>
+          </div>
+        </div>
+        <div class="cards">
+          <div class="wcard">
+            <div class="label">时间</div>
+            <div class="gear"><svg><use href="#i-gear"/></svg></div>
+            <div class="big">09:41</div>
+            <div class="sub">本地时间</div>
+          </div>
+          <div class="wcard">
+            <div class="label">日期</div>
+            <div class="gear"><svg><use href="#i-gear"/></svg></div>
+            <div class="big date">19</div>
+            <div class="sub">十月 · 周日</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>改版点：</b>播放按钮改为唯一的实心主按钮（前后为幽灵图标）；大展开增加常驻页面名“音乐”；小展开“连接”从裸文字改为低强调 ghost 按钮；小组件卡从 4% 隐形面改为“轻纸面 + 1px rim + 轻阴影”，悬停浮起并出现齿轮；工具栏“添加”成为唯一 accent 主操作。</p>
+
+  <!-- ================= 设置 · 外观 ================= -->
+  <div class="sec-head">
+    <h2>02 · 设置窗口（外观）</h2>
+    <span>单列分组 / 一页面一标题 / 单一关闭入口 / 状态完整</span>
+  </div>
+  <div class="stage window-stage">
+    <div class="win glass">
+      <div class="tabs"><div class="tabs-inner">
+        <div class="tab on">外观</div><div class="tab">交互</div><div class="tab">陪伴</div><div class="tab">插件</div><div class="tab">通用</div>
+      </div></div>
+      <div class="head">
+        <h3>外观</h3>
+        <div class="icon-btn" title="隐藏组件"><svg><use href="#i-eyeoff"/></svg></div>
+        <div class="divider"></div>
+        <div class="icon-btn" title="关闭（Esc）"><svg><use href="#i-x"/></svg></div>
+      </div>
+      <div class="content">
+        <div class="section">
+          <div class="sec-title">玻璃</div>
+          <div class="group">
+            <div class="slider-row">
+              <div class="slider-top"><div class="label">模糊强度</div><div class="value">20 px</div></div>
+              <div class="track"><div class="fill" style="width:46%"></div><div class="thumb" style="left:calc(46% - 9px)"></div></div>
+            </div>
+            <div class="slider-row">
+              <div class="slider-top"><div class="label">透明度</div><div class="value">76%</div></div>
+              <div class="track"><div class="fill" style="width:76%"></div><div class="thumb" style="left:calc(76% - 9px)"></div></div>
+            </div>
+          </div>
+          <div class="help">设置窗口使用固定材质，不随组件透明度改变，保证任何桌面上文字都清晰。</div>
+        </div>
+        <div class="section">
+          <div class="sec-title">显示内容</div>
+          <div class="group">
+            <div class="row"><div class="text"><div class="label">显示时间</div></div><div class="sw on"></div></div>
+            <div class="row"><div class="text"><div class="label">显示日期</div></div><div class="sw"></div></div>
+            <div class="row"><div class="text"><div class="label">显示星期</div></div><div class="sw"></div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="sec-title">动效</div>
+          <div class="group">
+            <div class="row"><div class="text"><div class="label">简化动画</div></div><div class="sw"></div></div>
+            <div class="row"><div class="text"><div class="label">真实音频波浪条</div></div><div class="sw on"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="save">更改会自动保存</div>
+        <div class="btn btn-ghost">恢复默认</div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>改版点：</b>删除重复的“GlassDesk”大标题与常驻绿色成功横幅；“隐藏组件”从大胶囊改为图标按钮（tooltip）＋关闭按钮只留一个（Esc 同效）；白卡叠白卡改为 4.5% 墨色浅槽；开关/滑块/滚动条重新定制；页脚只保留自动保存说明与上下文动作。</p>
+
+  <!-- ================= 设置 · 陪伴 ================= -->
+  <div class="sec-head">
+    <h2>03 · 设置窗口（陪伴）</h2>
+    <span>给“选颜色/选形式”一个像设计工具、但不占半屏的界面</span>
+  </div>
+  <div class="stage window-stage">
+    <div class="win glass">
+      <div class="toast"><svg><use href="#i-check"/></svg>位置已重置</div>
+      <div class="tabs"><div class="tabs-inner">
+        <div class="tab">外观</div><div class="tab">交互</div><div class="tab on">陪伴</div><div class="tab">插件</div><div class="tab">通用</div>
+      </div></div>
+      <div class="head">
+        <h3>陪伴</h3>
+        <div class="icon-btn" title="隐藏组件"><svg><use href="#i-eyeoff"/></svg></div>
+        <div class="divider"></div>
+        <div class="icon-btn" title="关闭（Esc）"><svg><use href="#i-x"/></svg></div>
+      </div>
+      <div class="content">
+        <div class="section">
+          <div class="sec-title">形式</div>
+          <div class="group">
+            <div class="forms">
+              <div class="form-card on">
+                <svg viewBox="0 0 40 40"><circle class="body-fill" cx="20" cy="22" r="12"/><ellipse cx="16" cy="21" rx="1.8" ry="3" fill="#fff"/><ellipse cx="24" cy="21" rx="1.8" ry="3" fill="#fff"/></svg>
+                <div class="name">原生</div>
+              </div>
+              <div class="form-card">
+                <svg viewBox="0 0 40 40"><path class="body-fill" d="M10 20l-1-9 8 4zM30 20l1-9-8 4z"/><circle class="body-fill" cx="20" cy="23" r="11"/><ellipse cx="16.4" cy="22" rx="1.7" ry="2.9" fill="#fff"/><ellipse cx="23.6" cy="22" rx="1.7" ry="2.9" fill="#fff"/></svg>
+                <div class="name">猫耳</div>
+              </div>
+              <div class="form-card">
+                <svg viewBox="0 0 40 40"><path class="body-fill" d="M9 12c-2 4-1 9 2 12l4-4zM31 12c2 4 1 9-2 12l-4-4z"/><circle class="body-fill" cx="20" cy="24" r="10.5"/><ellipse cx="16.6" cy="23" rx="1.6" ry="2.8" fill="#fff"/><ellipse cx="23.4" cy="23" rx="1.6" ry="2.8" fill="#fff"/></svg>
+                <div class="name">恶魔</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="sec-title">球体颜色</div>
+          <div class="group" style="padding:2px 16px 6px">
+            <div class="swatches">
+              <div class="swatch on" style="background:#202329"></div>
+              <div class="swatch" style="background:#5B6470"></div>
+              <div class="swatch" style="background:#8E98A3"></div>
+              <div class="swatch" style="background:#B7453F"></div>
+              <div class="swatch" style="background:#1689F9"></div>
+              <div class="swatch" style="background:#2E9E6B"></div>
+              <div class="swatch" style="background:#8B5CF6"></div>
+              <div class="swatch custom" title="自定义颜色"><svg><use href="#i-plus"/></svg></div>
+            </div>
+            <div class="help" style="margin:0 0 10px">眼睛会自动使用清晰的浅色或深色；颜色立即生效。</div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="sec-title">预览</div>
+          <div class="preview-stage">
+            <div class="ball"></div>
+            <div class="cap">当前形式与颜色 · 静态预览</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="save">更改会自动保存</div>
+        <div class="btn btn-ghost">恢复默认</div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>改版点：</b>占半屏的 ColorPicker 换成 8 色板 + 自定义浮层；ComboBox 换成 3 张带迷你轮廓的形式卡；预览放进中性舞台，黑球在浅色/白色桌面都看得清；成功反馈改为浮层中性 toast（2 秒自动消失），不再常驻绿条。</p>
+
+  <!-- ================= 设置 · 插件 ================= -->
+  <div class="sec-head">
+    <h2>04 · 设置窗口（插件）</h2>
+    <span>去掉英文直出与“开发态”观感</span>
+  </div>
+  <div class="stage window-stage">
+    <div class="win glass">
+      <div class="tabs"><div class="tabs-inner">
+        <div class="tab">外观</div><div class="tab">交互</div><div class="tab">陪伴</div><div class="tab on">插件</div><div class="tab">通用</div>
+      </div></div>
+      <div class="head">
+        <h3>插件</h3>
+        <div class="icon-btn" title="隐藏组件"><svg><use href="#i-eyeoff"/></svg></div>
+        <div class="divider"></div>
+        <div class="icon-btn" title="关闭（Esc）"><svg><use href="#i-x"/></svg></div>
+      </div>
+      <div class="content">
+        <div class="section">
+          <div class="sec-title">功能</div>
+          <div class="group">
+            <div class="row">
+              <div class="text"><div class="label">液态玻璃</div><div class="desc">为外壳加入真实背景折射；内容保持清晰。</div></div>
+              <div class="sw on"></div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="sec-title">本地插件</div>
+          <div class="group" style="padding:0 16px">
+            <div class="import-row">
+              <div class="btn-secondary"><svg><use href="#i-upload"/></svg>导入本地插件…</div>
+            </div>
+            <div class="row" style="min-height:38px">
+              <div class="text"><div class="desc">插件在程序内运行，请只导入你信任的文件。</div></div>
+            </div>
+            <div class="plugin-row">
+              <div class="icon"><svg><use href="#i-plug"/></svg></div>
+              <div class="text"><div class="name">液态玻璃</div><div class="meta">版本 0.2.0 · 已停用</div></div>
+              <div class="sw"></div>
+              <div class="more" title="更多"><svg><use href="#i-more"/></svg></div>
+            </div>
+            <div class="row" style="min-height:42px">
+              <div class="text"><div class="desc">第三方插件目录尚未开放；当前仅内置「液态玻璃」。</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="save">更改会自动保存</div>
+        <div class="btn btn-ghost">打开插件目录</div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>改版点：</b>“Disabled”改为“已停用/未启用”；裸“导入本地插件”改为 secondary 按钮；插件行统一为图标 + 名称 + 版本/状态 + 开关 + 更多；列表底部留 24 padding，不再被视口裁切。</p>
+
+  <!-- ================= Token ================= -->
+  <div class="sec-head">
+    <h2>05 · 设计 Token</h2>
+    <span>颜色 / 字号 / 间距 / 形状 / 材质</span>
+  </div>
+  <div class="token-grid">
+    <div class="tile">
+      <h4>颜色（浅色）</h4>
+      <div class="colors">
+        <div class="color-line"><span class="sw-box" style="background:#20252C"></span>ink.primary<code>#20252C</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#48515B"></span>ink.secondary<code>#48515B</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#626C78"></span>ink.caption<code>#626C78</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#1689F9"></span>accent.fill<code>#1689F9</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#0B6BCB"></span>accent.ink<code>#0B6BCB</code></div>
+        <div class="color-line"><span class="sw-box" style="background:rgba(32,37,44,.045);border-color:rgba(32,37,44,.12)"></span>surface.group<code>4.5% ink</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#1E8E3E"></span>success（瞬时）<code>#1E8E3E</code></div>
+        <div class="color-line"><span class="sw-box" style="background:#D93025"></span>error（瞬时）<code>#D93025</code></div>
+      </div>
+      <div class="help">accent 拆成“填充”和“小字”两个角色：小字用深一档，避免 3.55:1 不达标。</div>
+    </div>
+    <div class="tile">
+      <h4>字号 / 行高</h4>
+      <div class="type-row"><span class="demo" style="font-size:20px;line-height:28px;font-weight:600">页面标题</span><span class="meta">20/28 · 600</span></div>
+      <div class="type-row"><span class="demo" style="font-size:16px;line-height:24px;font-weight:600">桌面组件</span><span class="meta">16/24 · 600</span></div>
+      <div class="type-row"><span class="demo" style="font-size:14px;line-height:20px">行标题</span><span class="meta">14/20 · 400</span></div>
+      <div class="type-row"><span class="demo" style="font-size:13px;line-height:18px;font-weight:600;color:#626C78">分组标题</span><span class="meta">13/18 · 600</span></div>
+      <div class="type-row"><span class="demo" style="font-size:12px;line-height:16px;color:#626C78">说明文字</span><span class="meta">12/16 · 400</span></div>
+      <div class="type-row"><span class="demo" style="font-size:25px;line-height:32px;font-variant-numeric:tabular-nums">23:35</span><span class="meta">25/32 · Display</span></div>
+      <div class="type-row"><span class="demo" style="font-size:34px;line-height:44px;font-variant-numeric:tabular-nums">23:35</span><span class="meta">34/44 · Display</span></div>
+    </div>
+    <div class="tile">
+      <h4>间距 / 圆角</h4>
+      <div class="space-line">4<span class="space-bar" style="width:4px"></span></div>
+      <div class="space-line">8<span class="space-bar" style="width:8px"></span></div>
+      <div class="space-line">12<span class="space-bar" style="width:12px"></span></div>
+      <div class="space-line">16<span class="space-bar" style="width:16px"></span></div>
+      <div class="space-line">24<span class="space-bar" style="width:24px"></span></div>
+      <div class="space-line">32<span class="space-bar" style="width:32px"></span></div>
+      <div style="height:12px"></div>
+      <div class="radius-line"><span class="radius-box" style="border-radius:24px"></span>24 窗口 / 导航</div>
+      <div class="radius-line"><span class="radius-box" style="border-radius:14px"></span>14 分组</div>
+      <div class="radius-line"><span class="radius-box" style="border-radius:10px"></span>10 控件</div>
+      <div class="radius-line"><span class="radius-box" style="border-radius:20px"></span>20 小组件卡</div>
+      <div class="radius-line"><span class="radius-box" style="border-radius:999px;width:44px"></span>全圆角 按钮</div>
+    </div>
+    <div class="tile">
+      <h4>材质与状态</h4>
+      <div class="material-line"><b>设置窗口</b><span>固定 Acrylic 0.86</span></div>
+      <div class="material-line"><b>设置分组</b><span>4.5% 墨色浅槽</span></div>
+      <div class="material-line"><b>主外壳</b><span>玻璃 + 4% scrim + 0.75 rim</span></div>
+      <div class="material-line"><b>小组件卡</b><span>轻纸面 12% + rim</span></div>
+      <div class="material-line"><b>hover</b><span>8% 墨色叠加 · 120ms</span></div>
+      <div class="material-line"><b>press</b><span>12% 墨色 · 90ms</span></div>
+      <div class="material-line"><b>焦点环</b><span>2px accent + 1px 白间隔</span></div>
+      <div class="material-line"><b>页面切换</b><span>200-220ms · (.2,0,0,1)</span></div>
+      <div class="help">所有可点击元素必须有 hover / pressed / focus / disabled 四态；当前实现缺 hover/pressed。</div>
+    </div>
+  </div>
+
+  <!-- ================= 决策 ================= -->
+  <div class="sec-head">
+    <h2>06 · 这版为什么这样改</h2>
+    <span>对应用户审美目标：简单，但信息完整</span>
+  </div>
+  <div class="decisions">
+    <div class="decision">
+      <div class="num">1</div>
+      <h4>一层材质，不再白叠白</h4>
+      <p>设置窗口现在 acrylic、pane、卡片、按钮四层半透明白叠加，结果是“灰蒙”。新方案只有一层玻璃 + 一种 4.5% 墨色分组槽，层级靠明度和间距，桌面再花也不会脏。</p>
+    </div>
+    <div class="decision">
+      <div class="num">2</div>
+      <h4>主操作唯一，状态完整</h4>
+      <p>播放按钮是实心墨色主按钮，前后是幽灵图标；添加是唯一 accent 主操作。所有按钮有 hover/press/focus/disabled，导航选中用 accent tint + accent 字，而不是几乎看不见的白胶囊。</p>
+    </div>
+    <div class="decision">
+      <div class="num">3</div>
+      <h4>信息完整但安静</h4>
+      <p>大展开常驻“音乐/小组件”页面名；小展开的连接动作有按钮语义；小组件板有标题/添加/编辑/空态；设置每页只有一个标题、一个关闭入口、一次反馈。删除开发文案与重复控件。</p>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>说明：</b>本样张按 1 DIP ≈ 1 CSS px 绘制，实际应用在 150% DPI 下会整体放大；玻璃模糊、桌面透景、液态折射无法在样张中完全还原。<br>
+    <b>批准后：</b>按计划文档 <i>docs/ui-review-and-redesign-plan-2026-10-19.md</i> 的批次 1→5 落地；每批构建并交你确认，保护项（五槽几何、时间白板、8 根频谱、陪伴液体、accent、五分类顺序）保持不变。<br>
+    <b>快捷键：</b><span class="kbd">Esc</span> 关闭设置 · <span class="kbd">←</span><span class="kbd">→</span> 切换分类 · <span class="kbd">Tab</span> 焦点环导航。
+  </div>
+</div>
+
+<script>
+/* 预览辅助：?part=1..6 只显示某一节，方便截图；正常打开不受影响。 */
+(function(){
+  var part = parseInt(new URLSearchParams(location.search).get('part') || '0', 10);
+  if (!part) return;
+  var wrap = document.querySelector('.wrap');
+  var heads = Array.prototype.slice.call(wrap.querySelectorAll('.sec-head'));
+  var kids = Array.prototype.slice.call(wrap.children);
+  var starts = heads.map(function(h){ return kids.indexOf(h); });
+  var idx = part - 1;
+  if (idx < 0 || idx >= starts.length) return;
+  var start = starts[idx], end = (starts[idx + 1] === undefined ? kids.length : starts[idx + 1]);
+  kids.forEach(function(el, k){ if (k < start || k >= end) el.style.display = 'none'; });
+  document.body.style.padding = '24px 24px 40px';
+})();
+</script>
+
+</body>
+</html>
