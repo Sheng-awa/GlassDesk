@@ -65,6 +65,30 @@ ul.clean li::before{content:"·";color:var(--accent-ink);font-weight:700}
 .plate span{height:18px;line-height:18px;padding:0 10px;border-radius:9px;color:#6B737D}
 .plate span.on{background:#20252C;color:#fff;font-weight:600}
 .pagetext{font-size:12px;color:#6B737D}
+
+/* ===== 陪伴三态 ===== */
+.state-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
+.state{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.state .cap{font-size:11.5px;color:var(--ink3);text-align:center;line-height:1.55}
+.state .cap b{color:var(--ink2);font-weight:650}
+.ball{width:24px;height:24px;border-radius:50%;background:#202328;position:relative;flex:none;box-shadow:inset 0 1px 1px rgba(255,255,255,.14)}
+.ball i{position:absolute;top:36%;width:15%;height:20%;border-radius:2px;background:#fff}
+.ball i:first-child{left:34%}.ball i:last-child{left:57%}
+.mini-capsule{width:150px;height:40px;border-radius:20px;background:rgba(255,255,255,.88);border:1px solid #fff;box-shadow:0 4px 12px rgba(15,20,28,.10);display:flex;align-items:center;padding:0 12px 0 16px}
+.mini-capsule .t{flex:1;text-align:center;font-family:var(--display);font-size:19px;color:var(--ink)}
+.mini-peek{width:170px;height:104px;border-radius:18px;background:rgba(255,255,255,.84);border:1px solid #fff;box-shadow:0 4px 12px rgba(15,20,28,.10);position:relative}
+.mini-peek .t{position:absolute;left:0;right:0;top:16px;text-align:center;font-family:var(--display);font-size:24px;color:var(--ink)}
+.mini-peek .a{position:absolute;left:0;right:0;top:62px;text-align:center;font-size:9px;color:#6B737D}
+.mini-peek .cling{position:absolute;left:10px;bottom:10px;width:24px;height:24px;border-radius:50% 50% 50% 35%;background:#202328;transform:rotate(-25deg);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.mini-details{width:150px;height:200px;border-radius:16px;background:rgba(255,255,255,.84);border:1px solid #fff;box-shadow:0 4px 14px rgba(15,20,28,.10);display:flex;flex-direction:column;align-items:center;padding-top:9px}
+.mini-ribbon{width:124px;height:24px;border-radius:12px;background:#202328;display:flex;align-items:center;justify-content:center;gap:11px}
+.mini-ribbon .slot{width:4px;border-radius:2px;background:rgba(255,255,255,.55)}
+.mini-ribbon .s1{height:6px}.mini-ribbon .s2{height:12px}
+.mini-ribbon .eyes{display:flex;gap:3px}
+.mini-ribbon .eyes i{width:3px;height:6px;border-radius:2px;background:#fff}
+.mini-plate{margin-top:7px;height:16px;border-radius:8px;background:#fff;display:flex;align-items:center;gap:3px;padding:0 7px;box-shadow:0 2px 6px rgba(15,20,28,.14);font-size:8px;color:#20252C;font-weight:600}
+.mini-plate .eyes{display:flex;gap:2px}
+.mini-plate .eyes i{width:2px;height:4px;border-radius:1px;background:#20252C}
 .tag-active{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:28px;border-radius:14px;background:#F8FAFC;color:#20252C;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:12.5px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.25)}
 .tag-active .eyes{display:flex;gap:4px}
 .tag-active .eyes i{width:4px;height:7px;border-radius:2px;background:#202328}
@@ -165,8 +189,8 @@ ul.clean li::before{content:"·";color:var(--accent-ink);font-weight:700}
     </div>
   </div>
 
-  <h2>2 · 小组件入口：把右上角圆按钮拿掉</h2>
-  <div class="lead">你发的参考图是“深色丝带 + 白色名字牌”。圆按钮设计本身不差，但放在角落破坏对称，也没有必要。</div>
+  <h2>2 · 小组件入口：方案 A 已确认</h2>
+  <div class="lead">右上圆按钮删除。丝带保持原样，下面一块小白牌 <b>音乐 │ 小组件</b>，点哪边切哪页。剩下的问题是：<b>那根长条和眼睛，作为陪伴球到底在干嘛？</b></div>
   <div class="grid2">
     <div class="option">
       <h3>现在</h3>
@@ -179,46 +203,66 @@ ul.clean li::before{content:"·";color:var(--accent-ink);font-weight:700}
         </div>
         <div class="pagetext">音乐</div>
       </div>
-      <p class="con">圆按钮突兀、左右不对称、5 个槽没有名字。</p>
+      <p class="con">圆按钮突兀、左右不对称、5 个槽没有名字；长条上放眼睛，但看不出眼睛在干嘛。</p>
     </div>
     <div class="option">
-      <h3>方案 A <span class="rec">推荐</span></h3>
+      <h3>方案 A <span class="rec">已确认</span></h3>
       <div class="nav-demo">
         <div class="ribbon">
           <div class="slot s1"></div><div class="slot s2"></div>
-          <div class="eyes"><i></i><i></i></div>
           <div class="slot s2"></div><div class="slot s1"></div>
         </div>
         <div class="plate"><span class="on">音乐</span><span>小组件</span></div>
       </div>
-      <p>丝带不动，下面加一块小白牌：<b>音乐 │ 小组件</b>，点哪边切哪页；鼠标悬停其它槽时，白牌临时显示槽名 +“预览”。</p>
-      <p class="pro">没有新按钮、左右对称、有常驻文字、陪伴球不用另找地方。</p>
+      <p>丝带回归纯导航（5 个槽就是 5 个链接），下方白牌是页面切换 + 当前页名。没有新按钮、左右对称、有字。</p>
+      <p class="pro">陪伴球不再“长在”丝带上，而是有自己的位置和任务——见下面 2.5。</p>
     </div>
   </div>
-  <div class="grid2" style="margin-top:20px">
-    <div class="option">
-      <h3>方案 B（最接近你的参考图）</h3>
-      <div class="nav-demo">
-        <div class="ribbon">
-          <div class="slot s1"></div><div class="slot s2"></div>
-          <div class="tag-active"><span class="eyes"><i></i><i></i></span>音乐</div>
-          <div class="slot s2"></div><div class="slot s1"></div>
-        </div>
+
+  <h2>2.5 · 陪伴球：三种形态里各做一件事</h2>
+  <div class="lead">你的定义是“一团围绕着你、会变形的液体”，不是 UI 里多一个球。胶囊形态你满意；小展开和大展开迷茫，是因为它变成了“边缘上的点”或“一根带眼睛的长条”，没事可做。</div>
+  <div class="state-row">
+    <div class="state">
+      <div class="mini-capsule"><div class="ball"><i></i><i></i></div><div class="t">23:35</div></div>
+      <div class="cap"><b>胶囊</b><br>陪在旁边 · 保持现状</div>
+    </div>
+    <div class="state">
+      <div class="mini-peek"><div class="t">23:35</div><div class="a">连接网易云音乐 ›</div><div class="cling"></div></div>
+      <div class="cap"><b>小展开</b><br>贴着边缘探进来 · 看你</div>
+    </div>
+    <div class="state">
+      <div class="mini-details">
+        <div class="mini-ribbon"><div class="slot s1"></div><div class="slot s2"></div><div class="slot s2"></div><div class="slot s1"></div></div>
+        <div class="mini-plate"><span class="eyes"><i></i><i></i></span>音乐</div>
       </div>
-      <p>当前槽展开成白色名字牌（LINK 1 的样子），左边眼睛、右边名字；其余槽保持小条。</p>
-      <p class="con">名牌会盖住相邻槽；5 个槽里没有“小组件”，切页逻辑要再定；动画更复杂。</p>
+      <div class="cap"><b>大展开（P1 举牌）</b><br>变成名字牌 · 举着当前页</div>
+    </div>
+    <div class="state">
+      <div class="mini-details">
+        <div class="mini-ribbon"><div class="slot s1"></div><div class="eyes"><i></i><i></i></div><div class="slot s2"></div><div class="slot s1"></div></div>
+        <div class="mini-plate">音乐</div>
+      </div>
+      <div class="cap"><b>大展开（P2 丝带身体）</b><br>眼睛留在丝带上 · 白牌是它举的</div>
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:20px">
+    <div class="option">
+      <h3>P1 · 举牌 <span class="rec">推荐</span></h3>
+      <p>胶囊里是球；小展开贴边探进来；大展开变成名字牌（眼睛 + 当前页名），丝带回归纯导航。</p>
+      <p class="pro">它的任务：陪着你 → 贴边看你 → 举着你的当前页面。胶囊完全不动，液体有连续变化。</p>
+      <p class="con">眼睛从丝带移到白牌上，需要你点头。</p>
     </div>
     <div class="option">
-      <h3>方案 C（最彻底）</h3>
-      <div class="nav-demo">
-        <div class="ribbon">
-          <div class="slot s1"></div><div class="slot s2"></div>
-          <div class="tag-active"><span class="eyes"><i></i><i></i></span>音乐</div>
-          <div class="slot s2"></div><div class="slot s1"></div>
-        </div>
-      </div>
-      <p>把“小组件”做成五个槽之一（音乐、小组件 + 3 个预览），每个槽都有名字牌，不要单独入口。</p>
-      <p class="con">信息最清楚，但改变五槽含义，需要你拍板。</p>
+      <h3>P2 · 丝带就是身体</h3>
+      <p>眼睛留在丝带上，整条丝带就是液体拉长后的样子，白牌是它举着的。</p>
+      <p class="pro">最贴近你最初“藏进导航”的想法。</p>
+      <p class="con">必须让长条真的像液体（端部鼓起、表面张力、切换时流动），否则永远像工具栏；难度最高。</p>
+    </div>
+    <div class="option">
+      <h3>P3 · 贴边液体</h3>
+      <p>大展开里眼睛不进导航，而是趴在卡片边缘、偶尔沿边走；丝带纯导航。</p>
+      <p class="pro">最符合“围绕用户的液体”。</p>
+      <p class="con">要新位置与新动画，可能挡内容，风险中。</p>
     </div>
   </div>
 
@@ -302,7 +346,7 @@ ul.clean li::before{content:"·";color:var(--accent-ink);font-weight:700}
     <div class="step"><div class="n">1</div><div><b>第一批：纯视觉（低风险）</b><p>圆角统一、设置去噪、材质固定、修 3 个裁切 bug、ColorPicker 圆角、丝带 hover 不变白。</p></div></div>
     <div class="step"><div class="n">2</div><div><b>第二批：小结构（每项先截图确认）</b><p>小组件入口 A/B/C 选一、小组件卡文字与按钮、名字牌、设置卡片 16、空态连接按钮。</p></div></div>
     <div class="step"><div class="n">✓</div><div><b>不动的</b><p>五槽几何/眼睛/耳朵/角、时间白板、8 根频谱、陪伴液体、播放动画、深色主题、功能删减。</p></div></div>
-    <div class="step"><div class="n">?</div><div><b>要你拍板</b><p>① 入口 A/B/C；② 圆角 24/16/10 还是更圆 28/20/12；③ 设置保持两列还是改单列。</p></div></div>
+    <div class="step"><div class="n">?</div><div><b>要你拍板</b><p>① 陪伴角色 P1/P2/P3；② 圆角 24/16/10 还是更圆 28/20/12；③ 设置保持两列还是改单列。</p></div></div>
   </div>
 
   <div class="src">
