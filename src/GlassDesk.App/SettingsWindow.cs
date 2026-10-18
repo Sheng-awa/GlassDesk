@@ -2,11 +2,13 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using GlassDesk.Core;
 using Microsoft.UI;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -19,21 +21,40 @@ namespace GlassDesk.App;
 /// <summary>One reusable light settings window; normal Close hides it.</summary>
 public sealed class SettingsWindow : Window, IDisposable
 {
-    const uint CanvasColor = 0x50FFFFFF;
-    const uint SurfaceColor = 0x45FFFFFF;
-    const uint BorderColor = 0x78FFFFFF;
+    // The fixed acrylic (SettingsAcrylicBackdrop) supplies the pane material, so
+    // the pane itself only adds a fallback fill when acrylic is unavailable.
+    const uint CanvasColor = 0x00FFFFFF;
+    const uint FallbackCanvasColor = 0xFFF0F2F5;
+    const uint PaneBorderColor = 0x78FFFFFF;
+    // Cards are a 4.5 % ink well on the light material; hairlines are 8 % ink.
+    const uint SurfaceColor = 0x0B20252C;
+    const uint BorderColor = 0x1420252C;
+    // The fixed material is almost white, so the pointer/pressed fills are ink
+    // tints: the plan's white alphas were tuned against the old grey acrylic and
+    // would be invisible here. Normal keeps the planned 0x86 white chip.
     const uint ButtonColor = 0x86FFFFFF;
+    const uint ButtonPointerOverColor = 0x1420252C;
+    const uint ButtonPressedColor = 0x2420252C;
+    const uint ButtonDisabledColor = 0x40FFFFFF;
+    const uint AccentFill = 0xFF1689F9;
     const uint InkColor = 0xFF20252C;
     const double ContentWidth = 760;
     static readonly AccessibilitySettings HighContrast = new();
     static readonly UISettings SystemColors = new();
+    static readonly string[] PageTitles = ["外观", "交互", "陪伴", "插件", "通用"];
     readonly UISettings _uiSettings = new();
     readonly ISettingsCoordinator _coordinator;
     readonly DispatcherQueueTimer _changeTimer;
     readonly DispatcherQueueTimer _statusTimer;
+    readonly DispatcherQueueTimer _feedbackTimer;
     readonly Action<string>? _trace;
     readonly bool _minimalContent;
     FrameworkElement? _tracedRoot;
+    readonly TextBlock _pageTitle = SettingsTypography.Apply(
+        new TextBlock { Text = PageTitles[0], VerticalAlignment = VerticalAlignment.Center }, TextRole.PageTitle, InkRole.Primary);
+    readonly Border _colorPickerHost = new() { CornerRadius = new CornerRadius(UiRadius.Control), Height = 240 };
+    readonly RectangleGeometry _colorPickerClip = new();
+    CompositionRoundedRectangleGeometry? _colorPickerGeometry;
     readonly Slider _blur = new() { Minimum = 0, Maximum = 40, StepFrequency = 1 };
     readonly Slider _transparency = new() { Minimum = 10, Maximum = 90, StepFrequency = 1 };
     readonly Slider _hover = new() { Minimum = 100, Maximum = 1500, StepFrequency = 50 };
@@ -65,7 +86,6 @@ public sealed class SettingsWindow : Window, IDisposable
     readonly Microsoft.UI.Xaml.Shapes.Ellipse _previewLeftEye = new() { Width = 8, Height = 12 };
     readonly Microsoft.UI.Xaml.Shapes.Ellipse _previewRightEye = new() { Width = 8, Height = 12 };
     SettingsFloatingNavigation? _tabs;
-    SettingsAcrylicBackdrop? _acrylicBackdrop;
     Grid? _floatingRoot;
     Grid? _settingsPane;
     XamlRoot? _shapeXamlRoot;
@@ -107,6 +127,7 @@ public sealed class SettingsWindow : Window, IDisposable
         _trace = trace;
         DispatcherQueueTimer? timer = null;
         DispatcherQueueTimer? statusTimer = null;
+        DispatcherQueueTimer? feedbackTimer = null;
         try
         {
             Title = _coordinator.IsUiPreview ? "GlassDesk UI Preview 设置" : "GlassDesk 设置";
@@ -119,6 +140,10 @@ public sealed class SettingsWindow : Window, IDisposable
             _statusTimer.Interval = TimeSpan.FromSeconds(1);
             _statusTimer.IsRepeating = true;
             _statusTimer.Tick += OnStatusTimerTick;
+            _feedbackTimer = feedbackTimer = DispatcherQueue.CreateTimer();
+            _feedbackTimer.Interval = TimeSpan.FromSeconds(2.4);
+            _feedbackTimer.IsRepeating = false;
+            _feedbackTimer.Tick += OnFeedbackTimerTick;
             if (minimalContent) BuildMinimalContent();
             else BuildContent();
             Trace(minimalContent ? "settings-content-minimal" : "settings-content-full");
@@ -127,7 +152,7 @@ public sealed class SettingsWindow : Window, IDisposable
             _tracedRoot.LayoutUpdated += OnFirstLayoutUpdated;
             // The XAML root must exist before WinUI connects the backdrop to its target.
             if (useBackdrop && _floatingRoot is not null && _settingsPane is not null && _tabs is not null)
-                SystemBackdrop = _acrylicBackdrop = new SettingsAcrylicBackdrop(CurrentPreferences.TintOpacity);
+                SystemBackdrop = new SettingsAcrylicBackdrop();
             Trace(useBackdrop ? "settings-backdrop-connected" : "settings-backdrop-disabled");
             if (!minimalContent) BindEvents();
             ResizeToWorkArea();
@@ -145,6 +170,8 @@ public sealed class SettingsWindow : Window, IDisposable
             if (timer is not null) timer.Tick -= OnChangeTimerTick;
             statusTimer?.Stop();
             if (statusTimer is not null) statusTimer.Tick -= OnStatusTimerTick;
+            feedbackTimer?.Stop();
+            if (feedbackTimer is not null) feedbackTimer.Tick -= OnFeedbackTimerTick;
             _coordinator.Changed -= Refresh;
             AppWindow.Closing -= OnAppWindowClosing;
             Closed -= OnWindowClosed;
@@ -197,6 +224,11 @@ public sealed class SettingsWindow : Window, IDisposable
     }
 
     async void OnChangeTimerTick(DispatcherQueueTimer sender, object args) => await FlushPreferencesAsync();
+    void OnFeedbackTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        if (!_disposed) _feedback.IsOpen = false;
+    }
     void OnStatusTimerTick(DispatcherQueueTimer sender, object args)
     {
         if (_disposed || !_shown || _minimalContent || !AppWindow.IsVisible)
@@ -265,23 +297,24 @@ public sealed class SettingsWindow : Window, IDisposable
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var pane = _settingsPane = new Grid
         {
-            CornerRadius = new CornerRadius(24), Margin = new Thickness(16, 0, 16, 16),
-            Background = Brush(SettingsAcrylicBackdrop.IsSupported ? CanvasColor : 0xFFF0F2F5),
-            BorderBrush = Brush(BorderColor), BorderThickness = new Thickness(1)
+            CornerRadius = new CornerRadius(UiRadius.Shell), Margin = new Thickness(16, 0, 16, 16),
+            // The fixed acrylic is the pane material; a fallback fill only appears
+            // when the system acrylic controller is unavailable.
+            Background = Brush(SettingsAcrylicBackdrop.IsSupported ? CanvasColor : FallbackCanvasColor),
+            BorderBrush = Brush(PaneBorderColor), BorderThickness = new Thickness(1)
         };
         pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pane.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Grid.SetRow(pane, 1); root.Children.Add(pane);
-        var header = new Grid { Padding = new Thickness(24, 16, 16, 12), ColumnSpacing = 12 };
+        // The header carries the current page name only; the old "GlassDesk"
+        // wordmark duplicated the window identity and made the chin heavy.
+        var header = new Grid { Padding = new Thickness(20, 8, 16, 8), ColumnSpacing = 8 };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var titleDragRegion = new Grid { Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), MinHeight = 40 };
-        titleDragRegion.Children.Add(SettingsTypography.Apply(new TextBlock
-        {
-            Text = "GlassDesk", VerticalAlignment = VerticalAlignment.Center
-        }, TextRole.PageTitle, InkRole.Primary));
+        titleDragRegion.Children.Add(_pageTitle);
         header.Children.Add(titleDragRegion);
         titleDragRegion.PointerPressed += (_, args) =>
         {
@@ -294,9 +327,9 @@ public sealed class SettingsWindow : Window, IDisposable
         SettingsTypography.Apply(_visibilityText, TextRole.Label, InkRole.Primary);
         visibilityContent.Children.Add(_visibilityText);
         _visibility.Content = visibilityContent;
-        _visibility.MinHeight = 36;
-        _visibility.Padding = new Thickness(12, 6, 12, 6);
-        _visibility.CornerRadius = new CornerRadius(24);
+        _visibility.Height = 32; _visibility.MinHeight = 32;
+        _visibility.Padding = new Thickness(12, 0, 12, 0);
+        _visibility.CornerRadius = new CornerRadius(UiRadius.Full(32));
         _visibility.Background = Brush(ButtonColor); _visibility.BorderBrush = Brush(BorderColor);
         _visibility.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(_visibility, 1);
@@ -304,14 +337,14 @@ public sealed class SettingsWindow : Window, IDisposable
         var closePane = new Button
         {
             Content = new FontIcon { Glyph = "\uE8BB", FontSize = 14 }, Width = 40, Height = 40, MinWidth = 40,
-            Padding = new Thickness(0), CornerRadius = new CornerRadius(20), Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor)
+            Padding = new Thickness(0), CornerRadius = new CornerRadius(UiRadius.Full(40)), Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor)
         };
         Name(closePane, "关闭设置"); ToolTipService.SetToolTip(closePane, "关闭设置"); closePane.Click += (_, _) => Hide();
         Grid.SetColumn(closePane, 2); header.Children.Add(closePane);
         pane.Children.Add(header);
 
         var body = new Grid();
-        _tabs = new SettingsFloatingNavigation(["外观", "交互", "陪伴", "插件", "通用"], () => CurrentPreferences.ReducedMotion || !_uiSettings.AnimationsEnabled)
+        _tabs = new SettingsFloatingNavigation(PageTitles, () => CurrentPreferences.ReducedMotion || !_uiSettings.AnimationsEnabled)
         { Margin = new Thickness(16, 16, 16, 12) };
         var content = new Grid
         {
@@ -348,13 +381,13 @@ public sealed class SettingsWindow : Window, IDisposable
         Grid.SetColumn(understood, 2); onboardingContent.Children.Add(understood);
         _onboarding.Child = onboardingContent;
         _onboarding.Padding = new Thickness(14, 12, 10, 12);
-        _onboarding.CornerRadius = new CornerRadius(10);
+        _onboarding.CornerRadius = new CornerRadius(UiRadius.Control);
         _onboarding.Background = Brush(0xFFEFF6F4);
         _onboarding.BorderBrush = Brush(0xFFD8E8E3);
         _onboarding.BorderThickness = new Thickness(1);
         content.Children.Add(_feedback);
 
-        var appearance = Section("外观", "调整桌面组件的玻璃质感与动画。");
+        var appearance = Section("调整桌面组件的玻璃质感与动画。");
         appearance.Children.Add(new SettingsColumns([
             Group(SliderRow("模糊强度", _blurLabel, _blur)),
             Group(SliderRow("透明度", _transparencyLabel, _transparency, "透出背后的桌面")),
@@ -367,7 +400,7 @@ public sealed class SettingsWindow : Window, IDisposable
         appearance.Children.Add(restore);
         appearance.Children.Add(_onboarding);
 
-        var interaction = Section("交互与位置", "调整悬停、离开与全屏时的行为。");
+        var interaction = Section("调整悬停、离开与全屏时的行为。");
         interaction.Children.Add(new SettingsColumns([
             Group(SliderRow("悬停展开延迟", _hoverLabel, _hover), SliderRow("离开收起延迟", _leaveLabel, _leave)),
             Group(ToggleRow("全屏时自动隐藏", _fullscreen, "进入全屏应用时，组件会暂时隐藏。"))]));
@@ -376,14 +409,22 @@ public sealed class SettingsWindow : Window, IDisposable
         interaction.Children.Add(resetPosition);
         interaction.Children.Add(Description("也可以直接拖动组件的空白区域。"));
 
-        var companion = Section("陪伴", "安静的原创小球，用表情和视线回应你。");
+        var companion = Section("安静的原创小球，用表情和视线回应你。");
         companion.Children.Add(Group(ToggleRow("陪伴球", _companion, "回应指针、音乐和展开动作，并自然眨眼；隐藏时休息。"),
             ToggleRow("陪伴球跟随鼠标", _companionFollowMouse, "收起时也能望向胶囊外的鼠标；关闭后立即停止跟随。")));
         var colors = new StackPanel { Spacing = 12, Padding = new Thickness(16) };
         colors.Children.Add(SettingTitle("球体颜色"));
         colors.Children.Add(Description("眼睛会自动使用清晰的浅色或深色。"));
         Name(_colorPicker, "陪伴颜色，RGB 不透明取色器");
-        colors.Children.Add(_colorPicker);
+        // The template picker is square and much taller than the plan's control
+        // budget; clip it to a rounded 240 DIP well. Precise RGB input stays in
+        // the hex row below, so the colour feature is not reduced.
+        _colorPicker.MinHeight = 0;
+        _colorPicker.VerticalAlignment = VerticalAlignment.Top;
+        _colorPickerHost.Child = _colorPicker;
+        _colorPickerHost.Clip = _colorPickerClip;
+        _colorPickerHost.SizeChanged += (_, args) => ClipColorPicker(args.NewSize);
+        colors.Children.Add(_colorPickerHost);
         var customRow = new Grid { ColumnSpacing = 8 };
         customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -409,7 +450,7 @@ public sealed class SettingsWindow : Window, IDisposable
         form.Children.Add(preview); form.Children.Add(Description("当前形式与颜色 · 静态预览"));
         companion.Children.Add(new SettingsColumns([Surface(colors), Surface(form)]));
 
-        var plugins = Section("插件", "安装本地功能插件，分别控制各项贡献。");
+        var plugins = Section("安装本地功能插件，分别控制各项贡献。");
         plugins.Children.Add(Group(ToggleRow("液态玻璃", _liquidGlass, "为外壳加入真实背景折射；内容保持清晰。")));
         plugins.Children.Add(_liquidGlassStatus);
         var import = CommandButton("导入本地插件", "\uE898");
@@ -448,7 +489,7 @@ public sealed class SettingsWindow : Window, IDisposable
         plugins.Children.Add(Description("插件在程序内运行，请仅导入你信任的文件。更新同名插件会保留配置。"));
         plugins.Children.Add(_pluginList); plugins.Children.Add(_pluginPages);
 
-        var startup = Section("启动与快捷键", "设置登录时启动与显示 / 隐藏快捷键。");
+        var startup = Section();
         startup.Children.Add(Group(ToggleRow("登录 Windows 后启动", _startup, "下次登录时自动启动 GlassDesk。")));
         var hotkeySettings = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
         hotkeySettings.Children.Add(SettingTitle("显示 / 隐藏快捷键"));
@@ -459,18 +500,13 @@ public sealed class SettingsWindow : Window, IDisposable
         _hotkey.MinWidth = 80;
         var clear = CommandButton("清除", "\uE894");
         _startup.IsEnabled = _hotkey.IsEnabled = clear.IsEnabled = !_coordinator.IsUiPreview;
-        if (_coordinator.IsUiPreview)
-        {
-            startup.Children.Add(Description("UI 预览不修改系统启动和全局快捷键。"));
-            _hotkeyHint.Text = "预览版保留配置显示，系统快捷键注册已隔离。";
-        }
         clear.Click += (_, _) => QueuePreferences(CurrentPreferences with { HotkeyKey = 0, HotkeyModifiers = 0 });
         Grid.SetColumn(clear, 1); binding.Children.Add(clear);
         WrapActions(binding, _hotkey, clear);
         hotkeySettings.Children.Add(binding); hotkeySettings.Children.Add(_hotkeyHint);
         startup.Children.Add(Surface(hotkeySettings));
 
-        var connection = Section("连接与关于", "查看音乐连接状态与 GlassDesk 信息。");
+        var connection = Section();
         var connectionSettings = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
         SettingsTypography.Apply(_connection, TextRole.SectionTitle, InkRole.Primary);
         connectionSettings.Children.Add(_connection); connectionSettings.Children.Add(_capabilities); connectionSettings.Children.Add(_status);
@@ -528,32 +564,37 @@ public sealed class SettingsWindow : Window, IDisposable
         about.Children.Add(quit);
         connection.Children.Add(Surface(about));
 
-        var general = Section("通用", "启动、快捷键、音乐连接与诊断。");
+        var general = Section("启动、快捷键、音乐连接与诊断。");
         // Keep the existing live-save and connection controls in one concise page.
-        startup.Children.RemoveAt(0); connection.Children.RemoveAt(0);
         general.Children.Add(startup); general.Children.Add(connection);
         var sections = new[] { appearance, interaction, companion, plugins, general };
+        // One page-level 16 DIP tail plus the deck's 8 DIP padding keeps the last
+        // card clear of the footer (the plan's ≥24 DIP bottom inset per page).
+        foreach (var page in sections) page.Padding = new Thickness(0, 0, 0, 16);
         var deck = new SettingsPageDeck(sections);
         Grid.SetRow(deck, 1); content.Children.Add(deck);
-        _tabs.SelectionChanged += selected => deck.SetSelectedIndex(selected);
+        _tabs.SelectionChanged += selected =>
+        {
+            deck.SetSelectedIndex(selected);
+            if (selected >= 0 && selected < PageTitles.Length) _pageTitle.Text = PageTitles[selected];
+        };
         _tabs.ProgressChanged += progress => deck.SetProgress(progress);
 
-        var footer = new Grid { Padding = new Thickness(22, 10, 22, 14), ColumnSpacing = 12 };
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var footer = new Grid { Padding = new Thickness(22, 8, 22, 12) };
         var saveHint = Description("更改会自动保存");
         saveHint.VerticalAlignment = VerticalAlignment.Center;
         footer.Children.Add(saveHint);
-        var hideSettings = new Button { Content = "关闭设置", CornerRadius = new CornerRadius(24), MinHeight = 40,
-            Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor), Padding = new Thickness(16, 6, 16, 6) };
-        SettingsTypography.Apply(hideSettings, TextRole.Label, InkRole.Primary);
-        Name(hideSettings, "关闭设置");
-        hideSettings.Click += (_, _) => Hide();
-        Grid.SetColumn(hideSettings, 1); footer.Children.Add(hideSettings);
-        WrapActions(footer, saveHint, hideSettings);
         Grid.SetRow(footer, 2);
         pane.Children.Add(footer);
         Grid.SetRow(_tabs, 0); root.Children.Add(_tabs);
+        // Esc is the keyboard half of the close affordance; the visible footer
+        // button is gone so the window keeps a single close entry point (X).
+        root.KeyDown += (_, args) =>
+        {
+            if (args.Key != VirtualKey.Escape) return;
+            args.Handled = true;
+            Hide();
+        };
         root.SizeChanged += (_, _) => UpdateWindowShape();
         pane.SizeChanged += (_, _) => UpdateWindowShape();
         _tabs.SizeChanged += (_, _) => UpdateWindowShape();
@@ -787,7 +828,8 @@ public sealed class SettingsWindow : Window, IDisposable
             _hover.Value = preference.HoverDelayMs; _leave.Value = preference.LeaveDelayMs;
             _reducedMotion.IsOn = preference.ReducedMotion;
             _clockTime.IsOn = preference.ClockShowTime; _clockDate.IsOn = preference.ClockShowDate; _clockWeekday.IsOn = preference.ClockShowWeekday;
-            _acrylicBackdrop?.SetTintOpacity(preference.TintOpacity);
+            // The settings material is fixed at 0.86; the "透明度" slider still
+            // drives the widget glass through the coordinator only.
             _audio.IsOn = preference.AudioVisualizationEnabled;
             _companion.IsOn = preference.CompanionEnabled;
             _companionFollowMouse.IsOn = preference.CompanionFollowMouse;
@@ -862,11 +904,11 @@ public sealed class SettingsWindow : Window, IDisposable
         if (_disposed || _minimalContent) return;
         _tabs?.RefreshAccessibility();
         // Native capture advances independently of preference/scene Changed events.
-        // Read its live state, fallback reason and measured counters verbatim. Updating
-        // these two labels leaves plugin rows, controls and page selection intact.
+        // Read its live state and map the raw native wording into user-facing
+        // Chinese here; native strings stay untouched.
         try
         {
-            string liquid = _coordinator.LiquidGlassStatus;
+            string liquid = LocalizeMaterialStatus(_coordinator.LiquidGlassStatus);
             if (_liquidGlassStatus.Text != liquid) _liquidGlassStatus.Text = liquid;
         }
         catch
@@ -874,9 +916,41 @@ public sealed class SettingsWindow : Window, IDisposable
             const string unavailable = "材质状态暂不可用，请稍后重试。";
             if (_liquidGlassStatus.Text != unavailable) _liquidGlassStatus.Text = unavailable;
         }
-        string audio = _coordinator.AudioStatus;
+        string audio = LocalizeAudioStatus(_coordinator.AudioStatus);
         if (_audioStatus.Text != audio) _audioStatus.Text = audio;
     }
+
+    /// <summary>The native material reports engineering wording; keep it out of the settings UI.</summary>
+    internal static string LocalizeMaterialStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return status;
+        if (status.StartsWith("Disabled", StringComparison.Ordinal))
+            return status.Length > "Disabled".Length ? "未启用（捕捉亲和性恢复失败）" : "未启用";
+        if (status.StartsWith("Starting", StringComparison.Ordinal)) return "正在启动";
+        if (status.StartsWith("Running", StringComparison.Ordinal)) return "已启用";
+        if (status.StartsWith("Paused", StringComparison.Ordinal)) return "已暂停：组件隐藏时保留启用意图";
+        if (status.StartsWith("Fallback:", StringComparison.Ordinal))
+            return "已回退：" + (status["Fallback:".Length..].Trim() switch
+            {
+                "solid/high-contrast policy; enabled intent retained" => "高对比度或实色策略；已保留启用意图",
+                "D3D material device unavailable; enabled intent retained" => "D3D 材质设备不可用；已保留启用意图",
+                var other => other
+            });
+        if (status.StartsWith("QA", StringComparison.Ordinal)) return "已启用（QA 快照）";
+        return status;
+    }
+
+    /// <summary>Audio capture states have no localised reason in the coordinator yet.</summary>
+    internal static string LocalizeAudioStatus(string status) => status switch
+    {
+        "Inactive" => "未启用",
+        "Starting" => "正在启动",
+        "Capturing" => "采集中",
+        "Silent" => "静音中",
+        "Unavailable" => "暂不可用",
+        "Faulted" => "已停止",
+        _ => status
+    };
 
     void RefreshPlugins()
     {
@@ -977,7 +1051,7 @@ public sealed class SettingsWindow : Window, IDisposable
         var panel = new StackPanel { Spacing = 6 };
         panel.Children.Add(SettingTitle(setting.Name));
         if (!string.IsNullOrWhiteSpace(setting.Description)) panel.Children.Add(Description(setting.Description));
-        var input = new TextBox { Text = value, MinWidth = 0, MinHeight = 40, CornerRadius = new CornerRadius(24),
+        var input = new TextBox { Text = value, MinWidth = 0, MinHeight = 40, CornerRadius = new CornerRadius(UiRadius.Control),
             Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor), HorizontalAlignment = HorizontalAlignment.Stretch };
         SettingsTypography.Apply(input, TextRole.Body, InkRole.Secondary);
         Name(input, setting.Name);
@@ -1042,25 +1116,41 @@ public sealed class SettingsWindow : Window, IDisposable
 
     void ConfigureGlassControls(Grid root)
     {
-        // Keep standard WinUI focus/input behavior; only material tokens change.
+        // Keep standard WinUI focus/input behavior; only material/state tokens change.
         if (!HighContrast.HighContrast)
         {
-            foreach (string key in new[] { "ButtonBackground", "ButtonBackgroundPointerOver", "ButtonBackgroundPressed", "ToggleSwitchFillOff", "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed" })
-                root.Resources[key] = Brush(ButtonColor);
+            // Pointer states must differ: a single fill made every button look dead.
+            root.Resources["ButtonBackground"] = Brush(ButtonColor);
+            root.Resources["ButtonBackgroundPointerOver"] = Brush(ButtonPointerOverColor);
+            root.Resources["ButtonBackgroundPressed"] = Brush(ButtonPressedColor);
+            root.Resources["ButtonBackgroundDisabled"] = Brush(ButtonDisabledColor);
+            // The fixed material is nearly white; an off switch needs an ink slot
+            // to stay visible, unlike the old grey acrylic it was tuned for.
+            foreach (string key in new[] { "ToggleSwitchFillOff", "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed" })
+                root.Resources[key] = Brush(0x1620252C);
             foreach (string key in new[] { "SliderThumbBackground", "SliderThumbBackgroundPointerOver", "SliderThumbBackgroundPressed", "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed" })
                 root.Resources[key] = Brush(0xE6FFFFFF);
             foreach (string key in new[] { "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed", "SliderTrackValueFill", "SliderTrackValueFillPointerOver", "SliderTrackValueFillPressed" })
-                root.Resources[key] = Brush(0xFF1689F9);
+                root.Resources[key] = Brush(AccentFill);
+            var accent = Color.FromArgb(255, 0x16, 0x89, 0xF9);
+            foreach (string key in new[] { "SystemAccentColor", "SystemAccentColorLight1", "SystemAccentColorLight2", "SystemAccentColorLight3", "SystemAccentColorDark1", "SystemAccentColorDark2", "SystemAccentColorDark3" })
+                root.Resources[key] = accent;
+            // Keyboard-only focus ring: 2px accent.fill around a 1px light separator.
+            root.Resources["FocusVisualPrimaryBrush"] = Brush(AccentFill);
+            root.Resources["FocusVisualSecondaryBrush"] = Brush(0xFFFFFFFF);
+            root.Resources["FocusVisualPrimaryThickness"] = new Thickness(2);
+            root.Resources["FocusVisualSecondaryThickness"] = new Thickness(1);
         }
         foreach (var toggle in new[] { _reducedMotion, _fullscreen, _startup, _audio, _companion, _companionFollowMouse, _liquidGlass, _clockTime, _clockDate, _clockWeekday }) toggle.MinHeight = 44;
         foreach (var input in new[] { _hotkey, _customColor, _diagnosticPath })
         {
             SettingsTypography.Apply(input, input == _diagnosticPath ? TextRole.CaptionSettings : TextRole.Body, InkRole.Secondary);
-            input.MinHeight = 40; input.CornerRadius = new CornerRadius(24);
+            input.MinHeight = 40; input.CornerRadius = new CornerRadius(UiRadius.Control);
             input.Background = Brush(ButtonColor); input.BorderBrush = Brush(BorderColor);
             input.Padding = new Thickness(14, 8, 14, 8);
         }
         SettingsTypography.Apply(_companionForm, TextRole.Label, InkRole.Primary);
+        _companionForm.CornerRadius = new CornerRadius(UiRadius.Control);
         SettingsTypography.ApplyInfoBar(_feedback);
     }
 
@@ -1069,8 +1159,40 @@ public sealed class SettingsWindow : Window, IDisposable
         if (_disposed) return;
         _feedback.Title = error ? "暂未完成" : "已更新";
         _feedback.Message = message;
-        _feedback.Severity = error ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
+        // Success uses the quiet informational bar and disappears after 2.4 s;
+        // only actionable errors stay until the user closes them.
+        _feedback.Severity = error ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
         _feedback.IsOpen = true;
+        _feedbackTimer.Stop();
+        if (!error) _feedbackTimer.Start();
+    }
+
+    /// <summary>
+    /// A WinUI Border paints its corner radius but does not clip a child's square
+    /// corners, so the rounded well also needs a composition geometric clip.
+    /// The XAML rectangle clip keeps the layout bounds exact and updated.
+    /// </summary>
+    void ClipColorPicker(Windows.Foundation.Size size)
+    {
+        _colorPickerClip.Rect = new Windows.Foundation.Rect(0, 0, size.Width, size.Height);
+        if (size.Width <= 0 || size.Height <= 0) return;
+        try
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(_colorPickerHost);
+            if (_colorPickerGeometry is null)
+            {
+                _colorPickerGeometry = visual.Compositor.CreateRoundedRectangleGeometry();
+                visual.Clip = visual.Compositor.CreateGeometricClip(_colorPickerGeometry);
+            }
+            _colorPickerGeometry.Size = new System.Numerics.Vector2((float)size.Width, (float)size.Height);
+            _colorPickerGeometry.CornerRadius = new System.Numerics.Vector2((float)UiRadius.Control);
+        }
+        catch (Exception error)
+        {
+            // Optional polish: fall back to the rectangular XAML clip instead of
+            // failing the whole settings window on a composition limitation.
+            Trace($"color-picker-clip-unavailable:{error.GetType().Name}");
+        }
     }
 
     void ResizeToWorkArea()
@@ -1084,15 +1206,15 @@ public sealed class SettingsWindow : Window, IDisposable
         AppWindow.Move(new(area.X + (area.Width - width) / 2, area.Y + (area.Height - height) / 2));
     }
 
-    static StackPanel Section(string title, string description)
+    /// <summary>
+    /// One settings page. The page name now lives in the window header, so the
+    /// page keeps its single-line description; the deck owner adds the bottom
+    /// inset that guarantees the 24 DIP scroll tail.
+    /// </summary>
+    static StackPanel Section(string? description = null)
     {
         var panel = new StackPanel { Spacing = 16 };
-        var heading = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 2) };
-        var titleText = SettingsTypography.Apply(new TextBlock { Text = title }, TextRole.PageTitle, InkRole.Primary);
-        var descriptionText = Description(description);
-        heading.Children.Add(titleText);
-        heading.Children.Add(descriptionText);
-        panel.Children.Add(heading);
+        if (!string.IsNullOrEmpty(description)) panel.Children.Add(Description(description));
         return panel;
     }
 
@@ -1110,7 +1232,7 @@ public sealed class SettingsWindow : Window, IDisposable
     static Border Surface(UIElement child) => new()
     {
         Child = child, Background = Brush(SurfaceColor), BorderBrush = Brush(BorderColor),
-        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(24)
+        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(UiRadius.Card)
     };
 
     static StackPanel SliderRow(string title, TextBlock value, Slider slider, string? description = null)
@@ -1160,7 +1282,7 @@ public sealed class SettingsWindow : Window, IDisposable
         Grid.SetColumn(label, 1); content.Children.Add(label);
         var button = new Button
         {
-            Content = content, CornerRadius = new CornerRadius(24), MinHeight = 40,
+            Content = content, CornerRadius = new CornerRadius(UiRadius.Full(40)), MinHeight = 40,
             Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor), Foreground = Brush(InkColor),
             Padding = new Thickness(16, 8, 16, 8), HorizontalAlignment = HorizontalAlignment.Left
         };
@@ -1181,7 +1303,8 @@ public sealed class SettingsWindow : Window, IDisposable
         {
             var role = argb switch
             {
-                CanvasColor or SurfaceColor or ButtonColor or 0xFFF0F2F5 or 0xFFEFF6F4 or 0xFFF6F8FB => UIElementType.Window,
+                CanvasColor or FallbackCanvasColor or SurfaceColor or ButtonColor or ButtonPointerOverColor
+                    or ButtonPressedColor or ButtonDisabledColor or 0xFFEFF6F4 or 0xFFF6F8FB => UIElementType.Window,
                 0xFF28786E => UIElementType.Highlight,
                 _ => UIElementType.WindowText
             };
@@ -1220,6 +1343,8 @@ public sealed class SettingsWindow : Window, IDisposable
         _changeTimer.Tick -= OnChangeTimerTick;
         _statusTimer.Stop();
         _statusTimer.Tick -= OnStatusTimerTick;
+        _feedbackTimer.Stop();
+        _feedbackTimer.Tick -= OnFeedbackTimerTick;
         _coordinator.Changed -= Refresh;
         AppWindow.Closing -= OnAppWindowClosing;
         Closed -= OnWindowClosed;

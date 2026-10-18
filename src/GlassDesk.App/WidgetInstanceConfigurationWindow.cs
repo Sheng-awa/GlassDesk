@@ -236,7 +236,7 @@ internal sealed class WidgetInstanceConfigurationWindow : Window, IDisposable
         _zoneButton.Content = content;
         _zoneButton.MinHeight = 44;
         _zoneButton.Padding = new Thickness(14, 10, 14, 10);
-        _zoneButton.CornerRadius = new CornerRadius(24);
+        _zoneButton.CornerRadius = new CornerRadius(UiRadius.Full(44));
         _zoneButton.Click += OnZoneClick;
         Name(_zoneButton, "选择时区");
         AutomationProperties.SetHelpText(_zoneButton, "打开 Windows 已安装的时区列表。");
@@ -332,7 +332,7 @@ internal sealed class WidgetInstanceConfigurationWindow : Window, IDisposable
         var control = new Button
         {
             Content = Text(title, TextRole.Label, InkRole.Primary), MinWidth = 88, MinHeight = 44,
-            Padding = new Thickness(18, 8, 18, 8), CornerRadius = new CornerRadius(24)
+            Padding = new Thickness(18, 8, 18, 8), CornerRadius = new CornerRadius(UiRadius.Full(44))
         };
         Name(control, title);
         return control;

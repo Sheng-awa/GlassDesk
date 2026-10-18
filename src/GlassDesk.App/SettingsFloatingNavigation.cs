@@ -14,6 +14,10 @@ namespace GlassDesk.App;
 /// <summary>Draggable shared pill. A finite, critically damped settle retains position and velocity.</summary>
 internal sealed class SettingsFloatingNavigation : Grid, IDisposable
 {
+    const uint SelectionFill = 0x1F1689F9; // accent.fill at 12%
+    const uint HoverFill = 0x1420252C;     // ink at 8% on the light ribbon
+    const double SelectionHeight = 46;
+
     static readonly AccessibilitySettings Accessibility = new();
     static readonly UISettings SystemColors = new();
     readonly Border _selection;
@@ -25,7 +29,7 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
     double _dragStartX, _dragStartY, _dragStartPosition, _lastDragX;
     long _lastFrame, _lastDragTime;
     uint? _pointerId;
-    int _pressedIndex;
+    int _pressedIndex, _hoverIndex = -1;
     bool _dragging, _disposed;
     (bool HighContrast, Color Window, Color Ink, Color Highlight)? _palette;
     public int SelectedIndex { get; private set; }
@@ -37,20 +41,20 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
     public SettingsFloatingNavigation(string[] titles, Func<bool> reducedMotion)
     {
         _reducedMotion = reducedMotion;
-        Height = 56; MaxWidth = 480; CornerRadius = new CornerRadius(28);
+        Height = 56; MaxWidth = 480; CornerRadius = new CornerRadius(UiRadius.Shell);
         HorizontalAlignment = HorizontalAlignment.Stretch;
         Background = Brush(0x52FFFFFF);
         BorderBrush = Brush(0x8AFFFFFF); BorderThickness = new Thickness(1);
         _selection = new Border
         {
-            Height = 46, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left,
-            CornerRadius = new CornerRadius(23), Background = Brush(0xD9FFFFFF), BorderBrush = Brush(0xCCFFFFFF),
-            BorderThickness = new Thickness(1), RenderTransform = _translation, IsHitTestVisible = false
+            Height = SelectionHeight, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left,
+            CornerRadius = new CornerRadius(UiRadius.Shell - 4), Background = Brush(SelectionFill), IsHitTestVisible = false
         };
         Children.Add(_selection);
         // The parent owns pointer capture for a continuous drag. Standard Buttons
         // capture the press before a bubbled parent handler can take ownership.
-        // Buttons remain keyboard-focusable and expose their Invoke automation.
+        // Buttons remain keyboard-focusable and expose their Invoke automation;
+        // the pointer-over visual is computed by the parent instead of hit testing.
         var buttonGrid = new Grid { IsHitTestVisible = false };
         _buttons = new Button[titles.Length];
         for (int index = 0; index < titles.Length; index++)
@@ -60,13 +64,13 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
             var button = new Button
             {
                 Content = titles[index], MinWidth = 0, MinHeight = 44, Background = null,
-                BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(24),
+                BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(UiRadius.Shell - 4),
                 HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
                 Padding = new Thickness(2, 0, 2, 0), Foreground = SettingsTypography.Ink(InkRole.Primary)
             };
             AutomationProperties.SetName(button, titles[index]);
-            button.Resources["ButtonBackgroundPointerOver"] = Brush(0x18FFFFFF);
-            button.Resources["ButtonBackgroundPressed"] = Brush(0x28FFFFFF);
+            button.Resources["ButtonBackgroundPointerOver"] = Brush(HoverFill);
+            button.Resources["ButtonBackgroundPressed"] = Brush(0x1F20252C);
             button.Click += (_, _) => { if (_pointerId is null) Select(selected); };
             button.KeyDown += (_, args) =>
             {
@@ -82,14 +86,20 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
             Grid.SetColumn(button, index); buttonGrid.Children.Add(button); _buttons[index] = button;
         }
         Children.Add(buttonGrid);
+        ConfigureFocusVisuals();
         _motion = DispatcherQueue.CreateTimer(); _motion.Interval = TimeSpan.FromMilliseconds(16);
         _motion.Tick += OnFrame;
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnPressed), true);
         AddHandler(PointerMovedEvent, new PointerEventHandler(OnMoved), true);
         AddHandler(PointerReleasedEvent, new PointerEventHandler(OnReleased), true);
+        PointerEntered += (_, args) =>
+        {
+            if (_pointerId is null) SetHover(SlotIndex(args.GetCurrentPoint(this).Position.X));
+        };
         PointerCaptureLost += OnCaptureLost;
         PointerExited += (_, _) =>
         {
+            SetHover(-1);
             if (_dragging || _pointerId is null) return;
             _pointerId = null; Select(SelectedIndex);
         };
@@ -98,11 +108,21 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
         UpdateLabels();
     }
 
+    /// <summary>Keyboard-only focus ring: 2px accent.fill with a 1px light separator.</summary>
+    void ConfigureFocusVisuals()
+    {
+        if (Accessibility.HighContrast) return;
+        Resources["FocusVisualPrimaryBrush"] = Brush(0xFF1689F9);
+        Resources["FocusVisualSecondaryBrush"] = Brush(0xFFFFFFFF);
+        Resources["FocusVisualPrimaryThickness"] = new Thickness(2);
+        Resources["FocusVisualSecondaryThickness"] = new Thickness(1);
+    }
+
     public void Select(int index)
     {
         if (_disposed || index < 0 || index >= _buttons.Length) return;
         bool changed = SelectedIndex != index; SelectedIndex = index;
-        _target = 4 + SlotWidth * index; UpdateLabels();
+        _target = 4 + SlotWidth * index; UpdateLabels(); RefreshHoverVisuals();
         if (changed) SelectionChanged?.Invoke(index);
         if (_reducedMotion()) { _motion.Stop(); _position = _target; _velocity = 0; Present(); }
         else StartMotion();
@@ -121,31 +141,60 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
         for (int index = 0; index < _buttons.Length; index++)
         {
             SettingsTypography.ApplyNavigation(_buttons[index], index == SelectedIndex);
+            SetInk(_buttons[index], index == SelectedIndex);
             AutomationProperties.SetHelpText(_buttons[index], index == SelectedIndex ? "当前页面；可拖动选择底板" : "切换页面");
         }
     }
+
+    /// <summary>Selected labels use accent.ink; the others keep the primary ink tier.</summary>
+    void SetInk(Button button, bool selected)
+    {
+        var fore = selected && !Accessibility.HighContrast
+            ? new SolidColorBrush(Color.FromArgb(255, 0x0B, 0x6B, 0xCB))
+            : SettingsTypography.Ink(InkRole.Primary);
+        button.Foreground = fore;
+        if (button.Content is TextBlock label) label.Foreground = fore;
+    }
+
+    /// <summary>
+    /// The buttons are hit-test invisible so the parent can own drag capture.
+    /// The hovered slot therefore has to be painted by the parent as well.
+    /// </summary>
+    void SetHover(int index)
+    {
+        if (_disposed || index == _hoverIndex) return;
+        _hoverIndex = index;
+        RefreshHoverVisuals();
+    }
+
+    void RefreshHoverVisuals()
+    {
+        // High contrast relies on the system focus/highlight visuals instead of
+        // painting a fill that could hide the label.
+        bool paint = !Accessibility.HighContrast;
+        for (int slot = 0; slot < _buttons.Length; slot++)
+            _buttons[slot].Background = paint && slot == _hoverIndex && slot != SelectedIndex ? Brush(HoverFill) : null;
+    }
+
+    int SlotIndex(double x) => Math.Clamp((int)(x / SlotWidth), 0, _buttons.Length - 1);
 
     public void RefreshAccessibility()
     {
         bool highContrast = Accessibility.HighContrast;
         Color window = highContrast ? SystemColors.UIElementColor(UIElementType.Window) : Color.FromArgb(0x52, 255, 255, 255);
         Color ink = SettingsTypography.Ink(InkRole.Primary).Color;
-        Color highlight = highContrast ? SystemColors.UIElementColor(UIElementType.Highlight) : Color.FromArgb(0xD9, 255, 255, 255);
-        var palette = (highContrast, window, ink, highlight);
+        Color selection = highContrast ? SystemColors.UIElementColor(UIElementType.Window) : Color.FromArgb(0x1F, 0x16, 0x89, 0xF9);
+        var palette = (highContrast, window, ink, selection);
         if (_palette == palette) return;
         _palette = palette;
         Background = new SolidColorBrush(window);
         BorderBrush = highContrast ? new SolidColorBrush(ink) : Brush(0x8AFFFFFF);
         // An outline stays readable as the shared plate passes underneath labels
         // during a direct drag; foreground never depends on a different slot's fill.
-        _selection.Background = new SolidColorBrush(highContrast ? window : highlight);
-        _selection.BorderBrush = highContrast ? new SolidColorBrush(highlight) : Brush(0xCCFFFFFF);
-        _selection.BorderThickness = new Thickness(highContrast ? 2 : 1);
-        foreach (var button in _buttons)
-        {
-            button.Foreground = new SolidColorBrush(ink);
-            if (button.Content is TextBlock label) label.Foreground = new SolidColorBrush(ink);
-        }
+        _selection.Background = new SolidColorBrush(selection);
+        _selection.BorderBrush = highContrast ? new SolidColorBrush(ink) : null;
+        _selection.BorderThickness = new Thickness(highContrast ? 2 : 0);
+        for (int index = 0; index < _buttons.Length; index++) SetInk(_buttons[index], index == SelectedIndex);
     }
 
     void OnPressed(object sender, PointerRoutedEventArgs args)
@@ -153,8 +202,9 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
         if (_disposed || _pointerId is not null) return;
         var point = args.GetCurrentPoint(this);
         if (!point.Properties.IsLeftButtonPressed) return;
+        SetHover(-1);
         _motion.Stop(); _pointerId = args.Pointer.PointerId; _dragging = false;
-        _pressedIndex = Math.Clamp((int)(point.Position.X / SlotWidth), 0, _buttons.Length - 1);
+        _pressedIndex = SlotIndex(point.Position.X);
         _dragStartX = _lastDragX = point.Position.X; _dragStartY = point.Position.Y; _dragStartPosition = _position;
         _lastDragTime = Stopwatch.GetTimestamp();
     }
@@ -162,7 +212,9 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
     void OnMoved(object sender, PointerRoutedEventArgs args)
     {
         var point = args.GetCurrentPoint(this);
+        if (_pointerId is null) { SetHover(SlotIndex(point.Position.X)); return; }
         if (_pointerId != args.Pointer.PointerId) return;
+        SetHover(-1);
         double horizontal = Math.Abs(point.Position.X - _dragStartX), vertical = Math.Abs(point.Position.Y - _dragStartY);
         if (!_dragging)
         {
@@ -201,6 +253,7 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
         bool clickInside = point.Position.X >= 0 && point.Position.X < ActualWidth && point.Position.Y >= 0 && point.Position.Y < ActualHeight;
         _pointerId = null; ReleasePointerCapture(args.Pointer); Select(_dragging || clickInside ? target : SelectedIndex);
         if (_dragging || clickInside) _buttons[SelectedIndex].Focus(FocusState.Pointer);
+        if (clickInside) SetHover(SlotIndex(point.Position.X));
         args.Handled = true;
     }
 
@@ -262,8 +315,8 @@ internal sealed class SettingsFloatingNavigation : Grid, IDisposable
     {
         if (Accessibility.HighContrast)
         {
-            var role = argb == 0xD9FFFFFF ? UIElementType.Highlight :
-                argb is 0xFF27313B or 0x8AFFFFFF or 0xCCFFFFFF ? UIElementType.WindowText : UIElementType.Window;
+            var role = argb == SelectionFill ? UIElementType.Window :
+                argb is 0x8AFFFFFF or 0x1420252C or 0x1F20252C ? UIElementType.WindowText : UIElementType.Window;
             return new(SystemColors.UIElementColor(role));
         }
         return new(Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));

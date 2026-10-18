@@ -6,24 +6,19 @@ using Windows.UI;
 
 namespace GlassDesk.App;
 
-/// <summary>System desktop acrylic connected directly to the XAML window target.</summary>
+/// <summary>
+/// Fixed light desktop acrylic for the settings window. The user-facing
+/// "透明度" slider keeps driving the widget glass; it must not change this
+/// window's material, otherwise the settings surface turns grey on every drag.
+/// </summary>
 internal sealed class SettingsAcrylicBackdrop : SystemBackdrop
 {
-    readonly Dictionary<ICompositionSupportsSystemBackdrop, BackdropTarget> _controllers = new();
-    float _tintOpacity;
+    /// <summary>The single settings material tint; deliberately not user adjustable.</summary>
+    public const float TintOpacityValue = .86f;
 
-    public SettingsAcrylicBackdrop(float tintOpacity)
-        => _tintOpacity = Math.Clamp(tintOpacity, .1f, .9f);
+    readonly Dictionary<ICompositionSupportsSystemBackdrop, BackdropTarget> _controllers = new();
 
     public static bool IsSupported => DesktopAcrylicController.IsSupported();
-
-    public void SetTintOpacity(float opacity)
-    {
-        opacity = Math.Clamp(opacity, .1f, .9f);
-        if (Math.Abs(_tintOpacity - opacity) < .001f) return;
-        _tintOpacity = opacity;
-        foreach (var entry in _controllers.Values) entry.Controller.TintOpacity = opacity;
-    }
 
     protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop target, XamlRoot xamlRoot)
     {
@@ -31,7 +26,7 @@ internal sealed class SettingsAcrylicBackdrop : SystemBackdrop
         if (!IsSupported) return;
         var controller = new DesktopAcrylicController
         {
-            TintColor = Color.FromArgb(255, 255, 255, 255), TintOpacity = _tintOpacity,
+            TintColor = Color.FromArgb(255, 255, 255, 255), TintOpacity = TintOpacityValue,
             LuminosityOpacity = .22f, FallbackColor = Color.FromArgb(255, 240, 242, 245)
         };
         var entry = new BackdropTarget(controller, target);
@@ -51,6 +46,7 @@ internal sealed class SettingsAcrylicBackdrop : SystemBackdrop
     {
         if (_controllers.TryGetValue(target, out var entry))
         {
+            // Phase 1 keeps the settings window light; dark theme is out of scope.
             entry.Configuration.Theme = SystemBackdropTheme.Light;
             entry.Configuration.IsInputActive = true;
         }
