@@ -4,7 +4,9 @@ using System.Text.Json;
 namespace GlassDesk.Core;
 
 public sealed record TimeWidgetSettings(bool Use24Hour = true, bool ShowSeconds = false, string? TimeZoneId = null);
-public sealed record DateWidgetSettings(bool ShowWeekday = true, string DateFormat = "long", string WeekdayFormat = "long",
+// The compact card prints the weekday inside one caption line, so the short form is the
+// default; both options still round-trip and "完整星期" remains available per instance.
+public sealed record DateWidgetSettings(bool ShowWeekday = true, string DateFormat = "long", string WeekdayFormat = "short",
     string? TimeZoneId = null);
 
 /// <summary>Offline providers. A snapshot describes its next boundary; providers never own timers or subscriptions.</summary>
@@ -26,7 +28,7 @@ public static class BuiltInWidgetProviders
         Boolean(settings, "use24Hour", true), Boolean(settings, "showSeconds", false), Zone(settings));
     public static DateWidgetSettings ReadDateSettings(JsonElement settings) => new(
         Boolean(settings, "showWeekday", true), Choice(settings, "dateFormat", "long"),
-        Choice(settings, "weekdayFormat", "long"), Zone(settings));
+        WeekdayChoice(settings), Zone(settings));
     public static JsonElement ToJson(TimeWidgetSettings settings) => JsonSerializer.SerializeToElement(new
     { use24Hour = settings.Use24Hour, showSeconds = settings.ShowSeconds, timeZoneId = ValidZoneId(settings.TimeZoneId) });
     public static JsonElement ToJson(DateWidgetSettings settings) => JsonSerializer.SerializeToElement(new
@@ -41,12 +43,33 @@ public static class BuiltInWidgetProviders
     private static string Choice(JsonElement s, string key, string fallback) =>
         s.ValueKind == JsonValueKind.Object && s.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String && v.GetString() == "short"
             ? "short" : fallback;
+    // Weekday choices default to the compact form; only an explicit long setting uses the full name.
+    private static string WeekdayChoice(JsonElement s) =>
+        s.ValueKind == JsonValueKind.Object && s.TryGetProperty("weekdayFormat", out var v) && v.ValueKind == JsonValueKind.String
+            && v.GetString() == "long" ? "long" : "short";
     private static string? Zone(JsonElement s) => s.ValueKind == JsonValueKind.Object && s.TryGetProperty("timeZoneId", out var v)
         && v.ValueKind == JsonValueKind.String ? ValidZoneId(v.GetString()) : null;
     private static string? ValidZoneId(string? id) => !string.IsNullOrEmpty(id) && id.Length <= 128
         ? InstalledTimeZones().FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase))?.Id : null;
     private static float Width(WidgetCardSize size) => size == WidgetCardSize.Medium ? WidgetBoardLayout.MediumWidth : WidgetBoardLayout.SmallWidth;
-    private static string ZoneLabel(TimeZoneInfo zone) => zone.DisplayName.Length > 128 ? zone.DisplayName[..128] : zone.DisplayName;
+    // The card caption shows a short numeric offset instead of the long installed-zone display name.
+    private static string ZoneCaption(TimeZoneInfo zone, DateTimeOffset instant)
+    {
+        TimeSpan offset = zone.GetUtcOffset(instant), magnitude = offset.Duration();
+        return $"UTC{(offset < TimeSpan.Zero ? "-" : "+")}{magnitude.Hours:00}:{magnitude.Minutes:00}";
+    }
+    // One quiet caption line: "10月19日 · 周一", a "yyyy年" prefix only outside the current
+    // year, and the configured long/short date and weekday forms.
+    private static string DateCaption(DateWidgetSettings options, DateTimeOffset local, DateTimeOffset utcNow)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        string date = local.ToString(options.DateFormat == "short" ? "M/d" : "M月d日", culture);
+        if (local.Year != TimeZoneInfo.ConvertTime(utcNow, TimeZoneInfo.Local).Year)
+            date = local.ToString("yyyy年", culture) + date;
+        return options.ShowWeekday
+            ? date + " · " + local.ToString(options.WeekdayFormat == "short" ? "ddd" : "dddd", culture)
+            : date;
+    }
 
     private sealed class TimeProvider : IWidgetProvider
     {
@@ -59,16 +82,21 @@ public static class BuiltInWidgetProviders
             string format = options.Use24Hour ? "HH:mm" : "hh:mm";
             if (options.ShowSeconds) format += ":ss";
             float width = Width(request.Size) - 24;
-            // Seconds stay in one numeric field; the compact card uses the established 20 DIP role.
-            var role = request.Size == WidgetCardSize.Small && options.ShowSeconds ? TextRole.MediaDetailsTitle : TextRole.WidgetClock;
+            bool medium = request.Size == WidgetCardSize.Medium;
+            // Two text layers only: one value line and one quiet offset caption. A 12-hour
+            // suffix or seconds would not fit the small card at the 36 DIP display size, so
+            // those instances keep the narrower details-title role inside the same slot.
+            var role = !options.Use24Hour || !medium && options.ShowSeconds
+                ? TextRole.MediaDetailsTitle : TextRole.WidgetClock;
+            string value = local.ToString(format, culture);
+            if (!options.Use24Hour) value += " " + local.ToString("tt", culture);
             var elements = new List<WidgetElement>
             {
-                new(WidgetElementKind.Text, new(12, 12, width, 16), "时间", TextRole.WidgetLabel),
-                new(WidgetElementKind.Text, new(12, 38, width, 44), local.ToString(format, culture), role, WidgetNumericStyle.Tabular)
+                new(WidgetElementKind.Text, medium ? new(12, 34, 140, 44) : new(12, 34, width, 44),
+                    value, role, WidgetNumericStyle.Tabular),
+                new(WidgetElementKind.Text, medium ? new(160, 46, 140, 20) : new(12, 112, width, 16),
+                    ZoneCaption(zone, request.UtcNow), medium ? TextRole.Body : TextRole.WidgetLabel)
             };
-            if (!options.Use24Hour)
-                elements.Add(new(WidgetElementKind.Text, new(12, 83, width, 16), local.ToString("tt", culture), TextRole.WidgetLabel));
-            elements.Add(new(WidgetElementKind.Text, new(12, 112, width, 16), ZoneLabel(zone), TextRole.WidgetLabel));
             long interval = options.ShowSeconds ? TimeSpan.TicksPerSecond : TimeSpan.TicksPerMinute;
             long ticks = request.UtcNow.UtcTicks;
             DateTimeOffset? next = ticks > DateTimeOffset.MaxValue.UtcTicks - interval ? null : new(ticks - ticks % interval + interval, TimeSpan.Zero);
@@ -84,16 +112,15 @@ public static class BuiltInWidgetProviders
             var options = ReadDateSettings(request.Settings); var zone = ResolveTimeZone(options.TimeZoneId);
             var local = TimeZoneInfo.ConvertTime(request.UtcNow, zone); var culture = CultureInfo.CurrentCulture;
             float width = Width(request.Size) - 24;
+            bool medium = request.Size == WidgetCardSize.Medium;
+            // Two text layers only: the day number and one caption line.
             var elements = new List<WidgetElement>
             {
-                new(WidgetElementKind.Text, new(12, 12, width, 16), "日期", TextRole.WidgetLabel),
-                new(WidgetElementKind.Text, new(12, 32, width, 56), local.ToString("dd", culture), TextRole.WidgetDateValue, WidgetNumericStyle.Tabular),
-                new(WidgetElementKind.Text, new(12, 91, width, 20),
-                    local.ToString(options.DateFormat == "short" ? "yyyy-MM" : "Y", culture), TextRole.Body, WidgetNumericStyle.DigitsOnly)
+                new(WidgetElementKind.Text, medium ? new(12, 28, 140, 56) : new(12, 28, width, 56),
+                    local.ToString("dd", culture), TextRole.WidgetDateValue, WidgetNumericStyle.Tabular),
+                new(WidgetElementKind.Text, medium ? new(160, 46, 140, 20) : new(12, 96, width, 20),
+                    DateCaption(options, local, request.UtcNow), TextRole.Body)
             };
-            if (options.ShowWeekday)
-                elements.Add(new(WidgetElementKind.Text, new(12, 117, width, 16),
-                    local.ToString(options.WeekdayFormat == "short" ? "ddd" : "dddd", culture), TextRole.WidgetLabel));
             return ValueTask.FromResult(new WidgetSnapshot(Array.AsReadOnly(elements.ToArray()), NextMidnight(request.UtcNow, zone)));
         }
     }

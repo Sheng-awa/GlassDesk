@@ -18,6 +18,12 @@ internal static class WidgetBoardChecks
 
     private static JsonElement Json(string json)
     { using var document = JsonDocument.Parse(json); return document.RootElement.Clone(); }
+    // Independent implementation of the compact caption contract (sign plus HH:mm).
+    private static string ZoneCaptionText(TimeZoneInfo zone, DateTimeOffset instant)
+    {
+        var offset = zone.GetUtcOffset(instant).Duration();
+        return $"UTC{(zone.GetUtcOffset(instant) < TimeSpan.Zero ? "-" : "+")}{offset.Hours:00}:{offset.Minutes:00}";
+    }
     private static WidgetInstance Item(string id, string provider = "test.provider", WidgetCardSize size = WidgetCardSize.Small,
         int order = 0, JsonElement? settings = null) => new(id, provider, size, order, settings ?? WidgetBoardData.EmptySettings());
     private static WidgetBoardState Board(params WidgetInstance[] instances) => new(WidgetBoardData.Version, instances);
@@ -143,13 +149,20 @@ internal static class WidgetBoardChecks
             var utcZone = BuiltInWidgetProviders.InstalledTimeZones().FirstOrDefault(t => t.Id == "UTC");
             check(utcZone is not null, "Windows installed time-zone catalog exposes UTC without downloaded data");
             string zoneId = utcZone?.Id ?? TimeZoneInfo.Local.Id;
+            var zone = BuiltInWidgetProviders.ResolveTimeZone(zoneId);
             var instant = new DateTimeOffset(2026, 10, 18, 17, 34, 56, 250, TimeSpan.Zero);
+            string offsetCaption = ZoneCaptionText(zone, instant);
             var time = BuiltInWidgetProviders.Catalog.Single(p => p.Id == BuiltInWidgetIds.Time).Provider;
             var date = BuiltInWidgetProviders.Catalog.Single(p => p.Id == BuiltInWidgetIds.Date).Provider;
             var plain = await time.GetSnapshotAsync(new("a", WidgetCardSize.Small, instant,
                 BuiltInWidgetProviders.ToJson(new TimeWidgetSettings(TimeZoneId: zoneId))), default);
-            check(plain.Elements[1].Text == "17:34" && plain.NextRefreshUtc == new DateTimeOffset(2026, 10, 18, 17, 35, 0, TimeSpan.Zero)
-                && plain.Elements[1].NumericStyle == WidgetNumericStyle.Tabular, "offline 24-hour clock uses current request time and the next minute boundary");
+            check(plain.Elements.Count == 2 && plain.Elements[0].Text == "17:34"
+                && plain.Elements[0].TextRole == TextRole.WidgetClock && plain.Elements[0].NumericStyle == WidgetNumericStyle.Tabular
+                && plain.Elements[0].Bounds == new FloatRect(12, 34, 126, 44)
+                && plain.Elements[1].Text == offsetCaption && plain.Elements[1].TextRole == TextRole.WidgetLabel
+                && plain.Elements[1].Bounds == new FloatRect(12, 112, 126, 16)
+                && plain.NextRefreshUtc == new DateTimeOffset(2026, 10, 18, 17, 35, 0, TimeSpan.Zero),
+                "small clock keeps two text layers: the value and its UTC offset caption");
             using (var clockScheduler = new WidgetBoardScheduler())
             {
                 var justBefore = new DateTimeOffset(2026, 10, 18, 17, 34, 59, 999, TimeSpan.Zero);
@@ -161,22 +174,54 @@ internal static class WidgetBoardChecks
             }
             var seconds = await time.GetSnapshotAsync(new("b", WidgetCardSize.Medium, instant,
                 BuiltInWidgetProviders.ToJson(new TimeWidgetSettings(false, true, zoneId))), default);
-            check(seconds.Elements[1].Text == "05:34:56" && seconds.Elements.Any(e => e.Text == "PM")
-                && seconds.NextRefreshUtc == new DateTimeOffset(2026, 10, 18, 17, 34, 57, TimeSpan.Zero)
-                && plain.Elements[1].Text == "17:34", "12-hour/seconds choices belong to one instance and schedule only the next second");
+            check(seconds.Elements.Count == 2 && seconds.Elements[0].Text == "05:34:56 PM"
+                && seconds.Elements[0].Bounds == new FloatRect(12, 34, 140, 44)
+                && seconds.Elements[1].Text == offsetCaption && seconds.Elements[1].TextRole == TextRole.Body
+                && seconds.Elements[1].Bounds == new FloatRect(160, 46, 140, 20)
+                && seconds.NextRefreshUtc == new DateTimeOffset(2026, 10, 18, 17, 34, 57, TimeSpan.Zero),
+                "12-hour/seconds choices fold the AM/PM designator into the medium value and schedule only the next second");
             var withWeekday = await date.GetSnapshotAsync(new("c", WidgetCardSize.Small, instant,
                 BuiltInWidgetProviders.ToJson(new DateWidgetSettings(TimeZoneId: zoneId))), default);
-            var withoutWeekday = await date.GetSnapshotAsync(new("d", WidgetCardSize.Small, instant,
+            var fullWeekday = await date.GetSnapshotAsync(new("d", WidgetCardSize.Small, instant,
+                BuiltInWidgetProviders.ToJson(new DateWidgetSettings(true, "long", "long", zoneId))), default);
+            var withoutWeekday = await date.GetSnapshotAsync(new("e", WidgetCardSize.Small, instant,
                 BuiltInWidgetProviders.ToJson(new DateWidgetSettings(false, "short", "short", zoneId))), default);
-            check(withWeekday.Elements[1].Text == "18" && withWeekday.Elements.Any(e => e.Text == "Sunday")
-                && withoutWeekday.Elements.Count == 3 && withoutWeekday.Elements[2].Text == "2026-10"
+            check(withWeekday.Elements.Count == 2 && withWeekday.Elements[0].Text == "18"
+                && withWeekday.Elements[0].TextRole == TextRole.WidgetDateValue
+                && withWeekday.Elements[0].Bounds == new FloatRect(12, 28, 126, 56)
+                && withWeekday.Elements[1].Text == "10月18日 · Sun" && withWeekday.Elements[1].TextRole == TextRole.Body
+                && withWeekday.Elements[1].Bounds == new FloatRect(12, 96, 126, 20)
+                && fullWeekday.Elements[1].Text == "10月18日 · Sunday"
+                && withoutWeekday.Elements.Count == 2 && withoutWeekday.Elements[1].Text == "10/18"
                 && withWeekday.NextRefreshUtc == new DateTimeOffset(2026, 10, 19, 0, 0, 0, TimeSpan.Zero),
-                "date/day/month/weekday options are independent and refresh at the selected zone's midnight");
+                "date card keeps two text layers and still respects weekday/date format settings");
+            // Outside the current year the caption gains a yyyy年 prefix; the shown date and the
+            // viewer's current year are derived independently so the check works on any system zone.
+            var yearEnd = new DateTimeOffset(2025, 12, 31, 16, 30, 0, TimeSpan.Zero);
+            var yearEndSnapshot = await date.GetSnapshotAsync(new("f", WidgetCardSize.Small, yearEnd,
+                BuiltInWidgetProviders.ToJson(new DateWidgetSettings(TimeZoneId: zoneId))), default);
+            var yearEndLocal = TimeZoneInfo.ConvertTime(yearEnd, zone);
+            string yearEndDate = yearEndLocal.ToString("M月d日", CultureInfo.InvariantCulture);
+            if (yearEndLocal.Year != TimeZoneInfo.ConvertTime(yearEnd, TimeZoneInfo.Local).Year)
+                yearEndDate = yearEndLocal.Year.ToString(CultureInfo.InvariantCulture) + "年" + yearEndDate;
+            check(yearEndSnapshot.Elements[1].Text == yearEndDate + " · " + yearEndLocal.ToString("ddd", CultureInfo.InvariantCulture)
+                && yearEndSnapshot.NextRefreshUtc == new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                "date caption prefixes the year only when the shown date is outside the current year");
+            var negativeZone = BuiltInWidgetProviders.InstalledTimeZones()
+                .FirstOrDefault(t => t.GetUtcOffset(instant) < TimeSpan.Zero && !string.Equals(t.Id, zoneId, StringComparison.OrdinalIgnoreCase));
+            if (negativeZone is not null)
+            {
+                var negative = await time.GetSnapshotAsync(new("g", WidgetCardSize.Small, instant,
+                    BuiltInWidgetProviders.ToJson(new TimeWidgetSettings(TimeZoneId: negativeZone.Id))), default);
+                check(negative.Elements[1].Text is { } negativeCaption && negativeCaption == ZoneCaptionText(negativeZone, instant)
+                    && negativeCaption.StartsWith("UTC-", StringComparison.Ordinal),
+                    "negative UTC offsets keep their explicit minus sign in the compact caption");
+            }
             check(BuiltInWidgetProviders.ReadTimeSettings(Json("{\"timeZoneId\":\"not.installed\",\"showSeconds\":7}")).TimeZoneId is null
                 && !BuiltInWidgetProviders.ReadTimeSettings(Json("{\"showSeconds\":7}")).ShowSeconds
                 && BuiltInWidgetProviders.ResolveTimeZone("not.installed").Id == TimeZoneInfo.Local.Id,
                 "invalid clock options fall back locally and only installed Windows zone IDs are accepted");
-            foreach (var snapshot in new[] { plain, seconds, withWeekday, withoutWeekday })
+            foreach (var snapshot in new[] { plain, seconds, withWeekday, fullWeekday, withoutWeekday, yearEndSnapshot })
                 WidgetBoardScheduler.ValidateSnapshot(snapshot, snapshot == seconds ? WidgetCardSize.Medium : WidgetCardSize.Small, new HashSet<string>());
             check(true, "all built-in snapshots satisfy the same bounded element contract as plugin snapshots");
 

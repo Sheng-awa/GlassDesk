@@ -1084,7 +1084,12 @@ public sealed partial class WidgetScene : IDisposable
             return;
         }
         var operations = new List<SurfaceOp>();
-        RoundRect(operations, 0, 0, control.Width, control.Height, Math.Min(control.Width, control.Height) / 2,
+        // Whole-card controls keep the 16 DIP card radius; the generic pill radius
+        // would turn the press veil into a dark ellipse over a 150x148 card.
+        float feedbackRadius = WidgetBoardRenderer.IsCardPressTarget(control)
+            ? Math.Min(16, Math.Min(control.Width, control.Height) / 2)
+            : Math.Min(control.Width, control.Height) / 2;
+        RoundRect(operations, 0, 0, control.Width, control.Height, feedbackRadius,
             pressed ? 0x26303A45u : 0x10303A45u);
         _feedback.Size = new(control.Width, control.Height);
         _feedback.Offset = new(control.X, control.Y, 0);

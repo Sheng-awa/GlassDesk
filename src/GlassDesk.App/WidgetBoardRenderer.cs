@@ -27,9 +27,17 @@ internal sealed record WidgetBoardRenderResult(
 /// </summary>
 internal static class WidgetBoardRenderer
 {
-    // Cards start below the 58–86 toolbar row and the bottom inset keeps them clear of the Dock.
-    const float CardsTop = WidgetBoardLayout.Top, BottomInset = WidgetBoardLayout.BottomInset, Radius = 20, Rim = .65f;
+    // Cards start below the 58–88 toolbar row and the bottom inset keeps them clear of the Dock.
+    const float CardsTop = WidgetBoardLayout.Top, BottomInset = WidgetBoardLayout.BottomInset, Radius = 16, Rim = .75f;
+    // Title 16/24 at y=62; ghost 编辑 and 30-high accent 添加 are flush right at y=58.
+    const float ToolbarTop = 58, ButtonHeight = 30, AccentWidth = 56, GhostWidth = 44, ButtonGap = 8;
+    const float AddMenuRowHeight = 44, AddMenuWidth = 152, AddMenuRadius = 12;
+    const uint AccentFill = 0xff1689f9;
     const int FirstCardAction = 1100, CardActionStride = 80;
+
+    /// <summary>Whole-card controls need the 16 DIP card radius for their press layer, never a pill radius.</summary>
+    internal static bool IsCardPressTarget(AccessibleControl control) =>
+        control.Id >= FirstCardAction && (control.Id - FirstCardAction) % CardActionStride == 0 && control.Width > 60;
 
     public static WidgetBoardRenderResult Build(WidgetBoardState board, IReadOnlyList<WidgetInstanceResult> results,
         float width, float panelHeight, float scrollOffset, bool editing, bool addMenuOpen, bool lightInk,
@@ -41,9 +49,10 @@ internal static class WidgetBoardRenderer
         board = WidgetBoardData.ValidateAndClone(board);
         var packing = WidgetBoardLayout.Pack(board, width, CardsTop);
         float viewportHeight = Math.Max(0, panelHeight - CardsTop - BottomInset);
-        // ContentHeight is the scrollable card extent, excluding the fixed bottom
-        // window inset. The host may use ContentHeight - viewportHeight directly.
-        float contentHeight = Math.Max(0, packing.ContentBottom - CardsTop - BottomInset);
+        // ContentHeight is the card extent measured from the viewport top, including the
+        // packing's trailing 24 DIP margin. The host derives the scroll range with
+        // ContentHeight - viewportHeight, so the last row can clear the dock inset.
+        float contentHeight = Math.Max(0, packing.ContentBottom - CardsTop);
         float maximumScroll = Math.Max(0, contentHeight - viewportHeight);
         scrollOffset = float.IsFinite(scrollOffset) ? Math.Clamp(scrollOffset, 0, maximumScroll) : 0;
         var viewport = new FloatRect(0, CardsTop, width, viewportHeight);
@@ -54,26 +63,30 @@ internal static class WidgetBoardRenderer
         uint primary = TypographyCatalog.Ink(InkRole.Primary, lightInk);
         uint secondary = TypographyCatalog.Ink(InkRole.Secondary, lightInk);
         if (highContrast) primary = secondary = lightInk ? 0xffffffff : 0xff000000;
-        uint tone = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : lightInk ? 0x0affffffu : 0x0a000000u;
+        // A paper-thin card face keeps the glass visible: white 8% on light material and
+        // black 7% on dark material, with a stronger upper-left rim for the raised edge.
+        uint tone = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : lightInk ? 0x12000000u : 0x14ffffffu;
         var panelBounds = new FloatRect(0, 0, width, panelHeight);
+        int instanceCount = board.Instances.Count;
 
         // Toolbar controls have stable IDs independent of scrolling and card count.
-        float available = width - 48, buttonWidth = Math.Min(60, Math.Max(0, (available - 8) / 2));
         float right = width - 24;
-        float leftButton = right - buttonWidth * 2 - 8;
-        if (leftButton > 112)
-            toolbar.Add(Text("我的组件", TextRole.SectionTitle, new(24, 62, leftButton - 32, 24), primary, locale));
+        float addX = right - AccentWidth;
+        float editX = addX - ButtonGap - GhostWidth;
+        float titleWidth = Math.Min(220, editX - 32);
+        if (titleWidth > 60)
+            toolbar.Add(Text("我的组件", TextRole.SectionTitle, new(24, 62, titleWidth, 24), primary, locale));
         if (editing)
         {
-            ToolbarButton(1003, "完成", "完成组件布局编辑", WidgetBoardActionKind.Commit, leftButton, buttonWidth);
-            ToolbarButton(1004, "取消", "取消组件布局编辑", WidgetBoardActionKind.Cancel, right - buttonWidth, buttonWidth);
+            ToolbarButton(1003, "完成", "完成组件布局编辑", WidgetBoardActionKind.Commit, addX, AccentWidth, accent: true);
+            ToolbarButton(1004, "取消", "取消组件布局编辑", WidgetBoardActionKind.Cancel, editX, GhostWidth, accent: false);
         }
         else
         {
-            ToolbarButton(1000, "添加", "添加组件", WidgetBoardActionKind.Add, leftButton, buttonWidth,
-                board.Instances.Count < WidgetBoardData.MaximumInstances);
-            ToolbarButton(1001, "编辑", "编辑组件布局", WidgetBoardActionKind.BeginEdit, right - buttonWidth, buttonWidth,
-                board.Instances.Count > 0);
+            ToolbarButton(1000, "添加", "添加组件", WidgetBoardActionKind.Add, addX, AccentWidth, accent: true,
+                instanceCount < WidgetBoardData.MaximumInstances);
+            ToolbarButton(1001, "编辑", "编辑组件布局", WidgetBoardActionKind.BeginEdit, editX, GhostWidth, accent: false,
+                instanceCount > 0);
         }
 
         var resultById = results.Where(r => r is not null).GroupBy(r => r.InstanceId, StringComparer.Ordinal)
@@ -90,29 +103,32 @@ internal static class WidgetBoardRenderer
             int actionBase = FirstCardAction + index * CardActionStride;
             string typeName = Name(instance), identity = $"{typeName}组件，第 {index + 1} 个";
             resultById.TryGetValue(instance.InstanceId, out var result);
-            CardSurface(cards, local, tone, lightInk, highContrast);
+            CardSurface(cards, local, tone, lightInk, highContrast, editing);
 
             if (editing)
             {
-                cards.Add(Text(typeName, TextRole.WidgetLabel, new(local.X + 12, local.Y + 10, local.Width - 24, 18), primary, locale));
-                float buttonSize = Math.Min(44, Math.Max(0, (local.Width - 28) / 2));
-                float secondX = local.Right - 12 - buttonSize;
-                EditButton(0, "配置", "\uE713", WidgetBoardActionKind.Configure, local.X + 12, local.Y + 38);
-                EditButton(1, "移除", "\uE74D", WidgetBoardActionKind.Remove, secondX, local.Y + 38);
-                EditButton(2, instance.Size == WidgetCardSize.Small ? "中卡" : "小卡", "\uE740", WidgetBoardActionKind.ToggleSize,
-                    local.X + 12, local.Y + 92);
-                EditButton(3, "拖动", "\uE700", WidgetBoardActionKind.DragHandle, secondX, local.Y + 92);
+                // The compact edit state keeps one title line, a top-right drag handle and a
+                // bottom row of three 44 DIP icon buttons instead of a 2x2 block.
+                cards.Add(Text(typeName, TextRole.WidgetLabel,
+                    new(local.X + 12, local.Y + 10, Math.Max(0, local.Width - 80), 18), primary, locale));
+                float buttonSize = 44;
+                float rowX = local.X + (local.Width - buttonSize * 3) / 2;
+                float rowY = local.Bottom - 12 - buttonSize;
+                EditButton(0, "配置", "\uE713", WidgetBoardActionKind.Configure, rowX, rowY);
+                EditButton(1, instance.Size == WidgetCardSize.Small ? "中卡" : "小卡", "\uE740",
+                    WidgetBoardActionKind.ToggleSize, rowX + buttonSize, rowY);
+                EditButton(2, "移除", "\uE74D", WidgetBoardActionKind.Remove, rowX + buttonSize * 2, rowY);
+                EditButton(3, "拖动", "\uE700", WidgetBoardActionKind.DragHandle, local.Right - 12 - buttonSize, local.Y + 6);
+                continue;
 
                 void EditButton(int offset, string label, string glyph, WidgetBoardActionKind kind, float x, float y)
                 {
-                    var bounds = new FloatRect(x, y, buttonSize, 44);
-                    cards.Add(Icon(glyph, new(x + (buttonSize - 16) / 2, y + 4, 16, 16), primary));
-                    cards.Add(Text(label, TextRole.Caption, new(x, y + 23, buttonSize, 16), secondary, locale, true));
+                    var bounds = new FloatRect(x, y, buttonSize, buttonSize);
+                    cards.Add(Icon(glyph, new(x + (buttonSize - 16) / 2, y + (buttonSize - 16) / 2, 16, 16), primary));
                     string verb = kind == WidgetBoardActionKind.ToggleSize ? $"切换为{label}" : label;
                     AddControl(actionBase + offset, $"{verb}{identity}", bounds with { Y = bounds.Y + CardsTop },
                         new(kind, instance.InstanceId), viewport);
                 }
-                continue;
             }
 
             bool failed = result?.State is WidgetProviderState.Unavailable or WidgetProviderState.Faulted or WidgetProviderState.TimedOut;
@@ -194,35 +210,56 @@ internal static class WidgetBoardRenderer
 
         if (packing.Cards.Count == 0 && viewportHeight > 0)
         {
-            cards.Add(Text("还没有组件", TextRole.SectionTitle, new(24, 24, width - 48, 26), primary, locale, true));
-            cards.Add(Text("从添加开始，放入时间或日期", TextRole.Body, new(24, 62, width - 48, 24), secondary, locale, true));
+            // Empty state is vertically centered in the card viewport: 32 DIP trough,
+            // title, caption and an accent add button share one 144 DIP block.
+            float top = Math.Max(16, (viewportHeight - 144) / 2), center = width / 2;
+            cards.Add(Round(new(center - 16, top, 32, 32), 16,
+                highContrast ? WithAlpha(primary, 0x48) : lightInk ? 0x1fffffffu : 0x1020252cu));
+            cards.Add(Text("还没有组件", TextRole.SectionTitle, new(24, top + 48, width - 48, 24), primary, locale, true));
+            cards.Add(Text("添加时间或日期开始", TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
+            var emptyAdd = new FloatRect(center - 60, top + 112, 120, 32);
+            bool emptyEnabled = instanceCount < WidgetBoardData.MaximumInstances;
+            cards.Add(Round(emptyAdd, emptyAdd.Height / 2, AccentFace(emptyEnabled, lightInk, highContrast)));
+            cards.Add(Text("添加组件", TextRole.Label, emptyAdd, AccentInk(emptyEnabled, lightInk, highContrast), locale, true));
+            AddControl(1007, "添加组件", emptyAdd with { Y = emptyAdd.Y + CardsTop },
+                new(WidgetBoardActionKind.Add), viewport, emptyEnabled);
         }
         if (!editing && addMenuOpen)
         {
-            float menuWidth = Math.Min(152, width - 48), menuHeight = Math.Min(100, Math.Max(0, panelHeight - 140));
-            var menu = new FloatRect(Math.Max(24, right - menuWidth * 1.35f), CardsTop, menuWidth, menuHeight);
-            // A short owned menu belongs to the toolbar layer above the card surface.
-            CardSurface(toolbar, menu, highContrast ? tone : lightInk ? 0xf020252c : 0xf0f4f5f7, lightInk, highContrast);
-            MenuEntry(1005, "时间", WidgetBoardActionKind.AddTime, menu.Y + 4);
-            MenuEntry(1006, "日期", WidgetBoardActionKind.AddDate, menu.Y + 50);
+            // A short light flyout belongs to the toolbar layer above the card surface;
+            // its right edge lines up with the 添加 button.
+            float menuWidth = Math.Min(AddMenuWidth, width - 48);
+            var menu = new FloatRect(right - menuWidth, ToolbarTop + ButtonHeight + 4, menuWidth, AddMenuRowHeight * 2 + 8);
+            uint menuFill = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : 0xfff8fafcu;
+            uint menuInk = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0xff20252cu;
+            toolbar.Add(Round(menu, AddMenuRadius, menuFill));
+            MenuEntry(1005, "时间", "\uE917", WidgetBoardActionKind.AddTime, menu.Y + 4);
+            MenuEntry(1006, "日期", "\uE787", WidgetBoardActionKind.AddDate, menu.Y + 4 + AddMenuRowHeight);
 
-            void MenuEntry(int id, string label, WidgetBoardActionKind kind, float y)
+            void MenuEntry(int id, string label, string glyph, WidgetBoardActionKind kind, float y)
             {
-                var bounds = Intersect(new(menu.X + 4, y, menu.Width - 8, 44), menu);
+                var bounds = Intersect(new(menu.X + 4, y, menu.Width - 8, AddMenuRowHeight), menu);
                 if (bounds.Width <= 0 || bounds.Height <= 0) return;
-                toolbar.Add(Text(label, TextRole.Label, bounds, primary, locale, true));
+                toolbar.Add(Icon(glyph, new(bounds.X + 12, bounds.Y + 14, 16, 16), menuInk));
+                toolbar.Add(Text(label, TextRole.Label, new(bounds.X + 40, bounds.Y + 12, bounds.Width - 48, 20), menuInk, locale));
                 AddControl(id, $"添加{label}组件", bounds, new(kind), panelBounds,
-                    board.Instances.Count < WidgetBoardData.MaximumInstances);
+                    instanceCount < WidgetBoardData.MaximumInstances);
             }
         }
         return new(Array.AsReadOnly(toolbar.ToArray()), Array.AsReadOnly(cards.ToArray()), Array.AsReadOnly(controls.ToArray()),
             new System.Collections.ObjectModel.ReadOnlyDictionary<int, WidgetBoardUiAction>(actions), packing, scrollOffset, contentHeight);
 
-        void ToolbarButton(int id, string label, string name, WidgetBoardActionKind kind, float x, float targetWidth, bool enabled = true)
+        void ToolbarButton(int id, string label, string name, WidgetBoardActionKind kind, float x, float targetWidth,
+            bool accent, bool enabled = true)
         {
-            var bounds = Intersect(new(x, 58, targetWidth, 28), panelBounds);
+            var bounds = Intersect(new(x, ToolbarTop, targetWidth, ButtonHeight), panelBounds);
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
-            toolbar.Add(Text(label, TextRole.Label, bounds, enabled ? primary : secondary, locale, true));
+            if (accent)
+            {
+                toolbar.Add(Round(bounds, bounds.Height / 2, AccentFace(enabled, lightInk, highContrast)));
+                toolbar.Add(Text(label, TextRole.Label, bounds, AccentInk(enabled, lightInk, highContrast), locale, true));
+            }
+            else toolbar.Add(Text(label, TextRole.Label, bounds, enabled ? primary : secondary, locale, true));
             AddControl(id, name, bounds, new(kind), panelBounds, enabled);
         }
         void AddControl(int id, string name, FloatRect bounds, WidgetBoardUiAction action, FloatRect clip, bool enabled = true)
@@ -232,6 +269,17 @@ internal static class WidgetBoardRenderer
             controls.Add(new(id, name, bounds.X, bounds.Y, bounds.Width, bounds.Height, enabled));
             actions.Add(id, action);
         }
+    }
+
+    static uint AccentFace(bool enabled, bool lightInk, bool highContrast)
+    {
+        if (highContrast) return enabled ? (lightInk ? 0xffffffffu : 0xff000000u) : (lightInk ? 0x66ffffffu : 0x66000000u);
+        return enabled ? AccentFill : 0x301689f9u;
+    }
+    static uint AccentInk(bool enabled, bool lightInk, bool highContrast)
+    {
+        if (highContrast) return enabled ? (lightInk ? 0xff000000u : 0xffffffffu) : (lightInk ? 0xff84909cu : 0xff8e98a3u);
+        return enabled ? 0xfff8fafcu : (lightInk ? 0xff84909cu : 0xff8e98a3u);
     }
 
     static string Name(WidgetInstance instance) => instance.ProviderId switch
@@ -261,13 +309,23 @@ internal static class WidgetBoardRenderer
         "clock" => "\uE917", "calendar" => "\uE787", "settings" => "\uE713", "info" => "\uE946",
         "warning" => "\uE7BA", "check" => "\uE73E", "heart" => "\uEB51", "music" => "\uE8D6", _ => null
     };
-    static void CardSurface(List<SurfaceOp> ops, FloatRect b, uint tone, bool lightInk, bool highContrast)
+    static void CardSurface(List<SurfaceOp> ops, FloatRect b, uint tone, bool lightInk, bool highContrast, bool editing = false)
     {
         if (b.Width <= 0 || b.Height <= 0) return;
         float radius = Math.Min(Radius, Math.Min(b.Width, b.Height) / 2), inset = Rim / 2;
+        if (editing)
+        {
+            // Edit mode deepens the face and adds a 1px accent ring so the card reads as selected.
+            uint accent = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : AccentFill;
+            uint face = highContrast ? tone : lightInk ? 0x1a000000u : 0x1fffffffu;
+            ops.Add(Round(b, radius, accent));
+            if (b.Width > 2 && b.Height > 2)
+                ops.Add(Round(new(b.X + 1, b.Y + 1, b.Width - 2, b.Height - 2), Math.Max(0, radius - 1), face));
+            return;
+        }
         ops.Add(Round(b, radius, tone));
-        uint upper = highContrast ? (lightInk ? 0xffffffff : 0xff000000) : 0x42ffffff;
-        uint lower = highContrast ? upper : lightInk ? 0x10ffffffu : 0x14000000u;
+        uint upper = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0x42ffffffu;
+        uint lower = highContrast ? upper : 0x14ffffffu;
         float stroke = highContrast ? 1 : Rim;
         ops.Add(Line(b.X + radius, b.Y + inset, b.Width - radius * 2, 0, upper, stroke));
         ops.Add(Line(b.X + inset, b.Y + radius, 0, b.Height - radius * 2, upper, stroke));
