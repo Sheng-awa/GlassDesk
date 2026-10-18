@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>GlassDesk 详情页布局 · 顶部陪伴 + 底部导航</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+  --display:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+  --ink:#20252C;--ink2:#48515B;--ink3:#7A828C;
+  --page:#F2F4F7;--line:#E1E6EC;--accent:#1689F9;--accent-ink:#0B6BCB;
+}
+body{font-family:var(--font);background:var(--page);color:var(--ink);padding:46px 36px 64px;line-height:1.55}
+.wrap{max-width:1380px;margin:0 auto}
+h1{font-family:var(--display);font-size:32px;font-weight:650;letter-spacing:-.02em}
+.sub{color:var(--ink2);font-size:14.5px;margin-top:8px;max-width:1000px}
+.tagline{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pill{height:28px;padding:0 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:12.5px;color:var(--ink2);display:inline-flex;align-items:center}
+.pill b{color:var(--ink);font-weight:600}
+
+.row{display:flex;gap:34px;align-items:flex-start;margin-top:34px;flex-wrap:wrap;justify-content:center}
+.column{display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{font-size:13px;color:var(--ink2);text-align:center;max-width:380px}
+.cap b{display:block;font-size:15px;color:var(--ink);font-weight:650;margin-bottom:3px}
+.cap .pro{color:#1E7A43}
+.cap .con{color:#A8721D}
+
+.stage{position:relative;border-radius:28px;overflow:hidden;background:linear-gradient(140deg,#cfdcea 0%,#eef3f8 45%,#d9e4ef 100%)}
+.stage::before,.stage::after{content:"";position:absolute;border-radius:50%;filter:blur(56px)}
+.stage::before{width:420px;height:420px;left:-120px;top:-140px;background:radial-gradient(circle,rgba(150,185,235,.55),transparent)}
+.stage::after{width:460px;height:460px;right:-140px;bottom:-200px;background:radial-gradient(circle,rgba(235,190,205,.5),transparent)}
+.stage .pad{padding:36px;position:relative}
+
+/* ===== 卡片 ===== */
+.card{position:relative;width:360px;border-radius:24px;background:rgba(255,255,255,.62);
+  -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 24px 54px rgba(10,16,26,.24),inset 0 1px 0 rgba(255,255,255,.55);
+  overflow:hidden}
+.card.music{height:476px}
+.card.widgets{height:512px}
+
+/* 顶部陪伴 = 首页把手 */
+.home{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:58px;height:28px;border-radius:14px;background:#202328;
+  display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.home i{width:6px;height:9px;border-radius:3px;background:#FAFBFC}
+.home-tip{position:absolute;top:46px;left:50%;transform:translateX(-50%);height:20px;padding:0 9px;border-radius:10px;background:#F8FAFC;color:#20252C;
+  font-size:11px;line-height:20px;font-weight:600;box-shadow:0 3px 9px rgba(10,16,26,.18);white-space:nowrap}
+
+/* 封面 / 信息 / 时间轴 / 控制 */
+.cover{position:absolute;left:96px;top:70px;width:168px;height:168px;border-radius:16px;overflow:hidden;
+  box-shadow:0 10px 26px rgba(20,12,30,.26),inset 0 0 0 1px rgba(255,255,255,.16);
+  background:radial-gradient(circle at 50% 38%,rgba(255,246,236,.92),transparent 46%),
+             conic-gradient(from 205deg at 52% 46%,#c9a7b6,#7d6687,#3c3a63,#a5839d,#d8b9a8,#c9a7b6)}
+.cover::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 38%,rgba(255,255,255,.10) 0 1px,transparent 1px 7px)}
+.title{position:absolute;left:24px;top:246px;width:312px;text-align:center;font-family:var(--display);font-size:19px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+.artist{position:absolute;left:24px;top:274px;width:312px;text-align:center;font-size:13px;line-height:20px;color:var(--ink2)}
+.timeline{position:absolute;left:56px;top:300px;width:248px;height:38px}
+.track{height:4px;border-radius:2px;background:rgba(32,37,44,.16);position:relative}
+.track .fill{position:absolute;left:0;top:0;height:4px;border-radius:2px;background:#48515B;opacity:.8;width:36%}
+.track .knob{position:absolute;top:-2px;left:calc(36% - 4px);width:8px;height:8px;border-radius:50%;background:#48515B}
+.tl{position:absolute;top:16px;font-size:11px;line-height:16px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.tl.a{left:0}.tl.b{right:0}
+.transport{position:absolute;left:96px;top:340px;width:168px;height:60px;display:flex;align-items:flex-start;gap:12px}
+.tbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#48515B;margin-top:6px}
+.tbtn:hover{background:rgba(32,37,44,.06)}
+.tbtn svg{width:20px;height:20px}
+.tplay{width:56px;height:56px;border-radius:50%;background:#20252C;color:#fff;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.24)}
+.tplay svg{width:20px;height:20px;margin-left:2px}
+
+/* ===== 底部 Dock（方案 1） ===== */
+.dock{position:absolute;left:20px;width:320px;height:48px;border-radius:24px;background:rgba(32,35,40,.94);
+  display:flex;align-items:center;padding:6px;gap:4px;box-shadow:0 8px 22px rgba(10,16,26,.28),inset 0 1px 0 rgba(255,255,255,.12)}
+.dock .item{height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,.62);flex:1;position:relative}
+.dock .item svg{width:18px;height:18px}
+.dock .item .lb{font-size:11px;font-weight:500;white-space:nowrap;display:none}
+.dock .item.on{background:#F8FAFC;color:#20252C;flex:0 0 96px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.dock .item.on .lb{display:inline}
+.dock .item.preview{opacity:.7}
+.dock .tag{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);height:20px;padding:0 9px;border-radius:10px;background:#F8FAFC;color:#20252C;
+  font-size:11px;line-height:20px;font-weight:600;white-space:nowrap;box-shadow:0 3px 9px rgba(10,16,26,.2)}
+
+/* ===== 全宽 Tab Bar（方案 2） ===== */
+.tabbar{position:absolute;left:0;bottom:0;width:100%;height:62px;background:rgba(255,255,255,.34);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.55);display:flex;align-items:center;justify-content:space-around;padding:0 10px 4px}
+.tabbar .tab{display:flex;flex-direction:column;align-items:center;gap:3px;color:rgba(32,37,44,.55);font-size:10px;line-height:12px}
+.tabbar .tab svg{width:20px;height:20px}
+.tabbar .tab.on{color:#20252C;font-weight:600}
+.tabbar .tab.on .ico{background:rgba(22,137,249,.14);border-radius:12px;padding:3px 10px;margin-top:-6px}
+
+/* ===== 小组件页 ===== */
+.wtitle{position:absolute;left:24px;top:66px;font-size:16px;line-height:24px;font-weight:650;letter-spacing:-.005em}
+.wactions{position:absolute;right:24px;top:62px;display:flex;align-items:center;gap:6px}
+.wbtn{height:28px;padding:0 11px;border-radius:999px;font-size:11.5px;font-weight:500;display:inline-flex;align-items:center;gap:4px;color:#48515B}
+.wbtn.primary{background:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(15,90,180,.25)}
+.wbtn svg{width:12px;height:12px}
+.cards{position:absolute;left:24px;top:104px;display:flex;gap:12px;flex-wrap:wrap}
+.wcard{width:150px;height:148px;border-radius:16px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.85);
+  box-shadow:0 6px 16px rgba(10,16,26,.12),inset 0 1px 0 rgba(255,255,255,.6);padding:12px;display:flex;flex-direction:column;position:relative}
+.wcard .lb{font-size:11px;line-height:16px;font-weight:500;color:var(--ink3)}
+.wcard .gear{position:absolute;right:10px;top:10px;color:var(--ink3)}
+.wcard .gear svg{width:13px;height:13px}
+.wcard .big{font-family:var(--display);font-size:34px;line-height:42px;margin-top:10px;font-variant-numeric:tabular-nums}
+.wcard .big.date{font-size:44px;line-height:50px}
+.wcard .sub{margin-top:auto;font-size:11.5px;line-height:16px;color:var(--ink2)}
+.wcard.wide{width:312px;flex-direction:row;align-items:flex-end;gap:14px;padding:14px 16px}
+.wcard.wide .big{font-size:38px;line-height:42px;margin-top:0}
+.wcard.wide .side{margin-left:auto;text-align:right;font-size:12px;line-height:18px;color:var(--ink2)}
+.wcard.wide .lb{position:absolute;left:16px;top:12px}
+
+/* ===== 说明区 ===== */
+.section{margin-top:48px}
+.section h2{font-family:var(--display);font-size:21px;font-weight:650;letter-spacing:-.01em;margin-bottom:6px}
+.section .lead{font-size:13.5px;color:var(--ink2);margin-bottom:16px;max-width:1050px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.tile{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.tile h3{font-size:14px;margin-bottom:8px}
+.tile p{font-size:12.5px;color:var(--ink2);margin-bottom:10px}
+.tile .kb{font-size:11.5px;color:var(--ink3);padding-left:10px;border-left:3px solid #DCE7F5}
+.tile a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #BFD9F8}
+.note{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:16px;font-size:13px;color:var(--ink2)}
+.note b{color:var(--ink)}
+.note ul{list-style:none;display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.note li{display:flex;gap:8px}
+.note li::before{content:"·";color:var(--accent-ink);font-weight:700}
+.foot{margin-top:36px;font-size:12px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M10 17.2a2.6 2.6 0 1 1-2.6-2.6c.6 0 1.1.2 1.6.5V6.2l8-1.7v9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="17" cy="16.2" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="5" y="5" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="13" y="5" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="5" y="13" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="13" y="13" width="6" height="6" rx="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.4V12l3 1.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-focus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 5.8A1.8 1.8 0 0 1 6.8 4h8.4L19 7.8v10.4A1.8 1.8 0 0 1 17.2 20H6.8A1.8 1.8 0 0 1 5 18.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 10h6M9 13.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M19.4 13.4a7.6 7.6 0 0 0 0-2.8l2-1.5-2-3.4-2.3 1a7.5 7.5 0 0 0-2.4-1.4L14.3 3h-3.9l-.4 2.3a7.5 7.5 0 0 0-2.4 1.4l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 2.8l-2 1.5 2 3.4 2.3-1a7.5 7.5 0 0 0 2.4 1.4l.4 2.3h3.9l.4-2.3a7.5 7.5 0 0 0 2.4-1.4l2.3 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M9 6v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 6.8v10.4L10.5 12z" fill="currentColor"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M15 6v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 6.8v10.4L13.5 12z" fill="currentColor"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.2 5.6v12.8L19 12z" fill="currentColor"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>详情页新布局：顶部陪伴 + 底部导航</h1>
+  <div class="sub">按你的草图做的两套方案：陪伴放顶部中间，点它回首页（时间胶囊）；导航整体移到下面。对比 iOS Tab Bar / Material 3 / macOS Dock 的做法，都保留了“图标 + 名字 + 选中态”。</div>
+  <div class="tagline">
+    <span class="pill">顶部只留 <b>陪伴（首页把手）</b></span>
+    <span class="pill">底部 <b>5 项导航</b></span>
+    <span class="pill">悬停出 <b>名字牌</b></span>
+    <span class="pill">圆形入口 <b>删除</b></span>
+  </div>
+
+  <div class="row">
+    <!-- 方案 1 · 音乐页 -->
+    <div class="column">
+      <div class="stage"><div class="pad">
+        <div class="card music">
+          <div class="home"><i></i><i></i></div>
+          <div class="home-tip">回首页</div>
+          <div class="cover"></div>
+          <div class="title">天球(そら)のMúsica</div>
+          <div class="artist">Ave Mujica</div>
+          <div class="timeline"><div class="track"><div class="fill"></div><div class="knob"></div></div><div class="tl a">1:12</div><div class="tl b">3:48</div></div>
+          <div class="transport">
+            <div class="tbtn"><svg><use href="#i-prev"/></svg></div>
+            <div class="tplay"><svg><use href="#i-play"/></svg></div>
+            <div class="tbtn"><svg><use href="#i-next"/></svg></div>
+          </div>
+          <div class="dock" style="bottom:16px">
+            <div class="item on"><svg><use href="#i-music"/></svg><span class="lb">音乐</span></div>
+            <div class="item"><svg><use href="#i-grid"/></svg></div>
+            <div class="item preview"><svg><use href="#i-clock"/></svg><span class="tag">时钟</span></div>
+            <div class="item preview"><svg><use href="#i-focus"/></svg></div>
+            <div class="item preview"><svg><use href="#i-note"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="cap"><b>方案 1 · 音乐页（推荐）</b>顶部陪伴 = 首页把手；底部浮动 Dock 5 项。<span class="pro">选中项带名字，悬停出名字牌，左右对称。</span></div>
+    </div>
+
+    <!-- 方案 1 · 小组件页 -->
+    <div class="column">
+      <div class="stage"><div class="pad">
+        <div class="card widgets">
+          <div class="home"><i></i><i></i></div>
+          <div class="wtitle">我的组件</div>
+          <div class="wactions"><div class="wbtn">编辑</div><div class="wbtn primary"><svg><use href="#i-plus"/></svg>添加</div></div>
+          <div class="cards">
+            <div class="wcard"><div class="lb">时间</div><div class="gear"><svg><use href="#i-gear"/></svg></div><div class="big">02:23</div><div class="sub">北京时间</div></div>
+            <div class="wcard"><div class="lb">日期</div><div class="gear"><svg><use href="#i-gear"/></svg></div><div class="big date">19</div><div class="sub">10月19日 · 周一</div></div>
+            <div class="wcard wide"><div class="lb">时间 · 日期</div><div class="gear"><svg><use href="#i-gear"/></svg></div><div class="big">02:23</div><div class="side">10月19日 · 周一<br>北京时间</div></div>
+          </div>
+          <div class="dock" style="bottom:16px">
+            <div class="item"><svg><use href="#i-music"/></svg></div>
+            <div class="item on"><svg><use href="#i-grid"/></svg><span class="lb">小组件</span></div>
+            <div class="item preview"><svg><use href="#i-clock"/></svg></div>
+            <div class="item preview"><svg><use href="#i-focus"/></svg></div>
+            <div class="item preview"><svg><use href="#i-note"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="cap"><b>方案 1 · 小组件页</b>同一套 Dock，选中“小组件”；卡片文字收成两层（时间 + 北京时间 / 19 + 日期）。页面高 512，Dock 不挡卡片。</div>
+    </div>
+
+    <!-- 方案 2 · 全宽 Tab Bar -->
+    <div class="column">
+      <div class="stage"><div class="pad">
+        <div class="card music">
+          <div class="home"><i></i><i></i></div>
+          <div class="cover"></div>
+          <div class="title">天球(そら)のMúsica</div>
+          <div class="artist">Ave Mujica</div>
+          <div class="timeline"><div class="track"><div class="fill"></div><div class="knob"></div></div><div class="tl a">1:12</div><div class="tl b">3:48</div></div>
+          <div class="transport">
+            <div class="tbtn"><svg><use href="#i-prev"/></svg></div>
+            <div class="tplay"><svg><use href="#i-play"/></svg></div>
+            <div class="tbtn"><svg><use href="#i-next"/></svg></div>
+          </div>
+          <div class="tabbar">
+            <div class="tab on"><span class="ico"><svg><use href="#i-music"/></svg></span>音乐</div>
+            <div class="tab"><svg><use href="#i-grid"/></svg>小组件</div>
+            <div class="tab"><svg><use href="#i-clock"/></svg>时钟</div>
+            <div class="tab"><svg><use href="#i-focus"/></svg>专注</div>
+            <div class="tab"><svg><use href="#i-note"/></svg>随记</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="cap"><b>方案 2 · 全宽 Tab Bar（备选）</b>图标 + 文字始终可见，选中项蓝色胶囊底。<span class="con">更接近 iOS/Android；底部更重，也更容易和播放控制抢注意力。</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>借鉴了什么（都是成熟做法）</h2>
+    <div class="lead">不是凭空设计：三个来源各取一条规则，拼成这套“顶部陪伴 + 底部 Dock”。</div>
+    <div class="grid3">
+      <div class="tile">
+        <h3>iOS · Tab Bar</h3>
+        <p>底部切换、2–5 个目的地、图标 + 文字、选中项着色。我们取：<b>底部、5 项、当前项带名字</b>。</p>
+        <div class="kb"><a href="https://developer.apple.com/design/human-interface-guidelines/tab-bars">Apple HIG · Tab bars</a></div>
+      </div>
+      <div class="tile">
+        <h3>Material 3 · Navigation Bar</h3>
+        <p>3–5 个目的地、选中项有胶囊指示器、图标在上文字在下。我们取：<b>选中胶囊 + 图标文字组合</b>，但高度收小到 48，适配 360 卡片。</p>
+        <div class="kb"><a href="https://m3.material.io/components/navigation-bar">Material 3 · Navigation bar</a></div>
+      </div>
+      <div class="tile">
+        <h3>macOS · Dock</h3>
+        <p>悬停才出名字、选中项浮起、整体半透明。我们取：<b>悬停出名字牌 + 选中项白色胶囊</b>，这是你这套 UI 最像 macOS 的地方。</p>
+        <div class="kb"><a href="https://developer.apple.com/design/human-interface-guidelines/dock">Apple HIG · Dock</a></div>
+      </div>
+    </div>
+    <div class="note">
+      <b>为什么推荐方案 1：</b>
+      <ul>
+        <li><b>陪伴有了明确任务</b>：顶部那个小把手就是陪伴，点它回首页（时间胶囊），不再是“一根带眼睛的长条”。</li>
+        <li><b>顶部安静</b>：只有一个小把手，封面可以更大、正文更松；不再挤 5 个槽 + 圆按钮。</li>
+        <li><b>底部 5 项刚好</b>：音乐、小组件是真实页面；时钟/专注/随记标成“预览”，悬停出名字，不假装是成品页。</li>
+        <li><b>对称</b>：Dock 居中、左右一致；删除右上圆按钮后，卡片终于左右配重。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>你草图里那个底部小圆</h2>
+    <div class="lead">我暂时理解为“滚动/拖拽指示”或“回到顶部”，没有画进方案。如果它指的是别的（比如播放/首页/展开），告诉我，我再加。</div>
+  </div>
+
+  <div class="foot">GlassDesk 详情页布局方案 · 2026-10-19 · 只规划，未改源码 · 参考图存 docs/design/preview/details-layout-options.png</div>
+</div>
+</body>
+</html>
