@@ -23,8 +23,10 @@ public sealed partial class WidgetScene
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     public event Action<string>? DetailsPageRequested;
     public event Action? BoardViewportChanged;
-    // The widget page is a fixed 512 DIP card; the board viewport is bounded above the dock.
-    public float BoardNaturalHeight => 512f;
+    // The widget page height follows its content: one card stays compact, more cards grow
+    // up to 512 and then scroll. The dock inset is part of the formula so it never overlaps.
+    public float BoardNaturalHeight => Math.Clamp(
+        WidgetBoardLayout.Pack(_board, _detailsWidth).ContentBottom + WidgetBoardLayout.BottomInset, 324, 512);
 
     void InitializeBoardVisuals()
     {
@@ -44,7 +46,7 @@ public sealed partial class WidgetScene
     {
         bool changed = _detailsPageId != pageId || _boardRevision != revision || _boardEditing != editing || _boardAddMenu != addMenuOpen;
         _detailsPageId = DetailsPageController.Normalize(pageId);
-        _board = board; _boardResults = results; _boardRevision = revision;
+        _board = WidgetBoardData.TimeOnlyForPresentation(WidgetBoardData.ValidateAndClone(board)); _boardResults = results; _boardRevision = revision;
         _boardEditing = editing; _boardAddMenu = addMenuOpen;
         _boardScroll = float.IsFinite(scrollOffset) ? Math.Max(0,scrollOffset) : 0;
         if(!WidgetsPage)_detailsScroll=_boardScroll;

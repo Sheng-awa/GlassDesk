@@ -17,7 +17,7 @@ public static class DetailsChromeLayout
     // Five equal slots inside the 320 DIP dock: item centres are 32/96/160/224/288.
     public const float DockItemWidth = DockWidth / 5;
     public const float DockItemHitSize = 44;
-    public const float DockActiveWidth = 88, DockActiveHeight = 36, DockActiveRadius = 18;
+    public const float DockActiveWidth = 36, DockActiveHeight = 36, DockActiveRadius = 18;
     public const float LabelHeight = 20, LabelRadius = 10, LabelGap = 4, HomeLabelGap = 2;
 
     public static FloatRect Home(Vector2 size) => new((size.X - HomeWidth) / 2, HomeTop, HomeWidth, HomeHeight);

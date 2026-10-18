@@ -45,17 +45,17 @@ internal sealed class DetailsChromeVisual : IDisposable
     readonly SpriteVisual _dock;
     readonly CompositionSurfaceBrush _dockBrush;
     CompositionDrawingSurface? _dockSurface;
-    (bool HighContrast, uint Dpi)? _dockKey;
+    (bool HighContrast, uint Dpi, bool LightInk)? _dockKey;
 
     readonly SpriteVisual _dockIcons;
     readonly CompositionSurfaceBrush _dockIconsBrush;
     CompositionDrawingSurface? _dockIconsSurface;
-    (bool HighContrast, uint Dpi)? _dockIconsKey;
+    (bool HighContrast, uint Dpi, bool LightInk, int Index)? _dockIconsKey;
 
     readonly SpriteVisual _dockActive;
     readonly CompositionSurfaceBrush _dockActiveBrush;
     CompositionDrawingSurface? _dockActiveSurface;
-    (bool HighContrast, uint Dpi, int Index)? _dockActiveKey;
+    (bool HighContrast, uint Dpi, bool LightInk, int Index)? _dockActiveKey;
     float? _dockActiveTargetX;
 
     readonly SpriteVisual _press;
@@ -75,10 +75,14 @@ internal sealed class DetailsChromeVisual : IDisposable
     double _previewUntil;
     int _hoverIndex = -1;
     bool _hoverHome, _pressedHome, _active, _reducedMotion, _disposed;
+    bool _lightInk;
+    uint _homeColor = 0xff202329;
     int _pressedIndex = -1;
     float _width = 360, _height = 476;
     bool _suppressSelectionAnimation;
     bool? _paletteHighContrast;
+    bool _paletteLightInk;
+    uint _paletteHomeColor;
 
     public ContainerVisual Visual => _visual;
     public bool NeedsTick => _previewIndex >= 0;
@@ -229,6 +233,26 @@ internal sealed class DetailsChromeVisual : IDisposable
         Present();
     }
 
+    /// <summary>Follows the material: light ink means the glass is dark and the dock uses a light film.</summary>
+    public void SetLightInk(bool lightInk)
+    {
+        if (_disposed || _lightInk == lightInk) return;
+        _lightInk = lightInk;
+        Invalidate();
+        Present();
+    }
+
+    /// <summary>The top handle is the companion, so it adopts the user's companion colour.</summary>
+    public void SetCompanionColor(uint color)
+    {
+        if (_disposed) return;
+        uint normalized = color | 0xff000000u;
+        if (normalized == _homeColor) return;
+        _homeColor = normalized;
+        Invalidate();
+        Present();
+    }
+
     public void Invalidate()
     {
         if (_disposed) return;
@@ -370,22 +394,24 @@ internal sealed class DetailsChromeVisual : IDisposable
         bool highContrast = _accessibility.HighContrast;
         uint dpi = _host.Context.Dpi;
         Vector2 size = Size;
-        bool paletteChanged = _paletteHighContrast != highContrast;
+        bool paletteChanged = _paletteHighContrast != highContrast || _paletteLightInk != _lightInk || _paletteHomeColor != _homeColor;
         if (paletteChanged)
         {
             _paletteHighContrast = highContrast;
-            _homeBodyInk.Color = highContrast
-                ? _uiSettings.UIElementColor(UIElementType.Window) : Color.FromArgb(255, 32, 35, 40);
-            _homeEyeInk.Color = highContrast
-                ? _uiSettings.UIElementColor(UIElementType.WindowText) : Color.FromArgb(255, 250, 251, 252);
+            _paletteLightInk = _lightInk;
+            _paletteHomeColor = _homeColor;
+            Color body = highContrast ? _uiSettings.UIElementColor(UIElementType.Window) : ToColor(_homeColor);
+            _homeBodyInk.Color = body;
+            _homeEyeInk.Color = highContrast ? _uiSettings.UIElementColor(UIElementType.WindowText) : ReadableInk(body);
         }
         FloatRect home = DetailsChromeLayout.Home(size);
         _homeGroup.Offset = new(home.X, home.Y, 0);
+        // No text chrome: the home handle and dock communicate by shape alone.
+        _homeLabel.Opacity = 0;
+        _dockLabel.Opacity = 0;
         RefreshDockSurface(highContrast, dpi);
         RefreshDockIcons(highContrast, dpi);
         RefreshSelection(highContrast, dpi);
-        RefreshHomeLabel(highContrast, dpi);
-        RefreshDockLabel(highContrast, dpi);
         FloatRect dock = DetailsChromeLayout.Dock(size);
         _dock.Offset = new(dock.X, dock.Y, 0);
         _dockIcons.Offset = new(dock.X, dock.Y, 0);
@@ -394,29 +420,40 @@ internal sealed class DetailsChromeVisual : IDisposable
 
     void RefreshDockSurface(bool highContrast, uint dpi)
     {
-        var key = (highContrast, dpi);
+        var key = (highContrast, dpi, _lightInk);
         if (_dockKey == key) return;
         _dockKey = key;
-        var operations = new List<SurfaceOp>(1);
-        uint fill = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.Window)) : 0xFF202328;
+        var operations = new List<SurfaceOp>(2);
+        // One material family with the card: a translucent film, never a black bar.
+        uint fill = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.Window))
+            : _lightInk ? 0x1CFFFFFFu : 0x1420252Cu;
         operations.Add(Round(0, 0, DetailsChromeLayout.DockWidth, DetailsChromeLayout.DockHeight,
             DetailsChromeLayout.DockRadius, fill));
+        if (!highContrast)
+        {
+            uint rim = _lightInk ? 0x26FFFFFFu : 0x1AFFFFFFu;
+            operations.Add(Line(DetailsChromeLayout.DockRadius, .5f,
+                DetailsChromeLayout.DockWidth - DetailsChromeLayout.DockRadius * 2, 0, rim, .75f));
+        }
         Replace(ref _dockSurface, _dockBrush,
             _host.RenderSurface(DetailsChromeLayout.DockWidth, DetailsChromeLayout.DockHeight, operations));
     }
 
     void RefreshDockIcons(bool highContrast, uint dpi)
     {
-        var key = (highContrast, dpi);
+        var key = (highContrast, dpi, _lightInk, SelectionIndex);
         if (_dockIconsKey == key) return;
         _dockIconsKey = key;
         var operations = new List<SurfaceOp>(DetailsDockItems.All.Count);
         for (int index = 0; index < DetailsDockItems.All.Count; index++)
         {
+            if (index == SelectionIndex) continue; // the active icon is painted on the selection circle
             var entry = DetailsDockItems.All[index];
             uint color = highContrast
                 ? Argb(_uiSettings.UIElementColor(UIElementType.WindowText))
-                : entry.IsPage ? 0x99FFFFFF : 0xA6FFFFFF;
+                : entry.IsPage
+                    ? _lightInk ? 0xC6F8FAFCu : 0xB020252Cu
+                    : _lightInk ? 0x5CFFFFFFu : 0x5520252Cu;
             float center = DetailsChromeLayout.DockItemWidth * (index + .5f);
             operations.Add(IconOp(GlyphFor(entry.Id), center - DockIconSize / 2,
                 (DetailsChromeLayout.DockHeight - DockIconSize) / 2, DockIconSize, color));
@@ -430,23 +467,21 @@ internal sealed class DetailsChromeVisual : IDisposable
         if (!_active) return;
         int index = SelectionIndex;
         FloatRect target = DetailsChromeLayout.DockActive(Size, index);
-        var key = (highContrast, dpi, index);
+        var key = (highContrast, dpi, _lightInk, index);
         if (_dockActiveKey != key)
         {
             _dockActiveKey = key;
             var entry = DetailsDockItems.All[index];
-            uint fill = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.Highlight)) : 0xFFF8FAFC;
-            uint ink = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.HighlightText)) : 0xFF20252C;
-            var operations = new List<SurfaceOp>(3)
+            uint fill = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.Highlight))
+                : _lightInk ? 0x3AFFFFFFu : 0x2620252Cu;
+            uint ink = highContrast ? Argb(_uiSettings.UIElementColor(UIElementType.HighlightText))
+                : _lightInk ? 0xFFF8FAFCu : 0xFF20252Cu;
+            var operations = new List<SurfaceOp>(2)
             {
                 Round(0, 0, target.Width, target.Height, DetailsChromeLayout.DockActiveRadius, fill)
             };
-            float labelWidth = MeasureTextWidth(entry.Label, TextRole.NavigationSemantic);
-            float contentWidth = ActiveIconSize + ActiveIconGap + labelWidth;
-            float start = Math.Max(10, (target.Width - contentWidth) / 2);
-            operations.Add(IconOp(GlyphFor(entry.Id), start, (target.Height - ActiveIconSize) / 2, ActiveIconSize, ink));
-            operations.Add(TextOp(entry.Label, start + ActiveIconSize + ActiveIconGap, (target.Height - 20) / 2,
-                labelWidth + 1, 20, ink));
+            operations.Add(IconOp(GlyphFor(entry.Id), (target.Width - ActiveIconSize) / 2,
+                (target.Height - ActiveIconSize) / 2, ActiveIconSize, ink));
             Replace(ref _dockActiveSurface, _dockActiveBrush,
                 _host.RenderSurface(target.Width, target.Height, operations));
         }
@@ -630,7 +665,19 @@ internal sealed class DetailsChromeVisual : IDisposable
         Kind = SurfaceOpKind.RoundedRectangle, X = x, Y = y, Width = width, Height = height, Radius = radius, Color = color
     };
 
+    static SurfaceOp Line(float x, float y, float width, float height, uint color, float stroke) => new()
+    {
+        Kind = SurfaceOpKind.Line, X = x, Y = y, Width = width, Height = height, Radius = stroke, Color = color
+    };
+
     static uint Argb(Color color) => (uint)color.A << 24 | (uint)color.R << 16 | (uint)color.G << 8 | color.B;
+    static Color ToColor(uint c) => Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c);
+    static Color ReadableInk(Color body)
+    {
+        double r = body.R / 255d, g = body.G / 255d, b = body.B / 255d;
+        return .2126 * r * r + .7152 * g * g + .0722 * b * b > .55
+            ? Color.FromArgb(255, 32, 37, 44) : Color.FromArgb(255, 250, 251, 252);
+    }
 
     static void Replace(ref CompositionDrawingSurface? owned, CompositionSurfaceBrush brush,
         CompositionDrawingSurface replacement)

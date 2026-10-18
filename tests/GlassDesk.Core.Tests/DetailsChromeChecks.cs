@@ -34,9 +34,9 @@ static class DetailsChromeChecks
         check(hits, "every dock item owns a 44x48 pointer target centred on its slot");
 
         var active = DetailsChromeLayout.DockActive(music, 0);
-        check(active == new FloatRect(8, 418, 88, 36)
-            && DetailsChromeLayout.DockActive(widgets, 1) == new FloatRect(72, 454, 88, 36),
-            "white selection capsule is 88x36, radius 18 and vertically centred in the dock");
+        check(active == new FloatRect(34, 418, 36, 36)
+            && DetailsChromeLayout.DockActive(widgets, 1) == new FloatRect(98, 454, 36, 36),
+            "selection indicator is a 36x36 circle, radius 18 and vertically centred in the dock");
 
         check(DetailsDockItems.All.Count == 5
             && DetailsDockItems.All.Select(e => e.Id).SequenceEqual(new[] { "music", "widgets", "clock", "focus", "notes" })

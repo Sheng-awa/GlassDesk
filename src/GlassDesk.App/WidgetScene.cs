@@ -146,6 +146,7 @@ public sealed partial class WidgetScene : IDisposable
         if (_lightText == light && _promoteSecondary == promoteSecondary
             && _clockPlateLightText == clockPlateLight && _clockPlatePromoteSecondary == clockPlatePromoteSecondary) return false;
         _lightText = light;
+        _chrome.SetLightInk(light);
         _promoteSecondary = promoteSecondary;
         _clockPlateLightText = clockPlateLight;
         _clockPlatePromoteSecondary = clockPlatePromoteSecondary;
@@ -322,6 +323,7 @@ public sealed partial class WidgetScene : IDisposable
         if (_disposed) return;
         bool changedPresence = (_companionState is null) != (state is null);
         _companionState = state;
+        _chrome.SetCompanionColor(state?.Color ?? _preferences.CompanionColor);
         ConfigurePlacement();
         ApplyCompanionState(_preferences.ReducedMotion || !_uiSettings.AnimationsEnabled);
         if (changedPresence) _drawingInvalidated = true;

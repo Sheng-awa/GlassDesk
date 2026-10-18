@@ -49,8 +49,11 @@ internal sealed partial class GlassDeskCoordinator
     void PrepareWidgetBoard()
     {
         var state=boardEditor.State;
-        // The widget page is a fixed 512 DIP card so card rows never hide behind the dock.
-        float? height=pages.CurrentPageId==DetailsPageController.Widgets?512:null;
+        float width=Math.Clamp(controller.Monitor.WorkArea.Width/controller.Monitor.Scale,64,360);
+        var presented=WidgetBoardData.TimeOnlyForPresentation(state);
+        // The widget page follows its content; the dock inset is included so cards stay clear.
+        float? height=pages.CurrentPageId==DetailsPageController.Widgets
+            ?Math.Clamp(WidgetBoardLayout.Pack(presented,width).ContentBottom + WidgetBoardLayout.BottomInset,324,512):null;
         controller.SetDetailsPageHeight(height,Now);
         scene.SetWidgetBoard(pages.CurrentPageId,state,widgetScheduler.Results,boardRevision,boardEditor.IsEditing,boardAddMenu,pages.ScrollOffset);
     }

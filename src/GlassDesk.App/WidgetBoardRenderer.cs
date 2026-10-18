@@ -1,4 +1,4 @@
-using GlassDesk.Core;
+﻿using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
 namespace GlassDesk.App;
@@ -30,7 +30,8 @@ internal static class WidgetBoardRenderer
     // Cards start below the 58–88 toolbar row and the bottom inset keeps them clear of the Dock.
     const float CardsTop = WidgetBoardLayout.Top, BottomInset = WidgetBoardLayout.BottomInset, Radius = 16, Rim = .75f;
     // Title 16/24 at y=62; ghost 编辑 and 30-high accent 添加 are flush right at y=58.
-    const float ToolbarTop = 58, ButtonHeight = 30, AccentWidth = 56, GhostWidth = 44, ButtonGap = 8;
+    // Icon-only toolbar at y=58; the add control is one 32 DIP accent circle, edit is a ghost icon.
+    const float ToolbarTop = 58, ButtonGap = 8;
     const float AddMenuRowHeight = 44, AddMenuWidth = 152, AddMenuRadius = 12;
     const uint AccentFill = 0xff1689f9;
     const int FirstCardAction = 1100, CardActionStride = 80;
@@ -69,23 +70,22 @@ internal static class WidgetBoardRenderer
         var panelBounds = new FloatRect(0, 0, width, panelHeight);
         int instanceCount = board.Instances.Count;
 
-        // Toolbar controls have stable IDs independent of scrolling and card count.
+        // Icon-only toolbar: a plus and a pencil, no title. The active control keeps one accent
+        // circle so the page still reads as a compact tool surface rather than a text header.
         float right = width - 24;
-        float addX = right - AccentWidth;
-        float editX = addX - ButtonGap - GhostWidth;
-        float titleWidth = Math.Min(220, editX - 32);
-        if (titleWidth > 60)
-            toolbar.Add(Text("我的组件", TextRole.SectionTitle, new(24, 62, titleWidth, 24), primary, locale));
+        const float toolbarButtonSize = 32;
+        float addX = right - toolbarButtonSize;
+        float editX = addX - ButtonGap - toolbarButtonSize;
         if (editing)
         {
-            ToolbarButton(1003, "完成", "完成组件布局编辑", WidgetBoardActionKind.Commit, addX, AccentWidth, accent: true);
-            ToolbarButton(1004, "取消", "取消组件布局编辑", WidgetBoardActionKind.Cancel, editX, GhostWidth, accent: false);
+            ToolbarIconButton(1003, "\uE73E", "完成组件布局编辑", WidgetBoardActionKind.Commit, addX, accent: true);
+            ToolbarIconButton(1004, "\uE711", "取消组件布局编辑", WidgetBoardActionKind.Cancel, editX, accent: false);
         }
         else
         {
-            ToolbarButton(1000, "添加", "添加组件", WidgetBoardActionKind.Add, addX, AccentWidth, accent: true,
+            ToolbarIconButton(1000, "\uE710", "添加组件", WidgetBoardActionKind.Add, addX, accent: true,
                 instanceCount < WidgetBoardData.MaximumInstances);
-            ToolbarButton(1001, "编辑", "编辑组件布局", WidgetBoardActionKind.BeginEdit, editX, GhostWidth, accent: false,
+            ToolbarIconButton(1001, "\uE70F", "编辑组件布局", WidgetBoardActionKind.BeginEdit, editX, accent: false,
                 instanceCount > 0);
         }
 
@@ -103,7 +103,12 @@ internal static class WidgetBoardRenderer
             int actionBase = FirstCardAction + index * CardActionStride;
             string typeName = Name(instance), identity = $"{typeName}组件，第 {index + 1} 个";
             resultById.TryGetValue(instance.InstanceId, out var result);
-            CardSurface(cards, local, tone, lightInk, highContrast, editing);
+            bool failed = result?.State is WidgetProviderState.Unavailable or WidgetProviderState.Faulted or WidgetProviderState.TimedOut;
+            bool hasSnapshot = result?.Snapshot?.Elements is { Count: > 0 };
+            bool isTime = instance.ProviderId == BuiltInWidgetIds.Time;
+            // The time widget is a clock face, not a paper card: its ring and hands sit directly
+            // on the glass. Editing and fallback states still get the shared card face.
+            if (!isTime || editing || !hasSnapshot) CardSurface(cards, local, tone, lightInk, highContrast, editing);
 
             if (editing)
             {
@@ -131,18 +136,22 @@ internal static class WidgetBoardRenderer
                 }
             }
 
-            bool failed = result?.State is WidgetProviderState.Unavailable or WidgetProviderState.Faulted or WidgetProviderState.TimedOut;
-            bool hasSnapshot = result?.Snapshot?.Elements is { Count: > 0 };
             string contents = hasSnapshot ? string.Join("，", result!.Snapshot!.Elements.Where(e => e.Kind == WidgetElementKind.Text)
                 .Take(64).Select(e => e.Text).Where(t => !string.IsNullOrWhiteSpace(t))) : "";
             // The entire card is the ordinary configuration target. Command targets
             // follow it so the host may prioritize the smaller, later hit regions.
             AddControl(actionBase, $"配置{identity}{(contents.Length > 0 ? "，" + contents : "")}", global,
                 new(WidgetBoardActionKind.Configure, instance.InstanceId), viewport);
-            cards.Add(Icon("\uE713", new(local.Right - 27, local.Y + 12, 14, 14), secondary));
 
-            if (hasSnapshot)
+            if (hasSnapshot && isTime && TryClock(result!, out int hour, out int minute, out string display))
             {
+                AnalogClock(cards, local, hour, minute, display, primary, secondary, lightInk, locale);
+            }
+            else
+            {
+                cards.Add(Icon("\uE713", new(local.Right - 27, local.Y + 12, 14, 14), secondary));
+                if (hasSnapshot)
+                {
                 int elementIndex = 0;
                 foreach (var element in result!.Snapshot!.Elements.Take(64))
                 {
@@ -206,6 +215,7 @@ internal static class WidgetBoardRenderer
                 if (controlIndex >= 0) controls[controlIndex] = controls[controlIndex] with
                 { Name = controls[controlIndex].Name + "，更新失败，当前保留上次成功内容" };
             }
+            }
         }
 
         if (packing.Cards.Count == 0 && viewportHeight > 0)
@@ -229,12 +239,11 @@ internal static class WidgetBoardRenderer
             // A short light flyout belongs to the toolbar layer above the card surface;
             // its right edge lines up with the 添加 button.
             float menuWidth = Math.Min(AddMenuWidth, width - 48);
-            var menu = new FloatRect(right - menuWidth, ToolbarTop + ButtonHeight + 4, menuWidth, AddMenuRowHeight * 2 + 8);
+            var menu = new FloatRect(right - menuWidth, ToolbarTop + 32 + 4, menuWidth, AddMenuRowHeight + 8);
             uint menuFill = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : 0xfff8fafcu;
             uint menuInk = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0xff20252cu;
             toolbar.Add(Round(menu, AddMenuRadius, menuFill));
             MenuEntry(1005, "时间", "\uE917", WidgetBoardActionKind.AddTime, menu.Y + 4);
-            MenuEntry(1006, "日期", "\uE787", WidgetBoardActionKind.AddDate, menu.Y + 4 + AddMenuRowHeight);
 
             void MenuEntry(int id, string label, string glyph, WidgetBoardActionKind kind, float y)
             {
@@ -249,17 +258,14 @@ internal static class WidgetBoardRenderer
         return new(Array.AsReadOnly(toolbar.ToArray()), Array.AsReadOnly(cards.ToArray()), Array.AsReadOnly(controls.ToArray()),
             new System.Collections.ObjectModel.ReadOnlyDictionary<int, WidgetBoardUiAction>(actions), packing, scrollOffset, contentHeight);
 
-        void ToolbarButton(int id, string label, string name, WidgetBoardActionKind kind, float x, float targetWidth,
+        void ToolbarIconButton(int id, string glyph, string name, WidgetBoardActionKind kind, float x,
             bool accent, bool enabled = true)
         {
-            var bounds = Intersect(new(x, ToolbarTop, targetWidth, ButtonHeight), panelBounds);
+            var bounds = Intersect(new(x, ToolbarTop, toolbarButtonSize, toolbarButtonSize), panelBounds);
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
-            if (accent)
-            {
-                toolbar.Add(Round(bounds, bounds.Height / 2, AccentFace(enabled, lightInk, highContrast)));
-                toolbar.Add(Text(label, TextRole.Label, bounds, AccentInk(enabled, lightInk, highContrast), locale, true));
-            }
-            else toolbar.Add(Text(label, TextRole.Label, bounds, enabled ? primary : secondary, locale, true));
+            if (accent) toolbar.Add(Round(bounds, toolbarButtonSize / 2, AccentFace(enabled, lightInk, highContrast)));
+            toolbar.Add(Icon(glyph, new(bounds.X + (bounds.Width - 16) / 2, bounds.Y + (bounds.Height - 16) / 2, 16, 16),
+                accent ? AccentInk(enabled, lightInk, highContrast) : enabled ? primary : secondary));
             AddControl(id, name, bounds, new(kind), panelBounds, enabled);
         }
         void AddControl(int id, string name, FloatRect bounds, WidgetBoardUiAction action, FloatRect clip, bool enabled = true)
@@ -284,6 +290,59 @@ internal static class WidgetBoardRenderer
 
     static string Name(WidgetInstance instance) => instance.ProviderId switch
     { BuiltInWidgetIds.Time => "时间", BuiltInWidgetIds.Date => "日期", _ => "本地" };
+
+    /// <summary>Reads the visible HH:mm value from the provider snapshot (12h suffixes are ignored).</summary>
+    static bool TryClock(WidgetInstanceResult result, out int hour, out int minute, out string display)
+    {
+        hour = minute = 0; display = string.Empty;
+        var elements = result.Snapshot?.Elements;
+        if (elements is not { Count: > 0 }) return false;
+        var text = elements.FirstOrDefault(e => e.Kind == WidgetElementKind.Text
+            && e.TextRole is TextRole.WidgetClock or TextRole.MediaDetailsTitle)?.Text
+            ?? elements.FirstOrDefault(e => e.Kind == WidgetElementKind.Text)?.Text;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        int colon = text.IndexOf(':');
+        if (colon < 1 || colon + 2 >= text.Length) return false;
+        if (!int.TryParse(text.AsSpan(0, colon).Trim(), out hour)) return false;
+        if (!int.TryParse(text.AsSpan(colon + 1, 2), out minute)) return false;
+        hour = Math.Clamp(hour, 0, 23);
+        minute = Math.Clamp(minute, 0, 59);
+        display = $"{hour:00}:{minute:00}";
+        return true;
+    }
+
+    /// <summary>Analog clock face: a thin ring, two hands, a centre dot and a compact digital badge.</summary>
+    static void AnalogClock(List<SurfaceOp> cards, FloatRect local, int hour, int minute, string display,
+        uint primary, uint secondary, bool lightInk, string locale)
+    {
+        float cx = local.X + local.Width / 2, cy = local.Y + local.Height / 2 - 4, radius = 54;
+        uint ring = WithAlpha(secondary, 0xB8);
+        const int segments = 40;
+        for (int segment = 0; segment < segments; segment++)
+        {
+            float a = segment * MathF.Tau / segments, b = (segment + 1) * MathF.Tau / segments;
+            float x1 = cx + MathF.Sin(a) * radius, y1 = cy - MathF.Cos(a) * radius;
+            float x2 = cx + MathF.Sin(b) * radius, y2 = cy - MathF.Cos(b) * radius;
+            cards.Add(Line(x1, y1, x2 - x1, y2 - y1, ring, 1.35f));
+        }
+        float hourAngle = (hour % 12 + minute / 60f) * MathF.PI / 6;
+        float minuteAngle = minute * MathF.PI / 30;
+        AddHand(hourAngle, 26, 2.8f); AddHand(minuteAngle, 38, 2.2f);
+        cards.Add(new SurfaceOp
+        {
+            Kind = SurfaceOpKind.Ellipse, X = cx - 3.2f, Y = cy - 3.2f, Width = 6.4f, Height = 6.4f, Color = primary
+        });
+        var badge = new FloatRect(cx + 8, cy - 11, 52, 22);
+        cards.Add(Round(badge, 11, lightInk ? 0x26FFFFFFu : 0x1A20252Cu));
+        cards.Add(Text(display, TextRole.WidgetLabel, badge, primary, locale, true, TextFlags.TabularNumbers));
+
+        void AddHand(float angle, float length, float stroke)
+        {
+            float ex = cx + MathF.Sin(angle) * length, ey = cy - MathF.Cos(angle) * length;
+            cards.Add(Line(cx, cy, ex - cx, ey - cy, primary, stroke));
+        }
+    }
+
     static bool Finite(FloatRect b) => float.IsFinite(b.X) && float.IsFinite(b.Y) && float.IsFinite(b.Width)
         && float.IsFinite(b.Height) && float.IsFinite(b.Right) && float.IsFinite(b.Bottom) && b.Width >= 0 && b.Height >= 0;
     static FloatRect Intersect(FloatRect a, FloatRect b)

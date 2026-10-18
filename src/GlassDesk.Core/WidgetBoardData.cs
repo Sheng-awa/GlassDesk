@@ -17,9 +17,19 @@ public static class WidgetBoardData
 
     public static WidgetBoardState CreateDefault() => new(Version, Array.AsReadOnly(new[]
     {
-        new WidgetInstance("time.default", BuiltInWidgetIds.Time, WidgetCardSize.Small, 0, EmptySettings()),
-        new WidgetInstance("date.default", BuiltInWidgetIds.Date, WidgetCardSize.Small, 1, EmptySettings())
+        new WidgetInstance("time.default", BuiltInWidgetIds.Time, WidgetCardSize.Small, 0, EmptySettings())
     }));
+
+    /// <summary>
+    /// Temporary presentation filter: only the offline time card is exposed while the other
+    /// built-ins are redesigned. Saved boards keep every instance; this only hides them from
+    /// paint, layout and page height until they are re-enabled.
+    /// </summary>
+    public static WidgetBoardState TimeOnlyForPresentation(WidgetBoardState state)
+    {
+        var kept = state.Instances.Where(i => i.ProviderId == BuiltInWidgetIds.Time).ToArray();
+        return new(state.Version, Array.AsReadOnly(kept));
+    }
 
     public static bool IsIdentifier(string? value) => value is { Length: > 0 and <= MaximumIdentifierLength }
         && value.All(c => !char.IsControl(c) && !char.IsWhiteSpace(c));
@@ -83,8 +93,9 @@ public static class WidgetBoardLayout
             if (columns == 2 && instance.Size == WidgetCardSize.Medium && column != 0)
             { column = 0; y += CardHeight + Gap; }
             float width = Math.Min(instance.Size == WidgetCardSize.Medium ? MediumWidth : SmallWidth, inner);
-            cards.Add(new(instance.InstanceId, instance.Size,
-                new(Left + column * (SmallWidth + Gap), y, width, CardHeight)));
+            // A lone widget is centred; multiple widgets keep the stable left-aligned grid.
+            float x = board.Instances.Count == 1 ? (availableWidth - width) / 2 : Left + column * (SmallWidth + Gap);
+            cards.Add(new(instance.InstanceId, instance.Size, new(x, y, width, CardHeight)));
             if (columns == 1 || instance.Size == WidgetCardSize.Medium || ++column == 2)
             { column = 0; y += CardHeight + Gap; }
         }

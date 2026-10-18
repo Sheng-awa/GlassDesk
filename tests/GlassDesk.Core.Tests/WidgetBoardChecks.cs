@@ -35,9 +35,13 @@ internal static class WidgetBoardChecks
     private static void DataAndEditorChecks(Action<bool, string> check)
     {
         var defaults = WidgetBoardData.CreateDefault();
-        check(defaults.Version == 1 && defaults.Instances.Count == 2
-            && defaults.Instances.Select(i => i.ProviderId).SequenceEqual(new[] { BuiltInWidgetIds.Time, BuiltInWidgetIds.Date })
-            && defaults.Instances.All(i => i.Size == WidgetCardSize.Small), "widgets default to two independent offline small cards");
+        check(defaults.Version == 1 && defaults.Instances.Count == 1
+            && defaults.Instances[0].ProviderId == BuiltInWidgetIds.Time
+            && defaults.Instances[0].Size == WidgetCardSize.Small,
+            "widgets default to one offline time card; other widgets are intentionally absent");
+        // Editor scenarios still exercise multi-card behaviour with explicit instances.
+        var twoCards = Board(Item("time.default", BuiltInWidgetIds.Time, order: 0),
+            Item("date.default", BuiltInWidgetIds.Date, order: 1));
         WidgetBoardState clone;
         using (var document = JsonDocument.Parse("{\"custom\":7}"))
             clone = WidgetBoardData.ValidateAndClone(Board(Item("retained", "missing.plugin", settings: document.RootElement)));
@@ -61,9 +65,9 @@ internal static class WidgetBoardChecks
             "widget board rejects duplicate IDs, invalid size/order, undefined and excessive-depth settings");
 
         var packed = WidgetBoardLayout.Pack(defaults, 360);
-        check(packed.Columns == 2 && packed.Cards[0].Bounds == new FloatRect(24, 104, 150, 148)
-            && packed.Cards[1].Bounds == new FloatRect(186, 104, 150, 148) && packed.ContentBottom == 276,
-            "default widget cards start below the toolbar (104) with balanced 150x148 columns, 12 gap and 24 margins");
+        check(packed.Columns == 2 && packed.Cards.Count == 1
+            && packed.Cards[0].Bounds == new FloatRect(105, 104, 150, 148) && packed.ContentBottom == 276,
+            "a single widget is centred below the toolbar with the shared 150x148 footprint");
         var mixed = Board(Item("a"), Item("b", size: WidgetCardSize.Medium, order: 1), Item("c", order: 2),
             Item("d", order: 3), Item("e", size: WidgetCardSize.Medium, order: 4));
         var mixedPacking = WidgetBoardLayout.Pack(mixed, 360);
@@ -79,7 +83,7 @@ internal static class WidgetBoardChecks
         var eligible = WidgetBoardLayout.EligibleInstances(mixedPacking, new(24, 104, 312, 148));
         check(eligible.SetEquals(new[] { "a", "b" }), "widget prefetch eligibility includes only the viewport and one adjacent row");
 
-        var editor = new WidgetBoardEditor(defaults); editor.Begin();
+        var editor = new WidgetBoardEditor(twoCards); editor.Begin();
         editor.Resize("time.default", WidgetCardSize.Medium);
         editor.Configure("time.default", Json("{\"showSeconds\":true}"));
         editor.Add(BuiltInWidgetIds.Time, WidgetCardSize.Small, WidgetBoardData.EmptySettings(), "second.time");
@@ -88,7 +92,7 @@ internal static class WidgetBoardChecks
             && editor.State.Instances[1].Settings.GetProperty("showSeconds").GetBoolean(),
             "widget edit draft supports add, remove, multi-instance, order, resize and independent settings");
         var cancelled = editor.Cancel();
-        check(!editor.IsEditing && cancelled.Instances.Select(i => i.InstanceId).SequenceEqual(defaults.Instances.Select(i => i.InstanceId))
+        check(!editor.IsEditing && cancelled.Instances.Select(i => i.InstanceId).SequenceEqual(twoCards.Instances.Select(i => i.InstanceId))
             && cancelled.Instances[0].Size == WidgetCardSize.Small && !cancelled.Instances[0].Settings.TryGetProperty("showSeconds", out _),
             "cancel edit restores the complete pre-edit board");
         editor.Begin(); editor.Resize("date.default", WidgetCardSize.Medium);
