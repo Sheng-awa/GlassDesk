@@ -312,21 +312,26 @@ internal static class WidgetBoardRenderer
     static void CardSurface(List<SurfaceOp> ops, FloatRect b, uint tone, bool lightInk, bool highContrast, bool editing = false)
     {
         if (b.Width <= 0 || b.Height <= 0) return;
-        float radius = Math.Min(Radius, Math.Min(b.Width, b.Height) / 2), inset = Rim / 2;
+        float radius = Math.Min(Radius, Math.Min(b.Width, b.Height) / 2);
         if (editing)
         {
-            // Edit mode deepens the face and adds a 1px accent ring so the card reads as selected.
+            // Edit mode keeps one deepened face and adds only a 1px accent ring, so the
+            // card reads as selected without turning the whole surface accent.
+            uint face = highContrast ? tone : lightInk ? 0x2a000000u : 0x2220252cu;
             uint accent = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : AccentFill;
-            uint face = highContrast ? tone : lightInk ? 0x1a000000u : 0x1fffffffu;
-            ops.Add(Round(b, radius, accent));
-            if (b.Width > 2 && b.Height > 2)
-                ops.Add(Round(new(b.X + 1, b.Y + 1, b.Width - 2, b.Height - 2), Math.Max(0, radius - 1), face));
+            ops.Add(Round(b, radius, face));
+            Ring(ops, b, radius, accent, accent, 1);
             return;
         }
         ops.Add(Round(b, radius, tone));
         uint upper = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0x42ffffffu;
         uint lower = highContrast ? upper : 0x14ffffffu;
-        float stroke = highContrast ? 1 : Rim;
+        Ring(ops, b, radius, upper, lower, highContrast ? 1 : Rim);
+    }
+    // Four edge lines plus four corner arcs; shared by the normal rim and the edit accent ring.
+    static void Ring(List<SurfaceOp> ops, FloatRect b, float radius, uint upper, uint lower, float stroke)
+    {
+        float inset = stroke / 2;
         ops.Add(Line(b.X + radius, b.Y + inset, b.Width - radius * 2, 0, upper, stroke));
         ops.Add(Line(b.X + inset, b.Y + radius, 0, b.Height - radius * 2, upper, stroke));
         ops.Add(Line(b.X + radius, b.Bottom - inset, b.Width - radius * 2, 0, lower, stroke));
