@@ -1,0 +1,21 @@
+{
+  "sourceArchive": "artifacts/release/0.2.0/GlassDesk-0.2.0-source.zip",
+  "archiveSha256": "187131113502F647E90C3D06D608CA2DD01EBB50091F0CC70603D69252E64F25",
+  "files": [
+    {
+      "entry": "src/GlassDesk.Core/Contracts.cs",
+      "file": "Archived/Contracts.cs",
+      "sha256": "6A47394D9EA3B293F1E37B9F8094BEC3413B1B55B38B73E843248C7A181FF638"
+    },
+    {
+      "entry": "src/GlassDesk.Core/PluginContracts.cs",
+      "file": "Archived/PluginContracts.cs",
+      "sha256": "3D1551C1ECA2346321091B4239D983CBD3F524D4FB5EFFBC9C3C16BE1217AAA8"
+    },
+    {
+      "entry": "src/GlassDesk.Core/PluginEnableMap.cs",
+      "file": "Archived/PluginEnableMap.cs",
+      "sha256": "FC3642EC41CB40C44190D6C3FA423269E10E0955CB37C6262FE2E7CD0E5AE4AB"
+    }
+  ]
+}

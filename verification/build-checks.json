@@ -1,0 +1,97 @@
+{
+  "SchemaVersion": 1,
+  "Date": "2026-10-13",
+  "Core": {
+    "Checks": [
+      "hover stays capsule before 350 ms",
+      "quick crossing cancels delayed expansion",
+      "sustained hover expands once",
+      "leave delay keeps peek until threshold",
+      "return cancels pending collapse",
+      "play action does not bubble to details",
+      "details persists after pointer leaves",
+      "explicit close returns to capsule",
+      "small press motion remains a click",
+      "drag preserves complete down-to-current displacement",
+      "drag release cannot become body click",
+      "release point completes displacement when the last move is missing",
+      "release displacement above the drag threshold cannot become a body click",
+      "seek drag does not move component",
+      "fullscreen hides the component",
+      "fullscreen hotkey reveals capsule only",
+      "second fullscreen hotkey removes override",
+      "fullscreen exit restores normal rules",
+      "manual hidden state survives fullscreen round trip",
+      "same maximized foreground does not repeatedly collapse",
+      "new maximized application collapses form",
+      "interrupted motion starts at actual current pose",
+      "retarget settles at final requested pose",
+      "reduced motion keeps state change without animation",
+      "1,000 rapid retargets stay finite and preserve valid sizes",
+      "interrupt stress has no lingering animation",
+      "invalid saved position clamps inside work area",
+      "monitor removal migrates normalized anchor",
+      "playing timeline uses monotonic elapsed time",
+      "paused progress remains stationary",
+      "seek respects provider range",
+      "missing timeline or capability cannot synthesize progress"
+    ],
+    "Passed": 32
+  },
+  "Platform": {
+    "Checks": [
+      "fresh defaults preserve opt-in startup/hotkey",
+      "preferences survive atomic round-trip",
+      "concurrent saves produce complete readable JSON",
+      "atomic writes leave no staging files",
+      "cancelled save preserves the preceding complete config",
+      "corrupt config restores defaults",
+      "corrupt evidence is preserved exactly",
+      "corruption notice is consumed once",
+      "unsupported version is retained before fallback",
+      "numeric preferences cannot introduce invalid material or timer values",
+      "invalid position and hotkey values are sanitized",
+      "stable monitor identity retains selection",
+      "disconnected monitor migrates to primary",
+      "150-percent anchor is calculated in physical pixels from DIP",
+      "restored anchor stays inside a negative-origin work area",
+      "empty monitor set fails safely",
+      "borderless monitor-filling app is full-screen",
+      "ordinary maximized app remains visible",
+      "auto-hidden taskbar does not turn maximized apps into full-screen",
+      "partial monitor window is not full-screen",
+      "diagnostic ring has a bounded resident footprint",
+      "diagnostic export retains error type without its private message",
+      "diagnostic export contains no song/account fields or exception messages"
+    ],
+    "Passed": 23
+  },
+  "Native": {
+    "passed": true,
+    "testKind": "hidden ABI/message regression",
+    "systemSettingsChanged": false,
+    "dpiCases": 6,
+    "geometryChanges": 1000,
+    "gdiBefore": 2,
+    "gdiAfter": 2,
+    "userBefore": 12,
+    "userAfter": 11,
+    "callbacks": 3030
+  },
+  "Installer": {
+    "Signed": false,
+    "ActualInstallUpgradeUninstallVerified": false,
+    "File": "GlassDesk-0.1.0-win-x64-setup.exe",
+    "Sha256": "c593d719178beaad20770ef18232b257646a7126003f5a25a482079ed71cad3f"
+  },
+  "PublishedXamlResources": {
+    "PriSha256": "b56d9041e8b955b351f720a257d0c331de13f12b19c5eac3cccc6484d9a90f8e",
+    "XbfSha256": "d7c22010c67a6a3b675e3eaae51e5e826f5306135001f8dbae33f7551f302290"
+  },
+  "Limits": [
+    "Hidden native and logical checks do not replace real desktop input.",
+    "Actual 60 FPS presentation is not measured.",
+    "Clean Windows and mixed-DPI tests are deferred to the user.",
+    "See test-report.md for current production GUI evidence and pending gates."
+  ]
+}

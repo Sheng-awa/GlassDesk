@@ -1,0 +1,18 @@
+{
+  "RequiredTotalElapsedSeconds": 3900,
+  "WarmupSeconds": 300,
+  "Pid": 41588,
+  "RequiredAfterWarmupSeconds": 3600,
+  "Files": {
+    "GlassDesk.exe": "221cfd819a06052c60ee0d5326c8bf1a8825911a7386ffce43d73047f321d15d",
+    "GlassDesk.dll": "6296482ebc8618c61cd6b0a768ae473182aaedc8e0aa65028da476f4c8b997aa",
+    "GlassDesk.Native.dll": "c32e4d86019ca8ab6d5b0de7c6e259cc1340a2c1c2d04b2bf950730c73f95927",
+    "GlassDesk.NativeBridge.dll": "cd218292aec49bc19958c2412b5b80ce4178b6e8a152c2e2bdb5e34a7b6bbfa5",
+    "GlassDesk.Platform.dll": "043236de281fe02adee1f4f96ecf7cb16c7586b0c5259a9e114a5e13d9918b2f",
+    "GlassDesk.Plugins.dll": "a3361b891b18a8b2713216148f0c6436b75ff7b46bd5f4f994afb174803a811d",
+    "GlassDesk.Core.dll": "00da3bf53b6e3db29ea80bf78ede333f447e20398a57372d0dc1f11f29c7127b",
+    "GlassDesk.CaptureWorker.exe": "62577ad9e233d5195463d6cccddb03a3f83a1532de44e7eb77dbb2f6428c0222",
+    "GlassDesk.pri": "aa784ee42cfcd4634fe4e9f68238ceb084354986e4b928bcbb8ea38e42452341",
+    "App.xbf": "db20a9ecdc5aa01628626e1fff501dcdb3ddc4967bb33dfd25cca025b8f7ceaa"
+  }
+}

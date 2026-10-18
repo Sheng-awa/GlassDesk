@@ -1,0 +1,219 @@
+{
+  "Version": "0.2.0",
+  "Environment": {
+    "Architecture": "x64",
+    "Dpi": 144,
+    "Windows": "11 25H2 build26200",
+    "Monitor": "2560x1600",
+    "LogicalProcessors": 16
+  },
+  "BuildChecks": {
+    "Platform": 23,
+    "NativePassed": true,
+    "Core": 47,
+    "Plugin": 33,
+    "Audio": 42
+  },
+  "Residency": {
+    "TailStartMiB": 211.515625,
+    "TailMinMiB": 210.05078125,
+    "WindowSamples": 123,
+    "MinMiB": 165.56640625,
+    "TailEndMiB": 210.37890625,
+    "TailUserFirst": 63,
+    "TailMaxMiB": 215.01171875,
+    "TailGdiFirst": 66,
+    "TailUserLast": 62,
+    "RequiredContinuousWindowSeconds": 3600.0,
+    "MaxSamplingGapSeconds": 30.041299900000002,
+    "TailGdiLast": 66,
+    "CpuWeightedAveragePercent": 0.42970252956866234,
+    "Transitions": 1000,
+    "TailHandlesLast": 1656,
+    "ObservedTotalSeconds": 7858.661321,
+    "MaxMiB": 215.01171875,
+    "TailHandlesFirst": 1663
+  },
+  "NormalRuntime": {
+    "PlayingReadback": "artifacts/final-acceptance/media-normal-play.json",
+    "AudioEnabled": true,
+    "LastHandles": 728,
+    "NormalizedCpuPercent": 0.2532691427654913,
+    "QaRecorder": false,
+    "CpuWindowSeconds": 249.4721349,
+    "SettingsCreated": false,
+    "CompanionEnabled": true,
+    "FirstHandles": 751,
+    "RealSource": "cloudmusic.exe",
+    "MaxMiB": 89.0859375,
+    "MinMiB": 78.63671875,
+    "ObservedSeconds": 311.99748589999996,
+    "Pid": 14856,
+    "DataScope": "Normal user profile; the single test-modified preference was restored byte-for-byte"
+  },
+  "ProductionLiquidCycles": 100,
+  "NativeLiquidCycles": [
+    100,
+    100
+  ],
+  "CaptureWorkerFailureRecovery": {
+    "OldWorker": 9108,
+    "Fallback": "Fallback: receive WGC monitor frame (0x80004005); enabled intent retained; retry in 5s",
+    "EnabledIntent": true,
+    "FallbackBodyAffinity": 0,
+    "FallbackShadowAffinity": 0,
+    "Recovered": "Running: WGC monitor → GPU crop → HLSL blur/refraction → Composition; <=29.4 Hz; frames=14685; worker=4224; GPU filter avg=0.023ms max=3.910ms; pipeline span avg=0.034ms (14582 samples)",
+    "NewWorker": 4224,
+    "SameHostAlive": true
+  },
+  "OwnedWorkerExit": {
+    "Owner": 35136,
+    "Worker": 43788,
+    "WorkerGoneAfterAbruptOwnerExit": true
+  },
+  "GpuLifecycleCounters": {
+    "Samples": 55,
+    "HostPeakMiB": 112.39453125,
+    "WorkerPrivatePeakMiB": 51.51953125,
+    "WorkerPeakMiB": 77.4296875,
+    "SharedTextureAccountingMayOverlap": true,
+    "CombinedAccountingPeakMiB": 189.75390625
+  },
+  "Limitations": [
+    "Other DPI/mixed-DPI displays/clean Windows not verified",
+    "Actual GPU removal, sleep and monitor-loss recovery not verified",
+    "Instrumented stress residency private bytes exceed 200MB target",
+    "Full UI audio latency <=150ms and stable60FPS not demonstrated",
+    "Full real multi-player/mute/restart GUI combinations incomplete",
+    "This cloudmusic SMTC source supplies no valid seek timeline",
+    "Complete manual-hide/fullscreen temporary override production sequence not verified because active game reclaimed foreground",
+    "Global Windows animations toggle interaction not separately driven"
+  ],
+  "RawEvidenceSha256": {
+    "artifacts/final-acceptance/build-release-worker-final.log": "788bd17c7ddb12c36696a852f9e0a7b50489c42b62279d911e458b60ca45f48c",
+    "artifacts/final-acceptance/resident-complete.json": "4195632c5d8bd6462106494f1ba46bc6ce3f05815cbd5e012ff10237ebd01ea2",
+    "artifacts/final-acceptance/liquid-gui-100-final.json": "6763977211ca3cb1a97104930def3f0fe098c2d18a1a8239a0f77b93eb2810b5",
+    "artifacts/final-acceptance/fallback-recovery.json": "7b36dfb74dd0bf5fadd0c404432984fb41ff6817e031e3fba114be8828d94b60",
+    "artifacts/final-acceptance/worker-ownership-result.json": "c32afccc5b15b4404ba4a851a13396e5fd5d4606dfcf13df7c36ebb29dabbfe7",
+    "artifacts/final-acceptance/native-worker-cim-memory.jsonl": "3efbeea1358ed085f72a8f788aceaff987ae99378454deb08104dada1ea8f6cb",
+    "artifacts/final-acceptance/audio-native-frozen.log": "101979208021fca2371d33baa553fdd6105269c612f8eeb9e7304ba0201d91f4",
+    "artifacts/final-acceptance/migration-result.json": "efdc6402719002cc8fb73d4e44a9d31c794af0ad410bf08bb3ccb1038881f1fd"
+  },
+  "FinalGui": {
+    "VisualLayoutProcessId": 14856,
+    "Snapshots": [
+      "normal-capsule.png",
+      "normal-peek.png",
+      "normal-details.png",
+      "normal-settings-wide.png",
+      "normal-settings-narrow.png"
+    ],
+    "FollowPersistenceProcessId": 33052,
+    "FollowPersistence": [
+      {
+        "Desired": false,
+        "Saved": false,
+        "UI": false
+      },
+      {
+        "Desired": true,
+        "Saved": true,
+        "UI": true
+      }
+    ],
+    "ReinstalledPlayback": {
+      "NativeButtonsUsed": true,
+      "PreviousChanged": true,
+      "FinalStatus": "Paused",
+      "NextChanged": true,
+      "ReinstalledHostPid": 3252,
+      "PreviousRestoredTrack": true
+    },
+    "ReducedMotionPersistence": [
+      {
+        "UI": true,
+        "Desired": true,
+        "Saved": true
+      },
+      {
+        "UI": false,
+        "Desired": false,
+        "Saved": false
+      }
+    ],
+    "OledFrameBefore": {
+      "height": 1601,
+      "width": 2561,
+      "x": 0,
+      "y": 0
+    },
+    "OledFrameAfter": {
+      "height": 1601,
+      "width": 2561,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "PluginGui": {
+    "Before": [
+      "按操作刷新，无后台任务、音频采集或联网；用于验证功能贡献和配置。",
+      "刷新计数",
+      "计数保存在独立插件配置中"
+    ],
+    "After": [
+      "按操作刷新，无后台任务、音频采集或联网；用于验证功能贡献和配置。",
+      "刷新计数",
+      "计数保存在独立插件配置中"
+    ],
+    "PickerOpened": true,
+    "EnabledAndRunning": true,
+    "Imported": true,
+    "InstalledDirectoryAbsent": true,
+    "Removed": true,
+    "PersistedCountAfterCommand": 1,
+    "ConfigurationRetainedAfterRemoval": true
+  },
+  "LiquidCpuSeparate": {
+    "ValidSameWorkerIntervals": 27,
+    "MainNormalizedCpuPercent": 0.19714949638414167,
+    "WorkerNormalizedCpuPercent": 0.05761763450663295,
+    "Seconds": 422.03062409999995,
+    "Scope": "Post-residency real liquid production; DWM includes unrelated desktop work, no causal increment claim",
+    "DwmNormalizedCpuPercent": 1.647771788440696
+  },
+  "UserConfigurationSha256": "005943d487758c7cb3305c6b8bc63ef9306d7ef5a03a1c4f8e23c98b9b71a0a8",
+  "ControlledPresentation": {
+    "pid": 16588,
+    "durationSeconds": 30,
+    "desktopFrames": 4414,
+    "motionIntervals": 1288,
+    "geometryChanges": 2626,
+    "motionAverageMilliseconds": 9.19116,
+    "motionP50Milliseconds": 9.1427,
+    "motionP95Milliseconds": 15.846,
+    "motionMaxMilliseconds": 23.8302,
+    "motionIntervalsAbove25ms": 0,
+    "motionIntervalsAbove33_4ms": 0,
+    "missedDesktopFrames": 1309,
+    "protectedDesktopFrames": 0,
+    "allChangedIntervals": 4039,
+    "Background": "Independent static dark fixture covers the entire widget animation envelope; before/after screenshots retained locally",
+    "Caveat": "Desktop observer missed frames; the motion subset is not a guarantee of uninterrupted physical 60FPS",
+    "RawSha256": "4dfd0216995419dcbf0ce5668629c73aa8c09f4be8c299a5e4f7960812c55c99"
+  },
+  "RealFullscreen": {
+    "WidgetVisible": false,
+    "ForegroundProcess": "cs2",
+    "ForegroundRect": {
+      "Left": 0,
+      "Top": 0,
+      "Right": 2560,
+      "Bottom": 1600
+    },
+    "ManualHiddenTemporaryOverrideCombination": "Not fully verified: independently activated fixture lost foreground to the active game before the necessary normal-scene baseline could be established.",
+    "ForegroundWindow": 5310628,
+    "WidgetObservedForeground": 5310628,
+    "ForegroundProcessId": 37944,
+    "AutomaticFullscreenAvoidance": true
+  }
+}

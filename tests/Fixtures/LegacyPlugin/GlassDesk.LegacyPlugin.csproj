@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>GlassDesk.LegacyPlugin</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <!-- Deliberately no reference to src/GlassDesk.Core: this binary must use the archived SDK. -->
+  <ItemGroup>
+    <ProjectReference Include="../LegacySdk/GlassDesk.LegacySdk.csproj" Private="false" />
+    <None Update="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

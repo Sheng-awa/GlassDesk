@@ -1,0 +1,19 @@
+{
+  "At": "2026-10-14T16:18:40.7284909Z",
+  "BuildLog": "artifacts/qa/build-release-0.2.0-final.log",
+  "InstallerSha256": "3a67d5d7e839df9bca67915cd6b241d58fab054960b15b07b6a49bb6a2744c05",
+  "Files": {
+    "GlassDesk.pri": "aa784ee42cfcd4634fe4e9f68238ceb084354986e4b928bcbb8ea38e42452341",
+    "GlassDesk.Platform.dll": "4ffb06371b1e2b14e565c294799e58be66880d7827d1fe066ccbd92607b6f921",
+    "GlassDesk.NativeBridge.dll": "158893731fa1277de65e1600f71ccd07f2c9c5430f6863c7c2a947917538fd5b",
+    "GlassDesk.runtimeconfig.json": "564edfad8990e994033caba1fbfc6d7b10e935cdb4842f9c9a6225a4c09f70aa",
+    "GlassDesk.deps.json": "2ce5d953ca0138e4becf4e8dad9ce6c475ae1dd5a2cefd1250d8ef40afb8e30c",
+    "GlassDesk.dll": "98d491add27966ef1e10192d110691cabf8b12872d27059486be0585c6e3d8c8",
+    "GlassDesk.Native.dll": "dbbe9e8bef2c80868e522668c9f2a2d2c3ac083fd36d6eaab158ec810b410d52",
+    "GlassDesk.Core.dll": "0dd5c8e00c7aa4aa9c1336fb8496dba0cab4466e646050aec6feb2d63f67bade",
+    "GlassDesk.exe": "221cfd819a06052c60ee0d5326c8bf1a8825911a7386ffce43d73047f321d15d",
+    "GlassDesk.Plugins.dll": "dbbb80b7ba4b78a2ec8d6c79baea02c0892118f18e84e19a60c84c713224901c",
+    "App.xbf": "db20a9ecdc5aa01628626e1fff501dcdb3ddc4967bb33dfd25cca025b8f7ceaa"
+  },
+  "Version": "0.2.0"
+}

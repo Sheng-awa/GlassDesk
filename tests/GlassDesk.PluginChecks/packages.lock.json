@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "glassdesk.core": {
+        "type": "Project"
+      },
+      "glassdesk.plugins": {
+        "type": "Project",
+        "dependencies": {
+          "GlassDesk.Core": "[0.2.0, )"
+        }
+      }
+    }
+  }
+}

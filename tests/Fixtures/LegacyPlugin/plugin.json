@@ -1,0 +1,10 @@
+{
+  "id": "fixture.legacy-sdk",
+  "name": "Legacy SDK binary compatibility fixture",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "GlassDesk.LegacyPlugin.dll",
+  "entryType": "GlassDesk.Fixtures.Legacy.LegacyPlugin",
+  "resourceDescription": "Isolated A19 fixture compiled against the archived 0.2.0 contract; no timers, native code or network.",
+  "requiresRestart": false
+}

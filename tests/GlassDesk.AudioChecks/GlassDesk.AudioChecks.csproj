@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Linked sources keep this evidence runner independent of concurrently
+         edited Platform/Core build outputs. -->
+    <Compile Include="../../src/GlassDesk.Core/UiPreviewContracts.cs" Link="Core/UiPreviewContracts.cs" />
+    <Compile Include="../../src/GlassDesk.Core/Contracts.cs" Link="Core/Contracts.cs" />
+    <Compile Include="../../src/GlassDesk.Core/ContentPolicy.cs" Link="Core/ContentPolicy.cs" />
+    <Compile Include="../../src/GlassDesk.Core/PluginEnableMap.cs" Link="Core/PluginEnableMap.cs" />
+    <Compile Include="../../src/GlassDesk.Platform/AudioSpectrumAnalyzer.cs" Link="Platform/AudioSpectrumAnalyzer.cs" />
+    <Compile Include="../../src/GlassDesk.Platform/NetEaseProcessResolver.cs" Link="Platform/NetEaseProcessResolver.cs" />
+    <Compile Include="../../src/GlassDesk.Platform/ProcessAudioVisualizationSource.cs" Link="Platform/ProcessAudioVisualizationSource.cs" />
+  </ItemGroup>
+</Project>

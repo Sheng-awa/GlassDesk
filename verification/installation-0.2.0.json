@@ -1,0 +1,16 @@
+{
+  "InstallerSha256": "2a593c830a877256fa5f48d204abf7eab0870a526239b600cd4c16eb52ac35ab",
+  "ConfigurationSha256": "005943d487758c7cb3305c6b8bc63ef9306d7ef5a03a1c4f8e23c98b9b71a0a8",
+  "UpgradeFileHashesMatched": 587,
+  "ResidentExited": true,
+  "UpgradeLog": "install-unified-final.log",
+  "Uninstall": {
+    "AppRemoved": true,
+    "WorkerRemoved": true,
+    "UserConfigurationSha256": "005943d487758c7cb3305c6b8bc63ef9306d7ef5a03a1c4f8e23c98b9b71a0a8"
+  },
+  "ReinstallFilesMatched": 587,
+  "ReinstallLog": "reinstall-unified-final.log",
+  "FreshLaunchSucceeded": true,
+  "FreshLaunchProcess": 3252
+}

@@ -1,0 +1,10 @@
+{
+  "id": "example.local-status",
+  "name": "本地状态示例",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entryAssembly": "StatusPlugin.dll",
+  "entryType": "GlassDesk.Sample.StatusPlugin",
+  "resourceDescription": "按操作刷新，无后台任务、音频采集或联网；用于验证功能贡献和配置。",
+  "requiresRestart": false
+}

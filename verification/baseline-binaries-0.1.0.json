@@ -1,0 +1,32 @@
+[
+  {
+    "Path": "artifacts\\publish\\GlassDesk.exe",
+    "Bytes": 299008,
+    "ModifiedUtc": "2026-10-13T18:32:36.4946936Z",
+    "SHA256": "a24ad2f0434c16f518824c4f90838afb6a646cdd333171a734d7b4c6ef35946f"
+  },
+  {
+    "Path": "artifacts\\publish\\GlassDesk.dll",
+    "Bytes": 275968,
+    "ModifiedUtc": "2026-10-13T18:32:36.4902945Z",
+    "SHA256": "7143d6b7b3dc2c9b8e74304c77d04fb0e92e0989828fa9e97a2d3f1072d58547"
+  },
+  {
+    "Path": "artifacts\\publish\\GlassDesk.Native.dll",
+    "Bytes": 276992,
+    "ModifiedUtc": "2026-10-13T18:32:26.3284179Z",
+    "SHA256": "e0ef350765c848d16d177468a27f468436a09f564783a630e3584c4515b76a73"
+  },
+  {
+    "Path": "artifacts\\installer\\GlassDesk-0.1.0-win-x64-setup.exe",
+    "Bytes": 65185524,
+    "ModifiedUtc": "2026-10-13T18:33:20.0653324Z",
+    "SHA256": "e7cc0db8244a41eb240d71ebfb3ac968d28cd783ff57b3d643182ba309d01e24"
+  },
+  {
+    "Path": "artifacts\\installer\\GlassDesk-0.1.0-source.zip",
+    "Bytes": 669729,
+    "ModifiedUtc": "2026-10-13T16:19:25.5390576Z",
+    "SHA256": "3dc7176cd8719c330570e523472c8f2727df33be7b4eb05b7139ce6a03afe765"
+  }
+]
