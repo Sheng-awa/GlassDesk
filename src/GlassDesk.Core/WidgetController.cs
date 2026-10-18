@@ -14,7 +14,7 @@ public sealed class WidgetController
     private WidgetAnchor pressAnchor;
     private nint lastExternalWindow;
     private CapsuleContentMode capsuleMode=CapsuleContentMode.Clock;
-    private bool mediaConnected,companion=true,hasTimeline;
+    private bool mediaConnected,companion=true;
     private float musicCapsuleWidth=256;
     private float? detailsPageHeight;
     public WidgetForm Form {get;private set;}=WidgetForm.Capsule;
@@ -42,7 +42,8 @@ public sealed class WidgetController
         {
             var metrics=WidgetLayoutMetrics.Resolve(Form,Form==WidgetForm.Capsule?capsuleMode:mediaConnected?CapsuleContentMode.Music:CapsuleContentMode.Clock,companion,musicCapsuleWidth);
             if (Form == WidgetForm.Details && detailsPageHeight is float height) return metrics with { Width=360, Height=height };
-            return Form==WidgetForm.Details&&mediaConnected&&hasTimeline?metrics with {Height=512}:metrics;
+            // The music Details page is a fixed 476 DIP; only real pages own a separate height.
+            return metrics;
         }
     }
     /// <summary>A real non-music page owns its height independently of media connection changes.</summary>
@@ -59,7 +60,8 @@ public sealed class WidgetController
     public void UpdateContent(CapsuleContentMode mode,bool connected,bool hasCompanion,float measuredMusicWidth,double now,bool timeline=false)
     {
         var previous=Layout;
-        capsuleMode=mode;mediaConnected=connected;hasTimeline=timeline;companion=hasCompanion;musicCapsuleWidth=Math.Clamp(measuredMusicWidth,208,296);
+        capsuleMode=mode;mediaConnected=connected;companion=hasCompanion;musicCapsuleWidth=Math.Clamp(measuredMusicWidth,208,296);
+        _=timeline; // Timeline availability no longer changes the Details height (fixed 476).
         if(previous==Layout)return;
         ClampAnchor();Motion.Retarget(TargetPose(),now,160,preferences.ReducedMotion);
         PresentationChanged?.Invoke(Motion.Sample(now));

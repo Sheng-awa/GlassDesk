@@ -49,9 +49,8 @@ internal sealed partial class GlassDeskCoordinator
     void PrepareWidgetBoard()
     {
         var state=boardEditor.State;
-        float width=Math.Clamp(controller.Monitor.WorkArea.Width/controller.Monitor.Scale,64,360);
-        float? height=pages.CurrentPageId==DetailsPageController.Widgets
-            ?Math.Clamp(WidgetBoardLayout.Pack(state,width).ContentBottom,304,512):null;
+        // The widget page is a fixed 512 DIP card so card rows never hide behind the dock.
+        float? height=pages.CurrentPageId==DetailsPageController.Widgets?512:null;
         controller.SetDetailsPageHeight(height,Now);
         scene.SetWidgetBoard(pages.CurrentPageId,state,widgetScheduler.Results,boardRevision,boardEditor.IsEditing,boardAddMenu,pages.ScrollOffset);
     }
@@ -67,7 +66,7 @@ internal sealed partial class GlassDeskCoordinator
         pages.SetScrollOffset(scene.CurrentPageScroll);
         var render=scene.BoardRender;
         var eligible=render is null?new HashSet<string>(StringComparer.Ordinal):WidgetBoardLayout.EligibleInstances(render.Packing,
-            new(0,132+render.ScrollOffset,scene.CurrentSize.X,Math.Max(0,scene.CurrentSize.Y-156)));
+            new(0,WidgetBoardLayout.Top+render.ScrollOffset,scene.CurrentSize.X,Math.Max(0,scene.CurrentSize.Y-WidgetBoardLayout.Top-WidgetBoardLayout.BottomInset)));
         widgetScheduler.Reconcile(boardEditor.State,eligible,now);
         ScheduleWidgetRefresh();
     }
@@ -216,7 +215,7 @@ internal sealed partial class GlassDeskCoordinator
             if(boardDragInstance is not null)
             {
                 int? index=BoardDropIndex(e.X,e.Y);
-                var outcome=boardEditor.PointerUp(new(e.X,e.Y),new(0,132,scene.CurrentSize.X,Math.Max(0,scene.CurrentSize.Y-156)),index);
+                var outcome=boardEditor.PointerUp(new(e.X,e.Y),new(0,WidgetBoardLayout.Top,scene.CurrentSize.X,Math.Max(0,scene.CurrentSize.Y-WidgetBoardLayout.Top-WidgetBoardLayout.BottomInset)),index);
                 boardDragInstance=null;scene.SetCapture(PointerCaptureOwner.None,Now);UpdateOutsideGeometry();
                 if(outcome!=WidgetDragRelease.NoDrag){boardRevision++;Render();WakeMotion();}
             }

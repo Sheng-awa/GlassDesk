@@ -66,7 +66,8 @@ public sealed record WidgetBoardPacking(IReadOnlyList<WidgetCardPlacement> Cards
 /// <summary>Only derives pixels for this presentation; saved size/order remain independent of work area.</summary>
 public static class WidgetBoardLayout
 {
-    public const float Left = 24, Gap = 12, SmallWidth = 150, MediumWidth = 312, CardHeight = 148, Top = 132;
+    // Cards start under the 58–86 DIP toolbar; the bottom inset leaves room for the Details dock.
+    public const float Left = 24, Gap = 12, SmallWidth = 150, MediumWidth = 312, CardHeight = 148, Top = 104, BottomInset = 72;
 
     public static WidgetBoardPacking Pack(WidgetBoardState state, float availableWidth, float top = Top)
     {

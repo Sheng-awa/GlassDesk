@@ -82,4 +82,6 @@ public static class WidgetActions
 {
     public const int Body=0,Previous=1,Toggle=2,Next=3,Close=4,Seek=5,OpenMusic=6,Settings=7,PluginTools=8;
     public const int NavigationShell=99,NavigationFirst=100,CompanionReveal=110;
+    // Details dock destinations (append only): 120..124 = music/widgets/clock/focus/notes.
+    public const int DockFirst=120;
 }

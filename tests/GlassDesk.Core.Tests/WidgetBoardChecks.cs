@@ -55,13 +55,13 @@ internal static class WidgetBoardChecks
             "widget board rejects duplicate IDs, invalid size/order, undefined and excessive-depth settings");
 
         var packed = WidgetBoardLayout.Pack(defaults, 360);
-        check(packed.Columns == 2 && packed.Cards[0].Bounds == new FloatRect(24, 132, 150, 148)
-            && packed.Cards[1].Bounds == new FloatRect(186, 132, 150, 148) && packed.ContentBottom == 304,
-            "default widget cards use balanced 150x148 columns, 12 gap and 24 margins");
+        check(packed.Columns == 2 && packed.Cards[0].Bounds == new FloatRect(24, 104, 150, 148)
+            && packed.Cards[1].Bounds == new FloatRect(186, 104, 150, 148) && packed.ContentBottom == 276,
+            "default widget cards start below the toolbar (104) with balanced 150x148 columns, 12 gap and 24 margins");
         var mixed = Board(Item("a"), Item("b", size: WidgetCardSize.Medium, order: 1), Item("c", order: 2),
             Item("d", order: 3), Item("e", size: WidgetCardSize.Medium, order: 4));
         var mixedPacking = WidgetBoardLayout.Pack(mixed, 360);
-        check(mixedPacking.Cards.Select(c => c.Bounds.Y).SequenceEqual(new[] { 132f, 292f, 452f, 452f, 612f })
+        check(mixedPacking.Cards.Select(c => c.Bounds.Y).SequenceEqual(new[] { 104f, 264f, 424f, 424f, 584f })
             && mixedPacking.Cards[1].Bounds.Width == 312 && mixedPacking.Cards[3].Bounds.X == 186,
             "deterministic packing flushes partial rows before full-width medium cards");
         var narrow = WidgetBoardLayout.Pack(mixed, 300);
@@ -70,7 +70,7 @@ internal static class WidgetBoardChecks
             && mixed.Instances[1].Size == WidgetCardSize.Medium
             && narrow.Cards.Zip(narrow.Cards.Skip(1), (a, b) => !a.Bounds.Intersects(b.Bounds)).All(x => x),
             "single-column fallback preserves persistent order and size while fitting available width");
-        var eligible = WidgetBoardLayout.EligibleInstances(mixedPacking, new(24, 132, 312, 148));
+        var eligible = WidgetBoardLayout.EligibleInstances(mixedPacking, new(24, 104, 312, 148));
         check(eligible.SetEquals(new[] { "a", "b" }), "widget prefetch eligibility includes only the viewport and one adjacent row");
 
         var editor = new WidgetBoardEditor(defaults); editor.Begin();

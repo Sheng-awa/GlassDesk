@@ -28,6 +28,32 @@ public readonly record struct CompanionPose(Vector2 BodyAnchor,FloatRect FullVis
 public sealed record HideAnchor(string StableId,FloatRect OccluderBounds,float OccluderRadius,Vector2 BodyAnchor,
     FloatRect VisibleEyeRegion,FloatRect RevealHitRegion);
 
+/// <summary>One bottom-dock destination. Only <see cref="IsPage"/> entries switch the real page.</summary>
+public sealed record DetailsDockEntry(string Id, string Label, int ActionId, bool IsPage);
+
+/// <summary>The five dock destinations in left-to-right order (music, widgets, clock, focus, notes).</summary>
+public static class DetailsDockItems
+{
+    public const int Music = 0, Widgets = 1, Clock = 2, Focus = 3, Notes = 4;
+    public static IReadOnlyList<DetailsDockEntry> All { get; } = Array.AsReadOnly(new[]
+    {
+        new DetailsDockEntry("music", "音乐", WidgetActions.DockFirst + Music, true),
+        new DetailsDockEntry("widgets", "小组件", WidgetActions.DockFirst + Widgets, true),
+        new DetailsDockEntry("clock", "时钟", WidgetActions.DockFirst + Clock, false),
+        new DetailsDockEntry("focus", "专注", WidgetActions.DockFirst + Focus, false),
+        new DetailsDockEntry("notes", "随记", WidgetActions.DockFirst + Notes, false)
+    });
+
+    /// <summary>Dock slot for a real page ID; unknown IDs fall back to music.</summary>
+    public static int IndexOf(string? pageId)
+    {
+        string normalized = DetailsPageController.Normalize(pageId);
+        for (int index = 0; index < All.Count; index++)
+            if (All[index].Id == normalized) return index;
+        return Music;
+    }
+}
+
 public readonly record struct FloatRect(float X,float Y,float Width,float Height)
 {
     public float Right=>X+Width;public float Bottom=>Y+Height;

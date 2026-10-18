@@ -114,6 +114,7 @@ Check(new WidgetPreferences{Version=1,AnchorX=.3,CompanionColor=0x123456}.Valida
 
 
 UiNavigationChecks.Run(Check);
+DetailsChromeChecks.Run(Check);
 UiCompanionChecks.Run(Check);
 CompanionLiquidChecks.Run(Check);
 TypographyPageChecks.Run(Check);
