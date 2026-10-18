@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>GlassDesk UI 简化 · 看图版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#20252C; --ink2:#48515B; --ink3:#7A828C; --line:#E3E7EC;
+  --bg:#F3F5F7; --card:#FFFFFF; --accent:#1689F9; --accent-ink:#0B6BCB;
+  --font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+  --display:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:48px 40px 64px;line-height:1.55}
+.wrap{max-width:1320px;margin:0 auto}
+h1{font-family:var(--display);font-size:34px;font-weight:650;letter-spacing:-.02em}
+.sub{color:var(--ink2);font-size:15px;margin-top:8px}
+.tagline{display:inline-flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pill{height:28px;padding:0 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:12.5px;color:var(--ink2);display:inline-flex;align-items:center}
+.pill b{color:var(--ink);font-weight:600}
+
+h2{font-family:var(--display);font-size:23px;font-weight:650;letter-spacing:-.01em;margin:48px 0 6px}
+.lead{color:var(--ink2);font-size:14px;margin-bottom:18px;max-width:1000px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px 30px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.label{font-size:12.5px;font-weight:600;color:var(--ink3);letter-spacing:.02em;margin-bottom:12px}
+.bad{color:#C4342B}.good{color:#1E7A43}
+.strike{text-decoration:line-through;color:#98A0AA}
+.small{font-size:12.5px;color:var(--ink2)}
+
+/* ===== 圆角 ===== */
+.radius-row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:6px 0 2px}
+.rc{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;color:var(--ink3)}
+.rc .box{width:52px;height:52px;background:#EAF2FE;border:1.5px solid #BFD9F8}
+.rc b{font-weight:600;color:var(--ink2)}
+.rc.mixed .box{background:#FDECEA;border-color:#F2C4BF}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+.tier{border:1px dashed var(--line);border-radius:14px;padding:14px;text-align:center}
+.tier .shape{width:64px;height:64px;background:#EAF2FE;border:1.5px solid #BFD9F8;margin:0 auto 8px}
+.tier b{display:block;font-size:15px}
+.tier span{font-size:12px;color:var(--ink3)}
+.nested{display:flex;gap:24px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.nest{position:relative;width:150px;height:110px;border-radius:24px;background:#20252C;display:grid;place-items:center}
+.nest .inner{width:118px;height:78px;border-radius:20px;background:#4A5560;display:grid;place-items:center;color:#fff;font-size:11.5px}
+.nest .inner.sixteen{border-radius:16px}
+.nest-note{font-size:12.5px;color:var(--ink2);max-width:360px}
+.rule{background:#F7FAFF;border:1px solid #D9E8FB;border-radius:14px;padding:14px 18px;font-size:13px;color:#25415F}
+.rule b{font-weight:650}
+ul.clean{list-style:none;display:flex;flex-direction:column;gap:7px;font-size:13.5px;color:var(--ink2)}
+ul.clean li{display:flex;gap:8px}
+ul.clean li::before{content:"·";color:var(--accent-ink);font-weight:700}
+
+/* ===== 丝带导航 ===== */
+.nav-demo{display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 6px}
+.ribbon{position:relative;width:264px;height:48px;border-radius:24px;background:#202328;display:flex;align-items:center;justify-content:center;gap:31px;box-shadow:0 6px 18px rgba(15,20,28,.18)}
+.ribbon .slot{width:7px;border-radius:4px;background:rgba(255,255,255,.55)}
+.ribbon .s1{height:14px}.ribbon .s2{height:26px}
+.ribbon .eyes{display:flex;gap:6px;align-items:center}
+.ribbon .eyes i{width:8px;height:12px;border-radius:4px;background:#fff}
+.sat{position:absolute;top:10px;right:8px;width:28px;height:28px;border-radius:50%;background:#F8FAFC;display:grid;place-items:center;box-shadow:0 0 0 2px var(--accent)}
+.sat svg{width:13px;height:13px}
+.sat-x{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:#C4342B;color:#fff;font-size:12px;display:grid;place-items:center;font-weight:700}
+.plate{height:22px;border-radius:11px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(15,20,28,.16);display:flex;align-items:center;padding:2px;font-size:12px}
+.plate span{height:18px;line-height:18px;padding:0 10px;border-radius:9px;color:#6B737D}
+.plate span.on{background:#20252C;color:#fff;font-weight:600}
+.pagetext{font-size:12px;color:#6B737D}
+.tag-active{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:28px;border-radius:14px;background:#F8FAFC;color:#20252C;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:12.5px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+.tag-active .eyes{display:flex;gap:4px}
+.tag-active .eyes i{width:4px;height:7px;border-radius:2px;background:#202328}
+.option{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:#fff}
+.option h3{font-size:15px;font-weight:650;margin-bottom:2px}
+.option .rec{display:inline-block;margin-left:8px;font-size:11px;font-weight:650;color:#fff;background:var(--accent);border-radius:999px;padding:2px 8px;vertical-align:2px}
+.option p{font-size:12.5px;color:var(--ink2);margin-top:10px}
+.pro{border-left:3px solid #3E9E63;padding-left:10px}
+.con{border-left:3px solid #D9A441;padding-left:10px}
+.pro,.con{font-size:12.5px;color:var(--ink2);margin-top:8px}
+
+/* ===== 卡片简化 ===== */
+.cards-demo{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.card{width:230px;border-radius:16px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);box-shadow:0 8px 22px rgba(15,20,28,.10);padding:14px}
+.card.old{border-radius:20px;background:rgba(255,255,255,.55)}
+.card .cap{font-size:11.5px;color:#7A828C;font-weight:500}
+.card .big{font-family:var(--display);font-size:34px;line-height:40px;margin-top:6px}
+.card .big.date{font-size:44px;line-height:50px}
+.card .line{font-size:12.5px;color:#48515B;margin-top:6px}
+.card .tiny{font-size:11px;color:#98A0AA;margin-top:4px}
+.card .gear{float:right;color:#8A929C;font-size:12px}
+.badge{display:inline-block;font-size:11px;font-weight:650;border-radius:999px;padding:2px 8px;margin-bottom:8px}
+.badge.b{background:#FDECEA;color:#C4342B}
+.badge.a{background:#E9F6EE;color:#1E7A43}
+
+/* ===== 设置去噪 ===== */
+.mini-win{width:100%;max-width:420px;border-radius:18px;background:linear-gradient(140deg,#DCE7F4,#EEF3F8);padding:14px;border:1px solid var(--line)}
+.mini-win .bar{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#48515B}
+.mini-win .nav{height:26px;border-radius:13px;background:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;gap:18px;font-size:10.5px;color:#5C646E;margin-bottom:10px}
+.mini-win .nav b{background:#20252C;color:#fff;border-radius:9px;padding:2px 9px;font-weight:600}
+.mini-win .cardline{border-radius:12px;background:rgba(255,255,255,.7);padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#48515B}
+.mini-win .green{height:28px;border-radius:8px;background:#DFF3E3;display:flex;align-items:center;padding:0 10px;font-size:11px;color:#2C6B41;margin:8px 0}
+.mini-win .x{font-size:11px;color:#6B737D}
+.arrows{display:flex;justify-content:center;font-size:18px;color:var(--ink3);margin:10px 0}
+
+/* ===== 计划 ===== */
+.plan{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.step{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.step .n{width:24px;height:24px;border-radius:8px;background:#EAF2FE;color:var(--accent-ink);font-weight:700;font-size:12px;display:grid;place-items:center;flex:none}
+.step b{font-size:13.5px;display:block;margin-bottom:2px}
+.step p{font-size:12px;color:var(--ink2)}
+.src{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.9}
+.src a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #BFD9F8}
+.foot{margin-top:20px;font-size:12px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>GlassDesk UI 简化 · 看图版</h1>
+  <div class="sub">只改观感，功能一个都不减。三条：圆角统一、小组件入口重做、小组件卡收干净。</div>
+  <div class="tagline">
+    <span class="pill">保留 <b>五槽 + 眼睛</b></span>
+    <span class="pill">保留 <b>白板 / 频谱 / 陪伴液体</b></span>
+    <span class="pill">移除 <b>右上圆按钮</b></span>
+    <span class="pill">统一 <b>圆角 24/16/10</b></span>
+  </div>
+
+  <h2>1 · 圆角：先统一，再谈好看</h2>
+  <div class="lead">现在同一屏里有 4 / 10 / 12 / 20 / 23 / 24 / 28 和直角。眼睛每看到一块都要重新校准，轮廓就不安静。</div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="label bad">现在：混用</div>
+      <div class="radius-row">
+        <div class="rc mixed"><div class="box" style="border-radius:4px"></div><b>4</b><span>小图标</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:10px"></div><b>10</b><span>提示条</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:12px"></div><b>12</b><span>按钮</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:20px"></div><b>20</b><span>Cover</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:23px"></div><b>23</b><span>选中底</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:24px"></div><b>24</b><span>卡片</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:28px"></div><b>28</b><span>导航</span></div>
+        <div class="rc mixed"><div class="box" style="border-radius:0"></div><b>直角</b><span>ColorPicker</span></div>
+      </div>
+      <div class="small" style="margin-top:16px">同一块界面里出现这么多圆角，眼睛会不断“重新对焦”；相邻圆角不平行时，轮廓看起来就是歪的。</div>
+    </div>
+    <div class="panel">
+      <div class="label good">改成：四档</div>
+      <div class="tiers">
+        <div class="tier"><div class="shape" style="border-radius:24px"></div><b>24</b><span>外壳 / 面板</span></div>
+        <div class="tier"><div class="shape" style="border-radius:16px"></div><b>16</b><span>卡片 / 封面</span></div>
+        <div class="tier"><div class="shape" style="border-radius:10px"></div><b>10</b><span>输入框 / 色块</span></div>
+        <div class="tier"><div class="shape" style="border-radius:999px;width:64px;height:34px"></div><b>全圆</b><span>按钮 / 开关</span></div>
+      </div>
+      <div class="rule" style="margin-top:16px">
+        <b>同层同值</b> · <b>紧贴两层同心</b>：内圆角 = 外圆角 − 间距（小于 8 取 8） · <b>条形不凑热闹</b>：频谱/进度/导航小条保持 2–4
+      </div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:20px">
+    <div class="label">同心圆角：紧贴的两层要“平行”</div>
+    <div class="nested">
+      <div class="nest"><div class="inner" style="border-radius:20px">外 24 / 内 20<br>内缩 4</div></div>
+      <div class="nest"><div class="inner sixteen">外 24 / 卡 16<br>留空隙</div></div>
+      <div class="nest-note">
+        导航外框 24 → 选中底内缩 4 → <b>20</b>；这样两层轮廓是平行的，看起来“贴合”。
+        设置面板 24 → 内部卡片 16（中间留 12 以上的空隙，避免卡中卡同大圆角显得软塌）。
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · 小组件入口：把右上角圆按钮拿掉</h2>
+  <div class="lead">你发的参考图是“深色丝带 + 白色名字牌”。圆按钮设计本身不差，但放在角落破坏对称，也没有必要。</div>
+  <div class="grid2">
+    <div class="option">
+      <h3>现在</h3>
+      <div class="nav-demo">
+        <div class="ribbon">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="eyes"><i></i><i></i></div>
+          <div class="slot s2"></div><div class="slot s1"></div>
+          <div class="sat"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="6" height="6" rx="1.5" fill="#20252C"/><rect x="13" y="5" width="6" height="6" rx="1.5" fill="#20252C"/><rect x="5" y="13" width="6" height="6" rx="1.5" fill="#20252C"/><rect x="13" y="13" width="6" height="6" rx="1.5" fill="#20252C"/></svg><span class="sat-x">×</span></div>
+        </div>
+        <div class="pagetext">音乐</div>
+      </div>
+      <p class="con">圆按钮突兀、左右不对称、5 个槽没有名字。</p>
+    </div>
+    <div class="option">
+      <h3>方案 A <span class="rec">推荐</span></h3>
+      <div class="nav-demo">
+        <div class="ribbon">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="eyes"><i></i><i></i></div>
+          <div class="slot s2"></div><div class="slot s1"></div>
+        </div>
+        <div class="plate"><span class="on">音乐</span><span>小组件</span></div>
+      </div>
+      <p>丝带不动，下面加一块小白牌：<b>音乐 │ 小组件</b>，点哪边切哪页；鼠标悬停其它槽时，白牌临时显示槽名 +“预览”。</p>
+      <p class="pro">没有新按钮、左右对称、有常驻文字、陪伴球不用另找地方。</p>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
+    <div class="option">
+      <h3>方案 B（最接近你的参考图）</h3>
+      <div class="nav-demo">
+        <div class="ribbon">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="tag-active"><span class="eyes"><i></i><i></i></span>音乐</div>
+          <div class="slot s2"></div><div class="slot s1"></div>
+        </div>
+      </div>
+      <p>当前槽展开成白色名字牌（LINK 1 的样子），左边眼睛、右边名字；其余槽保持小条。</p>
+      <p class="con">名牌会盖住相邻槽；5 个槽里没有“小组件”，切页逻辑要再定；动画更复杂。</p>
+    </div>
+    <div class="option">
+      <h3>方案 C（最彻底）</h3>
+      <div class="nav-demo">
+        <div class="ribbon">
+          <div class="slot s1"></div><div class="slot s2"></div>
+          <div class="tag-active"><span class="eyes"><i></i><i></i></span>音乐</div>
+          <div class="slot s2"></div><div class="slot s1"></div>
+        </div>
+      </div>
+      <p>把“小组件”做成五个槽之一（音乐、小组件 + 3 个预览），每个槽都有名字牌，不要单独入口。</p>
+      <p class="con">信息最清楚，但改变五槽含义，需要你拍板。</p>
+    </div>
+  </div>
+
+  <h2>3 · 小组件卡：不是重做，是收干净</h2>
+  <div class="lead">功能全保留（时间/日期、多实例、改大小、配置、删除、拖动、添加菜单）。卡片文字从 3–4 层减到 2 层。</div>
+  <div class="cards-demo">
+    <div>
+      <div class="badge b">现在</div>
+      <div class="card old">
+        <div class="cap">时间 <span class="gear">⚙</span></div>
+        <div class="big">02:23</div>
+        <div class="tiny">(UTC+08:00) 北京, …</div>
+      </div>
+      <div class="card old" style="margin-top:14px">
+        <div class="cap">日期 <span class="gear">⚙</span></div>
+        <div class="big date">19</div>
+        <div class="line">2026年10月</div>
+        <div class="line">星期一</div>
+      </div>
+    </div>
+    <div>
+      <div class="badge a">改成</div>
+      <div class="card">
+        <div class="cap">时间 <span class="gear">⚙</span></div>
+        <div class="big">02:23</div>
+        <div class="line">北京时间</div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="cap">日期 <span class="gear">⚙</span></div>
+        <div class="big date">19</div>
+        <div class="line">10月19日 · 周一</div>
+      </div>
+    </div>
+    <div style="max-width:420px">
+      <div class="panel" style="padding:20px 22px">
+        <div class="label">其它三处</div>
+        <ul class="clean">
+          <li>卡片圆角 20 → <b>16</b>，加一层很淡的纸面 + 1px 亮边，让它从玻璃上浮起来</li>
+          <li>“添加 / 编辑”不再是纯文字：添加 = 蓝色小胶囊，编辑 = 文字按钮</li>
+          <li>导航下那行只显示当前页，不再出现“小组件 · 时钟（预览）”这种长提示</li>
+          <li>右上圆按钮删掉，标题行恢复左右配重</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h2>4 · 设置窗口：只去噪，结构不动</h2>
+  <div class="lead">保留五个分类、顶部丝带、两列布局、全部功能。只做下面 5 件。</div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="label bad">现在</div>
+      <div class="mini-win">
+        <div class="nav"><b>外观</b><span>交互</span><span>陪伴</span><span>插件</span><span>通用</span></div>
+        <div class="bar"><b style="font-size:15px">GlassDesk</b><span class="x">隐藏组件　✕</span></div>
+        <div class="green">✓ 已更新　位置已重置。</div>
+        <div class="cardline"><span>外观</span><span style="font-size:10px;color:#8A929C">调整玻璃质感</span></div>
+        <div class="cardline"><span>模糊强度</span><span>20 px</span></div>
+        <div class="cardline"><span>显示星期</span><span style="color:#C4342B">被底部裁掉</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="label good">改成</div>
+      <div class="mini-win">
+        <div class="nav"><b>外观</b><span>交互</span><span>陪伴</span><span>插件</span><span>通用</span></div>
+        <div class="bar"><b style="font-size:15px">外观</b><span class="x">隐藏　✕</span></div>
+        <div class="cardline"><span>模糊强度</span><span>20 px</span></div>
+        <div class="cardline"><span>显示星期</span><span>●</span></div>
+        <div class="cardline"><span>材质固定，字清楚</span><span>没有绿条</span></div>
+      </div>
+      <ul class="clean" style="margin-top:14px">
+        <li>材质固定，不跟“透明度”滑杆走；背景不那么透，字更清楚</li>
+        <li>删重复标题与第二个关闭入口；绿色常驻条 → 1.5 秒中性提示</li>
+        <li>修 3 个实机 bug：显示星期被裁、插件列表被裁、ColorPicker 直角且太大</li>
+        <li>设置卡片 24→16、输入框 24→10、按钮全圆</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>5 · 怎么做：两批</h2>
+  <div class="plan">
+    <div class="step"><div class="n">1</div><div><b>第一批：纯视觉（低风险）</b><p>圆角统一、设置去噪、材质固定、修 3 个裁切 bug、ColorPicker 圆角、丝带 hover 不变白。</p></div></div>
+    <div class="step"><div class="n">2</div><div><b>第二批：小结构（每项先截图确认）</b><p>小组件入口 A/B/C 选一、小组件卡文字与按钮、名字牌、设置卡片 16、空态连接按钮。</p></div></div>
+    <div class="step"><div class="n">✓</div><div><b>不动的</b><p>五槽几何/眼睛/耳朵/角、时间白板、8 根频谱、陪伴液体、播放动画、深色主题、功能删减。</p></div></div>
+    <div class="step"><div class="n">?</div><div><b>要你拍板</b><p>① 入口 A/B/C；② 圆角 24/16/10 还是更圆 28/20/12；③ 设置保持两列还是改单列。</p></div></div>
+  </div>
+
+  <div class="src">
+    参考（点开可看原文）：<br>
+    Apple · 同心圆角 <a href="https://developer.apple.com/documentation/swiftui/roundedrectangularshapecorners/concentric(minimum:)">concentric(minimum:)</a>　
+    Windows 11 · 几何规范 <a href="https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry">Geometry in Windows 11</a>　
+    Material 3 · 形状阶梯 <a href="https://m3.material.io/styles/shape/corner-radius-scale">Corner radius scale</a><br>
+    同心圆角写法参考 <a href="https://github.com/pproenca/dot-skills/blob/master/skills/.experimental/adversarial-ios-design/references/layout-concentric-corners.md">Keep nested corner radii concentric</a>
+  </div>
+  <div class="foot">GlassDesk UI 简化计划 v2 · 2026-10-19 · 只规划，未改源码</div>
+</div>
+</body>
+</html>
