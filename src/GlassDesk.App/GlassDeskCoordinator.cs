@@ -51,6 +51,9 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     bool effectsSubscribed,animationsSubscribed,powerSubscribed;
     string seekToken="";
     string? notice;
+    // Widget persistence failures survive unrelated successes (a confirmed play command must
+    // not clear a "configuration was not saved" warning) until the next successful save.
+    string? pageSaveNotice;
     uint previousDpi;
     int graphicsRetries;
     bool pointerDown;
@@ -269,7 +272,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             float viewportHeight=Math.Min(controller.Layout.Height,controller.Monitor.WorkArea.Height/controller.Monitor.Scale);
             if(options.QaDetailsHeight is float qaHeight)viewportHeight=Math.Min(viewportHeight,qaHeight);
             scene.SetDetailsViewport(viewportHeight,Math.Min(360,controller.Monitor.WorkArea.Width/controller.Monitor.Scale));
-            scene.Render(controller.Form,Media,DateTimeOffset.Now,EffectivePreferences,notice,contentPolicy.Mode);
+            scene.Render(controller.Form,Media,DateTimeOffset.Now,EffectivePreferences,pageSaveNotice??notice,contentPolicy.Mode);
             ReconcileWidgetBoard();
             qa?.RecordContent(contentPolicy.Mode,contentPolicy.ForForm(controller.Form),Media.State,controller.Form,controller.Visible);
             WakeMotion();

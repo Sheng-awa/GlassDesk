@@ -1236,7 +1236,7 @@ public sealed partial class WidgetScene : IDisposable
 
     void DrawDetails(List<SurfaceOp> operations)
     {
-        if (WidgetsPage) { DrawBoard(operations); return; }
+        if (WidgetsPage) { DrawBoard(operations); DrawPageNotice(operations); return; }
         var size = LayoutSize(WidgetForm.Details);
         float width = size.X, height = size.Y;
         if(_pluginPages.Count>0){RoundRect(operations,16,height-104,32,32,16,_button);Icon(operations,"\uE8A5",24,height-96,16,_secondary);}
@@ -1269,6 +1269,26 @@ public sealed partial class WidgetScene : IDisposable
             RoundRect(operations,100,162,160,36,18,_button);
             Text(operations,"打开网易云音乐",100,162,160,36,TextRole.Caption,InkRole.Primary,center:true);
         }
+        DrawPageNotice(operations);
+    }
+
+    // A restrained, persistent status line on the page that owns the failure. It never
+    // covers the transport row or dock: on the music page it sits at the body's lower edge,
+    // on the board page just above the dock inset.
+    void DrawPageNotice(List<SurfaceOp> operations)
+    {
+        if (_form != WidgetForm.Details || string.IsNullOrWhiteSpace(_notice)) return;
+        var size = LayoutSize(WidgetForm.Details);
+        var geometry = ResponsiveDetails();
+        float bodyBottom = geometry?.BodyViewport.Bottom ?? (WidgetsPage ? size.Y - 72 : 168);
+        float y = Math.Max(64, bodyBottom - 26);
+        var plate = new FloatRect(24, y, Math.Max(0, size.X - 48), 22);
+        if (plate.Width <= 40) return;
+        uint fill = _lightText ? 0xB320252C : 0xB3F7F9FB;
+        RoundRect(operations, plate.X, plate.Y, plate.Width, plate.Height, 11, fill);
+        Icon(operations, "\uE7BA", plate.X + 8, plate.Y + 4, 14, _secondary);
+        string text = _notice!.Length > 30 ? _notice[..29] + "…" : _notice;
+        Text(operations, text, plate.X + 28, plate.Y + 3, plate.Width - 34, 16, TextRole.Caption, InkRole.Primary);
     }
 
     void DrawDetailsBody(List<SurfaceOp> operations, DetailsResponsiveResult? geometry)

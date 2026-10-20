@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using GlassDesk.Core;
@@ -266,8 +266,18 @@ internal sealed partial class GlassDeskCoordinator
     {
         await preceding;
         await widgetSaveGate.WaitAsync();
-        try {await widgetStore.SaveAsync(state);}
-        catch(Exception error){if(!disposed){diagnostics.RecordError("widget-save",error);notice="组件配置暂未保存，请检查数据目录。";Changed?.Invoke();}}
+        string? priorSaveNotice=pageSaveNotice;
+        try
+        {
+            await widgetStore.SaveAsync(state);
+            pageSaveNotice=null;
+            if(notice==priorSaveNotice)notice=null;
+            Render();
+        }
+        catch(Exception error){if(!disposed){
+            diagnostics.RecordError("widget-save",error);
+            pageSaveNotice="组件配置未保存，请检查数据目录后重试。";
+            Render();Changed?.Invoke();}}
         finally {widgetSaveGate.Release();}
     }
 
