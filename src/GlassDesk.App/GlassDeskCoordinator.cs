@@ -255,12 +255,20 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             scene.SetMonotonicTime(Now);
             ApplySceneInk();
             PrepareWidgetBoard();
+            // Preview-only acceptance hook: shrink the real Details window so the responsive
+            // compact layout is exercised end to end (the controller clamps to the work area).
+            if(options.QaDetailsHeight is float previewDetailsHeight
+                && controller.Form==WidgetForm.Details
+                && pages.CurrentPageId==DetailsPageController.Music)
+                controller.SetDetailsPageHeight(previewDetailsHeight,Now);
             controller.UpdateContent(contentPolicy.Mode,Media.Connected,Preferences.CompanionEnabled,scene.MeasureMusicCapsuleWidth(Media,Preferences),Now,Media.Timeline?.Valid==true);
             var material=(controller.Form,Media.Connected,Preferences.TintOpacity,Preferences.LiquidGlassEnabled,
                 Preferences.ClockShowTime,Preferences.ClockShowDate,Preferences.ClockShowWeekday);
             if(readabilityMaterial!=material)
             {readabilityMaterial=material;ScheduleTextTone();}
-            scene.SetDetailsViewport(Math.Min(controller.Layout.Height,controller.Monitor.WorkArea.Height/controller.Monitor.Scale),Math.Min(360,controller.Monitor.WorkArea.Width/controller.Monitor.Scale));
+            float viewportHeight=Math.Min(controller.Layout.Height,controller.Monitor.WorkArea.Height/controller.Monitor.Scale);
+            if(options.QaDetailsHeight is float qaHeight)viewportHeight=Math.Min(viewportHeight,qaHeight);
+            scene.SetDetailsViewport(viewportHeight,Math.Min(360,controller.Monitor.WorkArea.Width/controller.Monitor.Scale));
             scene.Render(controller.Form,Media,DateTimeOffset.Now,EffectivePreferences,notice,contentPolicy.Mode);
             ReconcileWidgetBoard();
             qa?.RecordContent(contentPolicy.Mode,contentPolicy.ForForm(controller.Form),Media.State,controller.Form,controller.Visible);

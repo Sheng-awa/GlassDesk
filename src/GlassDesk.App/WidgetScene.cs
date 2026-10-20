@@ -17,7 +17,8 @@ public sealed partial class WidgetScene : IDisposable
     readonly ContainerVisual _bodyRoot;
     readonly CompositionRoundedRectangleGeometry _bodyClip;
     readonly Dictionary<WidgetForm, CrossfadeSurfaceVisual> _metadata = new();
-    readonly Dictionary<WidgetForm, (string Title, string Artist, float Width, uint Text, uint Secondary, TypographyIdentity Typography)> _metadataKeys = new();
+    readonly Dictionary<WidgetForm, (string Title, string Artist, float Width, uint Text, uint Secondary,
+        TypographyIdentity Typography, float OffsetX, float OffsetY, float ArtistOffset)> _metadataKeys = new();
     readonly Dictionary<string, SurfaceOp[]> _typographyLayers = new(StringComparer.Ordinal);
     public bool CaptureTypographyDiagnostics { get; set; }
     readonly SpriteVisual _content;
@@ -136,7 +137,10 @@ public sealed partial class WidgetScene : IDisposable
     bool _promoteSecondary;
     bool _clockPlateLightText;
     bool _clockPlatePromoteSecondary;
-    public float TextBackgroundY => _form == WidgetForm.Details ? Math.Clamp(304 - _detailsScroll, 88, _detailsHeight - 72)
+    public float TextBackgroundY => _form == WidgetForm.Details
+        ? ResponsiveDetails() is { } details
+            ? Math.Clamp(details.Artist.Bottom + 4 - _detailsScroll, 64, Math.Max(64, _detailsHeight - 72))
+            : Math.Clamp(304 - _detailsScroll, 88, _detailsHeight - 72)
         : _form == WidgetForm.Peek ? _media.Connected ? 76 : 117 : 26;
     public float ClockPlateBackgroundY => _media.Connected ? 31 : 60;
     public bool BodyUsesLargeClock => _form == WidgetForm.Capsule && !MusicFor(_form) && _preferences.ClockShowTime;
@@ -503,21 +507,31 @@ public sealed partial class WidgetScene : IDisposable
             }
             if (form == WidgetForm.Details)
             {
+                var geometry = ResponsiveDetails();
                 var body = new List<SurfaceOp>();
-                DrawDetailsBody(body);
-                // No-plugin music page: the metadata layer ends at body-local 220, so the surface
-                // only needs that height and the wheel has no empty range. Plugin blocks keep
-                // their existing start position and add their own scrollable height.
-                int pluginBlocks = Math.Min(4, _pluginVisuals.Count);
-                float bodyHeight = pluginBlocks == 0
-                    ? (_media.Connected ? 220f : 112f)
-                    : 326f + pluginBlocks * 112f;
-                _detailsBody.Size = new(size.X, bodyHeight);
-                _detailsViewport.Size = new(size.X, DetailsBodyViewportHeight(size));
-                _detailsViewport.Offset = new(0, _media.Connected ? 80 : 56, 0);
+                DrawDetailsBody(body, geometry);
                 float priorScroll = _detailsScroll;
                 if (priorContent is not null && (priorContent.Session != media.SessionToken || priorContent.Version != media.ContentVersion)) _detailsScroll = 0;
-                _detailsScroll = Math.Clamp(_detailsScroll, 0, Math.Max(0, _detailsBody.Size.Y - _detailsViewport.Size.Y));
+                if (geometry is not null)
+                {
+                    // Only the body scrolls: its clip starts at the title top and ends above the
+                    // fixed timeline/transport row. The surface height is the real content extent,
+                    // so a page with nothing to scroll reports MaxScroll = 0.
+                    float contentBottom = Math.Max(geometry.Title.Bottom, geometry.Artist.Bottom);
+                    float bodyContent = contentBottom - geometry.BodyViewport.Y
+                        + Math.Min(4, _pluginVisuals.Count) * 112f;
+                    _detailsBody.Size = new(size.X, Math.Max(1, bodyContent));
+                    _detailsViewport.Size = new(size.X, geometry.BodyViewport.Height);
+                    _detailsViewport.Offset = new(0, geometry.BodyViewport.Y, 0);
+                    _detailsScroll = Math.Clamp(_detailsScroll, 0, geometry.MaxScroll);
+                }
+                else
+                {
+                    _detailsBody.Size = new(size.X, 112);
+                    _detailsViewport.Size = new(size.X, DetailsBodyViewportHeight(size));
+                    _detailsViewport.Offset = new(0, 56, 0);
+                    _detailsScroll = 0;
+                }
                 if (!formChanged) AdjustArtworkScroll(_detailsScroll - priorScroll);
                 _detailsBody.Offset = new(0, -_detailsScroll, 0);
                 if (priorScroll != _detailsScroll) { _placementKey = null; ConfigurePlacement(); }
@@ -568,7 +582,7 @@ public sealed partial class WidgetScene : IDisposable
                     var size = LayoutSize(form); _content.Size = size;
                     ReplaceSurface(ref _contentSurface, _contentBrush, RenderTextLayer("Details", size.X, size.Y, operations));
                     var body = new List<SurfaceOp>();
-                    DrawDetailsBody(body);
+                    DrawDetailsBody(body, ResponsiveDetails());
                     ReplaceSurface(ref _detailsSurface, _detailsBrush, RenderTextLayer("DetailsBody", size.X, _detailsBody.Size.Y, body));
                     if (_timelineSurface is not null)
                     {
@@ -624,7 +638,7 @@ public sealed partial class WidgetScene : IDisposable
             Text(operations, "播放时间暂不可用", 0, 10, trackWidth, 24, TextRole.Caption, InkRole.Secondary, center: true);
         }
         _timeline.Size = new(trackWidth, 38);
-        _timeline.Offset = new(56, 300, 0);
+        _timeline.Offset = new(56, ResponsiveDetails()?.Timeline.Y ?? 300, 0);
         ReplaceSurface(ref _timelineSurface, _timelineBrush, RenderTextLayer("Timeline", trackWidth, 38, operations));
         _lastTimeline = key;
         BuildControls();
@@ -709,8 +723,9 @@ public sealed partial class WidgetScene : IDisposable
         _peekContent.Offset = new((pose.Width - _peekContent.Size.X) / 2, 0, 0);
         _content.Offset = new((pose.Width - _content.Size.X) / 2, 0, 0);
         _peekButtons.Offset = _peekContent.Offset; _detailsButtons.Offset = _content.Offset;
-        _detailsViewport.Offset = new((pose.Width - _content.Size.X) / 2, _media.Connected ? 80 : 56, 0);
-        _timeline.Offset = new((pose.Width - 360) / 2 + 56, 300, 0);
+        _detailsViewport.Offset = new((pose.Width - _content.Size.X) / 2,
+            ResponsiveDetails() is { } details ? details.BodyViewport.Y : 56, 0);
+        _timeline.Offset = new((pose.Width - 360) / 2 + 56, ResponsiveDetails()?.Timeline.Y ?? 300, 0);
         UpdateAuxiliaryPlacement();
         BuildControls();
         var feedbackControl = _controls.FirstOrDefault(control => control.Id == _feedbackId);
@@ -745,20 +760,44 @@ public sealed partial class WidgetScene : IDisposable
         ApplyBoardVisibility(weights);
     }
 
+    DetailsResponsiveResult? _detailsLayout;
+    (Vector2 Size, bool HasTimeline, int Plugins) _detailsLayoutKey;
+    /// <summary>Responsive Details/music geometry; null for the empty (disconnected) page or the board page.</summary>
+    DetailsResponsiveResult? ResponsiveDetails()
+    {
+        if (!_media.Connected || WidgetsPage || _form != WidgetForm.Details) return null;
+        var size = LayoutSize(WidgetForm.Details);
+        bool hasTimeline = _media.Timeline?.Valid == true;
+        int plugins = Math.Min(4, _pluginVisuals.Count);
+        var key = (size, hasTimeline, plugins);
+        if (_detailsLayout is null || _detailsLayoutKey != key)
+        {
+            _detailsLayout = DetailsResponsiveLayout.Resolve(new(size, hasTimeline, plugins * 112f));
+            _detailsLayoutKey = key;
+        }
+        return _detailsLayout;
+    }
+
     WidgetPose ArtworkPoseFor(WidgetForm form) => form switch
     {
         WidgetForm.Capsule => new(18, 14, 24, 24, 12),
         WidgetForm.Peek => new(24, 56, 56, 56, 20),
-        _ => new(96, 70, 168, 168, 16)
+        _ => ResponsiveDetails() is { } details
+            ? new(details.Cover.X, details.Cover.Y, details.Cover.Width, details.Cover.Height, details.CoverRadius)
+            : new(96, 70, 168, 168, 16)
     };
 
     Vector2 ArtworkViewportFor(WidgetForm form, Vector2 size) => form == WidgetForm.Details
-        ? new(56, 80 + DetailsBodyViewportHeight(size))
+        ? ResponsiveDetails() is { } details
+            ? new(DetailsResponsiveLayout.ArtworkTop, details.ArtworkViewport.Bottom)
+            : new(56, 80 + Math.Max(1, Math.Min(112, size.Y - 160)))
         : new(0, size.Y);
 
-    // Keep the scrollable cover/metadata/wave above the fixed timeline and transport.
-    float DetailsBodyViewportHeight(Vector2 size) => Math.Max(1, Math.Min(_media.Connected ? 326 : 112,
-        size.Y - (_media.Connected ? (_media.Timeline?.Valid == true ? 216 : 180) : 160)));
+    // Empty Details keeps its compact 112 DIP body; the music page takes the responsive
+    // body viewport from the shared geometry (title top .. timeline/toggle top).
+    float DetailsBodyViewportHeight(Vector2 size) => ResponsiveDetails() is { } details
+        ? details.BodyViewport.Height
+        : Math.Max(1, Math.Min(112, size.Y - 160));
 
     void UpdateAuxiliaryPlacement()
     {
@@ -822,7 +861,8 @@ public sealed partial class WidgetScene : IDisposable
                 // The plugin tools affordance sits above the dock guard band with an 8 DIP
                 // gap: its bottom edge is size.Y-72, so the dock never covers it.
                 if (_pluginPages.Count > 0) protectedRegions.Add(new(16,size.Y-104,32,32));
-                float viewportBottom = 80 + DetailsBodyViewportHeight(size);
+                var geometry = ResponsiveDetails();
+                float viewportBottom = geometry?.BodyViewport.Bottom ?? 80 + DetailsBodyViewportHeight(size);
                 if(_media.Connected){float artTop=Math.Max(80,88-_detailsScroll),artBottom=Math.Min(viewportBottom,280-_detailsScroll);
                     var art=new FloatRect(84,artTop,192,Math.Max(0,artBottom-artTop));
                     if(art.Height>0)protectedRegions.Add(art);
@@ -830,11 +870,22 @@ public sealed partial class WidgetScene : IDisposable
                     if(metadataBottom>metadataTop)protectedRegions.Add(new(24,metadataTop,312,metadataBottom-metadataTop));
                     float waveTop=Math.Max(80,350-_detailsScroll),waveBottom=Math.Min(viewportBottom,374-_detailsScroll);
                     if(waveBottom>waveTop)protectedRegions.Add(new(136,waveTop,88,waveBottom-waveTop));
-                    protectedRegions.Add(new(96,DetailsTransportY,168,56));
-                    if(_media.Timeline?.Valid==true)protectedRegions.Add(new(56,Math.Min(374,size.Y-138),248,48));
+                    protectedRegions.Add(geometry is null
+                        ? new(96,DetailsTransportY,168,56)
+                        : new FloatRect(geometry.PreviousButton.X,
+                            Math.Min(geometry.PreviousButton.Y, geometry.ToggleButton.Y),
+                            geometry.NextButton.Right - geometry.PreviousButton.X,
+                            Math.Max(geometry.PreviousButton.Bottom, geometry.ToggleButton.Bottom)
+                                - Math.Min(geometry.PreviousButton.Y, geometry.ToggleButton.Y)));
+                    if(_media.Timeline?.Valid==true)protectedRegions.Add(geometry is null
+                        ? new(56,Math.Min(374,size.Y-138),248,48)
+                        : new FloatRect(geometry.Timeline.X,geometry.Timeline.Y,geometry.Timeline.Width,geometry.Timeline.Height));
                     }
                 else protectedRegions.AddRange(new FloatRect[]{new(130,105,100,84),new(100,size.Y-76,160,36)});
-                float pluginTop = _media.Connected ? 296 : 124;
+                float pluginBase = geometry is null ? 80 : geometry.BodyViewport.Y;
+                float pluginTop = geometry is not null
+                    ? Math.Max(geometry.Title.Bottom, geometry.Artist.Bottom) - geometry.BodyViewport.Y
+                    : (_media.Connected ? 296 : 124);
                 foreach (var contribution in _pluginVisuals.Take(4))
                 {
                     foreach (var operation in contribution.Value.Take(128))
@@ -842,7 +893,7 @@ public sealed partial class WidgetScene : IDisposable
                         if (!float.IsFinite(operation.X) || !float.IsFinite(operation.Y) || !float.IsFinite(operation.Width) || !float.IsFinite(operation.Height)) continue;
                         float x = Math.Clamp(operation.X,0,size.X-48), y = Math.Clamp(operation.Y,0,96);
                         float width = Math.Clamp(operation.Width,0,size.X-48-x), height = Math.Clamp(operation.Height,0,96-y);
-                        float top = Math.Max(80,80+pluginTop+y-_detailsScroll), bottom = Math.Min(viewportBottom,80+pluginTop+y+height-_detailsScroll);
+                        float top = Math.Max(pluginBase,pluginBase+pluginTop+y-_detailsScroll), bottom = Math.Min(viewportBottom,pluginBase+pluginTop+y+height-_detailsScroll);
                         if (width > 0 && bottom > top) protectedRegions.Add(new(24+x,top,width,bottom-top));
                     }
                     pluginTop += 112;
@@ -1191,11 +1242,25 @@ public sealed partial class WidgetScene : IDisposable
         if(_pluginPages.Count>0){RoundRect(operations,16,height-104,32,32,16,_button);Icon(operations,"\uE8A5",24,height-96,16,_secondary);}
         if (_media.Connected)
         {
-            // The lower-left corner stays free for the next layout iteration.
-            float transportY = DetailsTransportY;
-            Transport(96, transportY + 6, 44, WidgetActions.Previous, _media.Capabilities.Previous);
-            Transport(152, transportY, 56, WidgetActions.Toggle, _media.Capabilities.Toggle);
-            Transport(220, transportY + 6, 44, WidgetActions.Next, _media.Capabilities.Next);
+            // The transport row hangs from the dock through the responsive geometry, so a
+            // short workspace compresses the cover/body first and never clips these buttons.
+            var transport = ResponsiveDetails();
+            if (transport is not null)
+            {
+                Transport(transport.PreviousButton.X, transport.PreviousButton.Y, transport.PreviousButton.Width,
+                    WidgetActions.Previous, _media.Capabilities.Previous);
+                Transport(transport.ToggleButton.X, transport.ToggleButton.Y, transport.ToggleButton.Width,
+                    WidgetActions.Toggle, _media.Capabilities.Toggle);
+                Transport(transport.NextButton.X, transport.NextButton.Y, transport.NextButton.Width,
+                    WidgetActions.Next, _media.Capabilities.Next);
+            }
+            else
+            {
+                float transportY = DetailsTransportY;
+                Transport(96, transportY + 6, 44, WidgetActions.Previous, _media.Capabilities.Previous);
+                Transport(152, transportY, 56, WidgetActions.Toggle, _media.Capabilities.Toggle);
+                Transport(220, transportY + 6, 44, WidgetActions.Next, _media.Capabilities.Next);
+            }
         }
         else
         {
@@ -1206,7 +1271,7 @@ public sealed partial class WidgetScene : IDisposable
         }
     }
 
-    void DrawDetailsBody(List<SurfaceOp> operations)
+    void DrawDetailsBody(List<SurfaceOp> operations, DetailsResponsiveResult? geometry)
     {
         if (WidgetsPage) return;
         if (!_media.Connected)
@@ -1217,7 +1282,11 @@ public sealed partial class WidgetScene : IDisposable
             Icon(operations,"\uE8D6",168,16,24,_secondary);
             Text(operations,"等待音乐",100,62,160,24,TextRole.Body,InkRole.Secondary,center:true);
         }
-        DrawPluginContributions(operations, _media.Connected ? 296 : 124, LayoutSize(WidgetForm.Details).X);
+        // Plugin content starts right below the title/artist block, inside the scrollable body.
+        float pluginTop = geometry is not null
+            ? Math.Max(geometry.Title.Bottom, geometry.Artist.Bottom) - geometry.BodyViewport.Y
+            : (_media.Connected ? 296 : 124);
+        DrawPluginContributions(operations, pluginTop, LayoutSize(WidgetForm.Details).X);
     }
 
     void UpdateMetadata(WidgetForm form, bool trackChanged)
@@ -1229,27 +1298,40 @@ public sealed partial class WidgetScene : IDisposable
         if (!music) return;
         float width = form == WidgetForm.Capsule ? LayoutSize(form).X - 60 - (_preferences.AudioVisualizationEnabled ? 52 : 12)
             : form == WidgetForm.Peek ? (CompanionVisible || _preferences.AudioVisualizationEnabled ? 164 : 200) : 312;
-        var key = (Title, Artist, width, _text, _secondary, CurrentTypography);
+        var details = form == WidgetForm.Details ? ResponsiveDetails() : null;
+        float offsetX = form == WidgetForm.Capsule ? 60 : form == WidgetForm.Peek ? 96 : details?.Title.X ?? 24;
+        float offsetY = form == WidgetForm.Capsule ? 9 : form == WidgetForm.Peek ? 56
+            : details is not null ? details.Title.Y - details.BodyViewport.Y : 166;
+        float artistOffset = form == WidgetForm.Capsule ? 20 : form == WidgetForm.Peek ? 30
+            : details is not null ? details.Artist.Y - details.Title.Y : 28;
+        var key = (Title, Artist, width, _text, _secondary, CurrentTypography, offsetX, offsetY, artistOffset);
         if (!_drawingInvalidated && _metadataKeys.TryGetValue(form, out var previous) && previous == key) return;
         var operations = new List<SurfaceOp>();
         float height;
         if (form == WidgetForm.Capsule)
         {
-            height = 36; layer.Visual.Offset = new(60, 9, 0);
+            height = 36; layer.Visual.Offset = new(offsetX, offsetY, 0);
             Text(operations, Title, 0, 0, width, 20, TextRole.MediaCapsuleTitle, InkRole.Primary);
-            Text(operations, Artist, 0, 20, width, 16, TextRole.MediaCapsuleArtist, InkRole.Secondary);
+            Text(operations, Artist, 0, artistOffset, width, 16, TextRole.MediaCapsuleArtist, InkRole.Secondary);
         }
         else if (form == WidgetForm.Peek)
         {
-            height = 50; layer.Visual.Offset = new(96, 56, 0);
+            height = 50; layer.Visual.Offset = new(offsetX, offsetY, 0);
             Text(operations, Title, 0, 0, width, 26, TextRole.MediaPeekTitle, InkRole.Primary);
-            Text(operations, Artist, 0, 30, width, 20, TextRole.MediaPeekArtist, InkRole.Secondary);
+            Text(operations, Artist, 0, artistOffset, width, 20, TextRole.MediaPeekArtist, InkRole.Secondary);
+        }
+        else if (details is not null)
+        {
+            height = Math.Max(details.Title.Height, artistOffset + details.Artist.Height);
+            layer.Visual.Offset = new(offsetX, offsetY, 0);
+            Text(operations, Title, 0, 0, width, 24, TextRole.MediaDetailsTitle, InkRole.Primary, center: true);
+            Text(operations, Artist, 0, artistOffset, width, 20, TextRole.MediaDetailsArtist, InkRole.Secondary, center: true);
         }
         else
         {
-            height = 54; layer.Visual.Offset = new(24, 166, 0);
+            height = 54; layer.Visual.Offset = new(offsetX, offsetY, 0);
             Text(operations, Title, 0, 0, width, 24, TextRole.MediaDetailsTitle, InkRole.Primary, center: true);
-            Text(operations, Artist, 0, 28, width, 20, TextRole.MediaDetailsArtist, InkRole.Secondary, center: true);
+            Text(operations, Artist, 0, artistOffset, width, 20, TextRole.MediaDetailsArtist, InkRole.Secondary, center: true);
         }
         layer.Show(RenderTextLayer($"{form}Metadata", width, height, operations), new(width, height), trackChanged && !_drawingInvalidated && !_preferences.ReducedMotion && _uiSettings.AnimationsEnabled, _activeTrackDirection);
         _metadataKeys[form] = key;
@@ -1321,15 +1403,27 @@ public sealed partial class WidgetScene : IDisposable
             if(_pluginPages.Count>0)Add(new(WidgetActions.PluginTools,"插件工具",16,size.Y-104,32,32));
             if (_media.Connected)
             {
-                float transportY = DetailsTransportY;
-                Add(new(WidgetActions.Previous, "上一首", 96, transportY + 6, 44, 44, _media.Capabilities.Previous));
-                Add(new(WidgetActions.Toggle, _media.State == PlaybackState.Playing ? "暂停" : "播放", 152, transportY, 56, 56, _media.Capabilities.Toggle));
-                Add(new(WidgetActions.Next, "下一首", 220, transportY + 6, 44, 44, _media.Capabilities.Next));
+                var layout = form == WidgetForm.Details ? ResponsiveDetails() : null;
+                Add(new(WidgetActions.Previous, "上一首",
+                    layout?.PreviousButton.X ?? 96, layout?.PreviousButton.Y ?? DetailsTransportY + 6,
+                    layout?.PreviousButton.Width ?? 44, 44, _media.Capabilities.Previous));
+                Add(new(WidgetActions.Toggle, _media.State == PlaybackState.Playing ? "暂停" : "播放",
+                    layout?.ToggleButton.X ?? 152, layout?.ToggleButton.Y ?? DetailsTransportY,
+                    layout?.ToggleButton.Width ?? 56, layout?.ToggleButton.Height ?? 56, _media.Capabilities.Toggle));
+                Add(new(WidgetActions.Next, "下一首",
+                    layout?.NextButton.X ?? 220, layout?.NextButton.Y ?? DetailsTransportY + 6,
+                    layout?.NextButton.Width ?? 44, 44, _media.Capabilities.Next));
                 bool valid = _media.Timeline?.Valid == true;
                 var time = _media.Timeline;
                 double value = valid ? Math.Clamp(((_seekPreview ?? PositionAt(_media, Stopwatch.GetTimestamp())) - time!.Start).TotalSeconds / (time.End - time.Start).TotalSeconds * 100, 0, 100) : 0;
-                if (valid) Add(new(WidgetActions.Seek, "播放进度", 56, 300, 248, 28,
-                    _form == WidgetForm.Details && SeekAvailable(_media), IsRange: true, Value: value));
+                if (valid)
+                {
+                    float seekX = layout?.Timeline.X ?? 56, seekY = layout is null
+                        ? 300
+                        : layout.Timeline.Y + (layout.Timeline.Height - 28) / 2;
+                    Add(new(WidgetActions.Seek, "播放进度", seekX, seekY, 248, 28,
+                        _form == WidgetForm.Details && SeekAvailable(_media), IsRange: true, Value: value));
+                }
             }
             else Add(new(WidgetActions.OpenMusic, "打开网易云音乐", 100, 162, 160, 36));
         }

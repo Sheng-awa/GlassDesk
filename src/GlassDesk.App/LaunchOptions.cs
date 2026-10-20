@@ -1,7 +1,8 @@
+using System.Globalization;
 using GlassDesk.Core;
 namespace GlassDesk.App;
 
-internal sealed record LaunchOptions(string? DataDirectory=null,string? QaReport=null,int QaCycles=0,bool NoSettings=false,bool QuitExisting=false,string? QaMaterialFrame=null,bool UiPreview=false,string? QaSnapshotRequest=null)
+internal sealed record LaunchOptions(string? DataDirectory=null,string? QaReport=null,int QaCycles=0,bool NoSettings=false,bool QuitExisting=false,string? QaMaterialFrame=null,bool UiPreview=false,string? QaSnapshotRequest=null,float? QaDetailsHeight=null)
 {
     internal static bool PreviewBuild
     {
@@ -41,6 +42,7 @@ internal sealed record LaunchOptions(string? DataDirectory=null,string? QaReport
     public static LaunchOptions Parse(string[] args)
     {
         string? data=null,report=null,material=null,snapshot=null;int cycles=0;bool hidden=false,quit=false,preview=PreviewBuild;
+        float? detailsHeight=null;
         foreach(string argument in args)
         {
             if(argument.StartsWith("--data-dir=",StringComparison.Ordinal))data=AbsoluteDataDirectory(argument[11..]);
@@ -51,8 +53,13 @@ internal sealed record LaunchOptions(string? DataDirectory=null,string? QaReport
             else if(argument=="--ui-preview")preview=true;
             else if(argument.StartsWith("--qa-material-frame=",StringComparison.Ordinal))material=Path.GetFullPath(argument[20..]);
             else if(argument.StartsWith("--qa-snapshot-request=",StringComparison.Ordinal))snapshot=Path.GetFullPath(argument[22..]);
+            // Preview-only acceptance hook: exercises the short-workarea Details layout without
+            // changing the real work area (360/400 DIP compact screenshots).
+            else if(argument.StartsWith("--qa-details-height=",StringComparison.Ordinal)
+                && float.TryParse(argument[20..],NumberStyles.Float,CultureInfo.InvariantCulture,out float qaHeight)
+                && float.IsFinite(qaHeight))detailsHeight=Math.Clamp(qaHeight,300f,512f);
         }
         if(preview&&data is null)data=Path.Combine(AppContext.BaseDirectory,"preview-data");
-        return new(data,report,cycles,hidden,quit,material,preview,preview?snapshot:null);
+        return new(data,report,cycles,hidden,quit,material,preview,preview?snapshot:null,preview?detailsHeight:null);
     }
 }
