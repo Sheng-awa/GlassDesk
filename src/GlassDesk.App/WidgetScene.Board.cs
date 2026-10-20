@@ -23,10 +23,14 @@ public sealed partial class WidgetScene
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     public event Action<string>? DetailsPageRequested;
     public event Action? BoardViewportChanged;
+    // Empty state needs 16 top + a 144 block + 8 bottom = 168 DIP viewport; adding the
+    // toolbar and dock insets gives the minimum page height. Content may then grow to 512.
+    internal const float MinimumBoardPageHeight = 344;
     // The widget page height follows its content: one card stays compact, more cards grow
     // up to 512 and then scroll. The dock inset is part of the formula so it never overlaps.
     public float BoardNaturalHeight => Math.Clamp(
-        WidgetBoardLayout.Pack(_board, _detailsWidth).ContentBottom + WidgetBoardLayout.BottomInset, 324, 512);
+        WidgetBoardLayout.Pack(_board, _detailsWidth).ContentBottom + WidgetBoardLayout.BottomInset,
+        MinimumBoardPageHeight, 512);
 
     void InitializeBoardVisuals()
     {

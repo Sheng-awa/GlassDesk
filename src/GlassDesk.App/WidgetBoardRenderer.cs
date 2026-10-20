@@ -229,7 +229,7 @@ internal static class WidgetBoardRenderer
             cards.Add(Round(new(center - 16, top, 32, 32), 16,
                 highContrast ? WithAlpha(primary, 0x48) : lightInk ? 0x1fffffffu : 0x1020252cu));
             cards.Add(Text("还没有组件", TextRole.SectionTitle, new(24, top + 48, width - 48, 24), primary, locale, true));
-            cards.Add(Text("添加时间或日期开始", TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
+            cards.Add(Text("添加时间组件开始", TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
             var emptyAdd = new FloatRect(center - 60, top + 112, 120, 32);
             bool emptyEnabled = instanceCount < WidgetBoardData.MaximumInstances;
             cards.Add(Round(emptyAdd, emptyAdd.Height / 2, AccentFace(emptyEnabled, lightInk, highContrast)));

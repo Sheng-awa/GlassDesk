@@ -53,7 +53,8 @@ internal sealed partial class GlassDeskCoordinator
         var presented=WidgetBoardData.TimeOnlyForPresentation(state);
         // The widget page follows its content; the dock inset is included so cards stay clear.
         float? height=pages.CurrentPageId==DetailsPageController.Widgets
-            ?Math.Clamp(WidgetBoardLayout.Pack(presented,width).ContentBottom + WidgetBoardLayout.BottomInset,324,512):null;
+            ?Math.Clamp(WidgetBoardLayout.Pack(presented,width).ContentBottom + WidgetBoardLayout.BottomInset,
+                WidgetScene.MinimumBoardPageHeight,512):null;
         controller.SetDetailsPageHeight(height,Now);
         scene.SetWidgetBoard(pages.CurrentPageId,state,widgetScheduler.Results,boardRevision,boardEditor.IsEditing,boardAddMenu,pages.ScrollOffset);
     }

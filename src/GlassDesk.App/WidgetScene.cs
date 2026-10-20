@@ -502,7 +502,14 @@ public sealed partial class WidgetScene : IDisposable
             {
                 var body = new List<SurfaceOp>();
                 DrawDetailsBody(body);
-                _detailsBody.Size = new(size.X, (MusicFor(form) ? 326 : 112) + Math.Min(4, _pluginVisuals.Count) * 112);
+                // No-plugin music page: the metadata layer ends at body-local 220, so the surface
+                // only needs that height and the wheel has no empty range. Plugin blocks keep
+                // their existing start position and add their own scrollable height.
+                int pluginBlocks = Math.Min(4, _pluginVisuals.Count);
+                float bodyHeight = pluginBlocks == 0
+                    ? (_media.Connected ? 220f : 112f)
+                    : 326f + pluginBlocks * 112f;
+                _detailsBody.Size = new(size.X, bodyHeight);
                 _detailsViewport.Size = new(size.X, DetailsBodyViewportHeight(size));
                 _detailsViewport.Offset = new(0, _media.Connected ? 80 : 56, 0);
                 float priorScroll = _detailsScroll;
