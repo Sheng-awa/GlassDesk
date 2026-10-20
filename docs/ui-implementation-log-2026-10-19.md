@@ -110,7 +110,7 @@
 ## 4. 与计划的偏差 / 已知限制
 
 1. **键盘 ←/→ + Enter / Tab（未实现，native 限制）**：预览窗口为 `SW_SHOWNOACTIVATE`、native `WndProc` 不处理 `WM_KEYDOWN`、UIA provider `IsKeyboardFocusable=false`，宿主层无键盘输入通路；实现需要改 `native/GlassDesk.Native`（本轮明确不改）。替代：UIA `Invoke` 通道实测可用；鼠标/触控正常。焦点环视觉随自定义焦点资源存在，但因无键盘焦点路径未在实机出现。
-2. **设置 ColorPicker 精确输入被限高裁切**：按计划“Border r10 + 圆角 Clip + 高度约 240”实现；色盘/预览可用，通道滑杆与十六进制输入在 240 高度下不可见（需滚动/放宽高度才能完整暴露）。未删除功能，但需用户确认是否接受；建议后续把 ColorPicker 放进 ScrollViewer 或改用设计稿的色板行。
+2. **设置 ColorPicker 精确输入被限高裁切**：按计划“Border r10 + 圆角 Clip + 高度约 240”实现；色盘/预览可用，通道滑杆与十六进制输入在 240 高度下不可见（需滚动/放宽高度才能完整暴露）。未删除功能，但需用户确认是否接受；建议后续把 ColorPicker 放进 ScrollViewer 或改用设计稿的色板行。→ **2026-10-21 审计修复轮已处理**：ColorPicker 包裹内部 ScrollViewer，通道输入可滚动到底，见 §8。
 3. **详情页音乐卡不再显示 8 根频谱**：新布局（时间轴 y300 + 控制 y340–396）无频谱位置，计划 §3.1 元素表也未列；频谱与液体动画在胶囊/Peek 完整保留（`_bands`/`UpdateAudio` 未动）。
 4. **默认小组件板只有 2 张小卡**：`WidgetBoardData.CreateDefault` 仍只创建时间 + 日期两卡（未改用户数据默认值）；设计图的第三张宽卡（时间·日期组合）需用户“添加”或未来新增组合 provider；中卡（312×148）布局与视觉已支持并实测添加成功。
 5. **预览项点击行为**：白胶囊滑到预览项高亮 1.2s 后回真实页面，不切页、不做假页面（计划允许“轻提示或仅高亮”，取仅高亮）。
@@ -150,3 +150,64 @@ git checkout master
 2. ColorPicker 若要完整功能：改为 ScrollViewer 包裹或按设计稿换色板行（6 色 + 自定义）。
 3. 默认板若要与设计图一致：给 `WidgetBoardData.CreateDefault` 增加一张 Medium 时间卡，或新增“时间·日期”组合 provider（需产品确认）。
 4. 删除已停用的 `DetailsNavigationVisual.cs`（dead code）与旧 `NavigationInteractionModel` 引用。
+
+---
+
+## 8. 审计修复轮（2026-10-21）
+
+依据：`D:\Believe_in_yourself\about AI\work about agents\codeX\codeX work\GlassDesk-audit-2026-10-21\AUDIT.md`（1 项 P1 + 11 项 P2 + 2 项既有限制/文档偏差）。所有修复在 `ui/final` 分支，每批独立 commit；**不涉及 native**，不新增导航项、不改设置 IA、不自动删除旧数据。
+
+### 8.1 提交（`ui/final` 在 `711c678` 之后）
+
+| Commit | 内容 |
+|---|---|
+| `48cc7ad` | 收尾上一轮未提交 WIP：Dock 圆角/选中动效、表盘与 provider 快照同步、ColorPicker ScrollViewer、工具栏 44 DIP 命中、隐藏实例命中映射 |
+| `5e66f9c` | A：P1 `AudioChecks` 依赖闭包（补 `DetailsPageController.cs` 链接）；把手命中区扩为整可见身体 58×44（UIA bounds 同步） |
+| `e39d0d1` | A：空态按钮裁切（最小页高 344，空态 16+144+8 视口）；无插件音乐页空滚动消除 |
+| `ced110f` | B：捕获所有者优先（拖卡到 Dock 松手不切页）；禁用控件鼠标/UIA 不执行；按钮按压态 + 拖动落点高亮 |
+| `efddbec` | C：表盘改用结构化 `WidgetClockSample`；12h 数字右侧 10 DIP 次级墨色 AM/PM，24h 不显示；秒针仅在快照含秒时出现 |
+| `5b24f6b` / `669d56d` | C：合并 hidden/capacity 与 clock Core 分支（`HiddenForPresentation/Counts/CanAdd/TryRemove`、`WidgetClockSample`） |
+| `6525275` | C：已隐藏组件管理（添加菜单入口、名称/原因/移除/撤销、容量解释、面板滚动） |
+| `711c678` | D：合并 `DetailsResponsiveLayout`（Core 纯几何 + 22 条检查） |
+| `112303b` | D：WidgetScene 接入响应式布局（封面/标题/正文视口/时间轴/控制行/Dock 统一推导；仅正文滚动；360/400 DIP 紧凑模式）+ Preview-only `--qa-details-height` 验收钩子 |
+| `bc63ae4` | D：当前页错误条（保存失败常驻，成功仅清对应类；不吞其他错误） |
+
+### 8.2 审计项状态
+
+- **#01 P1 AudioChecks**：已修复，`AudioChecks` 独立构建 0/0；未跑完整 `build-release.ps1`（需 native/安装器环境），但阻塞节点已消除。
+- **#02 拖动被导航抢事件**：已修复（WidgetBoard 捕获优先；导航 down/up 同项、滑出取消）。实测拖卡到 Dock 松手页面保持 540×522。
+- **#03 短工作区裁切/压 Dock**：已修复。476/400/360 DIP 窗口实测：控制行完整可见、不压 Dock；仅正文滚动、无空滚动。
+- **#04 时间卡本地化分隔符**：已修复（provider 输出结构化时钟，渲染不再解析文本）；Core 测试覆盖 fi-FI。
+- **#05 12h AM/PM 丢失**：已修复（结构化 `PeriodText` + 表盘 10 DIP 次级墨色标签；24h 不显示）。
+- **#06 空态按钮裁切**：已修复（空态页 344 DIP，按钮 32 DIP 完整、命中完整）。
+- **#07 把手命中区小于可见身体**：已修复（58×44 居中）。
+- **#08 禁用控件仍执行**：已修复（鼠标 Down/Up 消费但零副作用，UIA 同 enabled gate；执行器二次校验容量/编辑）。
+- **#09 按压/拖动缺反馈**：已修复（工具栏/卡片按钮 pressed 层；拖动落点 accent 高亮；拖动柄按压态）。
+- **#10 无插件音乐页空滚动**：已修复（body 内容高度=实际内容；无溢出时 MaxScroll=0）。
+- **#11 隐藏实例仍占容量**：已修复（添加菜单“已隐藏组件（N）”；管理浮层可移除+撤销；容量按完整保存实例，达 32 时当前页解释并可进入管理）。
+- **#12 错误反馈只在设置页**：已修复（当前页错误条，保存失败常驻；成功只清对应类）。
+- **#13 键盘通路**：未改（native 限制；UIA Invoke 可用）。详见 §4.1。
+- **#14 文档/聊天总结与源码漂移**：本文件与 `docs/ui-revision-log-2026-10-19.md` 已按当前源码/构建更新；截图与提交号对应本轮 staging（`artifacts/qa/ui-audit/staging-f`）。
+
+### 8.3 验证
+
+- App build：0 warning 0 error（`-p:GlassDeskNativeDirectory=…0.3.0-preview.2`）。
+- Core tests：**282 checks passed**（新增 hidden/clock/compact/editor；现有检查全过）。
+- 检查项目：`GlassDesk.AudioChecks` / `NativeBridgeChecks` / `PlatformChecks` / `PluginChecks` 构建 0/0。
+- 预览构建：`artifacts/qa/ui-audit/staging-f/`（自包含 win-x64）。
+- 截图（`artifacts/qa/ui-audit/screens/`）：
+  - `audit-watch12b/24b`：12h AM/PM + 秒针 vs 24h；
+  - `audit-h2-*`：隐藏管理面板、移除、撤销、关闭；
+  - `audit-h3-*`：容量 32 时“管理已隐藏组件”入口、面板滚动、移除；
+  - `audit-r3-*`：476/400/360 DIP 响应式布局；
+  - `audit-n-*`：保存失败错误条出现与恢复后消失。
+- 设置/详情/小组件基础截图沿用 `artifacts/qa/ui-final/screens/`（Phase 1–4）。
+
+### 8.4 本轮未验证 / 已知限制
+
+- **完整发布链路**未跑（native 构建 + 安装器）；只验证了 P1 的编译节点。
+- 真实指针拖动的触感/惯性、真实画笔、100%/200% DPI、高对比/减少动态实机——仍沿用先前未验证边界。
+- 时间轴/进度条与空态截图：本机媒体会话仍无 Timeline、始终已连接，无法实机覆盖；相关几何已由 Core 测试覆盖。
+- `--qa-details-height` 是 **preview-only** 验收钩子（仅 `GLASSDESK_UI_PREVIEW` 构建接受），正式构建忽略。
+- `widgets.json` 的 UTF-8 BOM 会被 `WidgetBoardStore` 视为损坏（按字节 Parse）——本轮未改；写入方（应用自身）无 BOM，不影响正常使用，记为后续健壮性小项。
+- 键盘：仍为 native 限制，未改。
