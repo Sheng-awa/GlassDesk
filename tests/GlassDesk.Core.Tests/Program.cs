@@ -120,5 +120,8 @@ CompanionLiquidChecks.Run(Check);
 TypographyPageChecks.Run(Check);
 WidgetBoardChecks.Run(Check);
 OutsidePointerChecks.Run(Check);
+ClockStructuredChecks.Run(Check);
+HiddenWidgetChecks.Run(Check);
+CompactLayoutChecks.Run(Check);
 
 Console.WriteLine($"{checks} checks passed.");
