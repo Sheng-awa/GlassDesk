@@ -143,15 +143,15 @@ internal static class WidgetBoardRenderer
             AddControl(actionBase, $"配置{identity}{(contents.Length > 0 ? "，" + contents : "")}", global,
                 new(WidgetBoardActionKind.Configure, instance.InstanceId), viewport);
 
-            int hour = 0, minute = 0;
-            int? second = null;
-            string display = string.Empty;
-            bool clockAvailable = isTime && hasSnapshot && TryClock(result!, out hour, out minute, out second, out display);
-            if (clockAvailable)
+            var clock = isTime && hasSnapshot ? result!.Snapshot?.Clock : null;
+            if (clock is not null)
             {
-                // All hands and the digital value share the provider snapshot,
-                // including its configured time zone and refresh precision.
-                WatchFace(cards, local, hour, minute, second, display, locale);
+                // All hands and the digital value share the same provider sample, so the
+                // configured time zone, refresh precision and 12h period can never disagree.
+                string display = clock.TwelveHour
+                    ? FormattableString.Invariant($"{clock.Hour12:00}:{clock.Minute:00}")
+                    : FormattableString.Invariant($"{clock.Hour24:00}:{clock.Minute:00}");
+                WatchFace(cards, local, clock, display, locale);
             }
             else if (!isTime && hasSnapshot)
             {
@@ -296,34 +296,9 @@ internal static class WidgetBoardRenderer
     static string Name(WidgetInstance instance) => instance.ProviderId switch
     { BuiltInWidgetIds.Time => "时间", BuiltInWidgetIds.Date => "日期", _ => "本地" };
 
-    /// <summary>Reads one provider sample; a second hand exists only when the sample includes seconds.</summary>
-    static bool TryClock(WidgetInstanceResult result, out int hour, out int minute, out int? second, out string display)
-    {
-        hour = minute = 0; second = null; display = string.Empty;
-        var elements = result.Snapshot?.Elements;
-        if (elements is not { Count: > 0 }) return false;
-        var text = elements.FirstOrDefault(e => e.Kind == WidgetElementKind.Text
-            && e.TextRole is TextRole.WidgetClock or TextRole.MediaDetailsTitle)?.Text
-            ?? elements.FirstOrDefault(e => e.Kind == WidgetElementKind.Text)?.Text;
-        if (string.IsNullOrWhiteSpace(text)) return false;
-        int colon = text.IndexOf(':');
-        if (colon < 1 || colon + 2 >= text.Length) return false;
-        if (!int.TryParse(text.AsSpan(0, colon).Trim(), out hour)) return false;
-        if (!int.TryParse(text.AsSpan(colon + 1, 2), out minute)) return false;
-        if (hour is < 0 or > 23 || minute is < 0 or > 59) return false;
-        if (colon + 3 < text.Length && text[colon + 3] == ':')
-        {
-            if (colon + 5 >= text.Length || !int.TryParse(text.AsSpan(colon + 4, 2), out int seconds)
-                || seconds is < 0 or > 59) return false;
-            second = seconds;
-        }
-        display = FormattableString.Invariant($"{hour:00}:{minute:00}");
-        return true;
-    }
-
     /// <summary>Apple-Watch-style dial: white face, minute ticks, black hour/minute hands,
     /// an optional red second hand and a small digital time where the watch logo would sit.</summary>
-    static void WatchFace(List<SurfaceOp> cards, FloatRect local, int hour, int minute, int? second, string display, string locale)
+    static void WatchFace(List<SurfaceOp> cards, FloatRect local, WidgetClockSample clock, string display, string locale)
     {
         float radius = Math.Min(local.Width, local.Height) / 2 - 10;
         float cx = local.X + local.Width / 2, cy = local.Y + local.Height / 2 + 2;
@@ -350,13 +325,13 @@ internal static class WidgetBoardRenderer
             float ex = cx + MathF.Sin(a) * outer, ey = cy - MathF.Cos(a) * outer;
             cards.Add(Line(sx, sy, ex - sx, ey - sy, i % 5 == 0 ? strongTick : tick, i % 5 == 0 ? 1.2f : .8f));
         }
-        float minuteValue = minute + (second ?? 0) / 60f;
-        float hourAngle = (hour % 12 + minuteValue / 60f) * MathF.PI / 6;
+        float minuteValue = clock.Minute + (clock.HasSeconds ? clock.Second / 60f : 0f);
+        float hourAngle = (clock.Hour24 % 12 + minuteValue / 60f) * MathF.PI / 6;
         float minuteAngle = minuteValue * MathF.PI / 30;
         AddHand(hourAngle, radius * .48f, 4.2f, 0, ink);
         AddHand(minuteAngle, radius * .70f, 2.8f, 0, ink);
-        if (second is int seconds)
-            AddHand(seconds * MathF.PI / 30, radius * .78f, 1.2f, radius * .16f, red);
+        if (clock.HasSeconds)
+            AddHand(clock.Second * MathF.PI / 30, radius * .78f, 1.2f, radius * .16f, red);
         cards.Add(new SurfaceOp
         {
             Kind = SurfaceOpKind.Ellipse, X = cx - 4, Y = cy - 4, Width = 8, Height = 8, Color = ink
@@ -366,10 +341,24 @@ internal static class WidgetBoardRenderer
             Kind = SurfaceOpKind.Ellipse, X = cx - 1.6f, Y = cy - 1.6f, Width = 3.2f, Height = 3.2f, Color = red
         });
         // Small digital time at 12 o'clock, replacing the Apple logo of the reference.
+        // A 12-hour sample adds a quiet 10 DIP AM/PM tag on the right of the digits, in
+        // secondary ink and optically aligned. 24-hour samples stay purely numeric.
+        const float digitalWidth = 46, digitalHeight = 14, periodWidth = 22, periodGap = 2;
+        bool showPeriod = clock.TwelveHour && !string.IsNullOrWhiteSpace(clock.PeriodText);
+        float groupWidth = showPeriod ? digitalWidth + periodGap + periodWidth : digitalWidth;
+        float groupX = cx - groupWidth / 2, digitalY = cy - radius + 13;
         var digital = SurfaceOp.Typography(display, TextRole.NavigationSemantic,
-            cx - 30, cy - radius + 13, 60, 14, ink, center: true,
+            groupX, digitalY, digitalWidth, digitalHeight, ink, center: true,
             numericFlags: TextFlags.TabularNumbers, locale: locale);
         cards.Add(digital with { FontSize = 9.5f, LineHeightDip = 12f });
+        if (showPeriod)
+        {
+            const uint periodInk = 0xFF48515B;
+            var period = SurfaceOp.Typography(clock.PeriodText!, TextRole.NavigationSemantic,
+                groupX + digitalWidth + periodGap, digitalY + 1, periodWidth, 12, periodInk,
+                center: false, numericFlags: TextFlags.None, locale: locale);
+            cards.Add(period with { FontSize = 10f, LineHeightDip = 12f });
+        }
 
         void AddHand(float angle, float length, float stroke, float tail, uint color)
         {
