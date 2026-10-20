@@ -19,7 +19,15 @@ public sealed record WidgetElement(WidgetElementKind Kind,FloatRect Bounds,strin
 {
     public double? Value {get;init;}
 }
-public sealed record WidgetSnapshot(IReadOnlyList<WidgetElement> Elements,DateTimeOffset? NextRefreshUtc=null);
+/// <summary>Structured wall-clock sample; rendering must never re-parse localized text.</summary>
+public sealed record WidgetClockSample(int Hour24,int Minute,int Second,bool HasSeconds,bool TwelveHour,string? PeriodText)
+{
+    public int Hour12 => Hour24 % 12 == 0 ? 12 : Hour24 % 12;
+}
+public sealed record WidgetSnapshot(IReadOnlyList<WidgetElement> Elements,DateTimeOffset? NextRefreshUtc=null)
+{
+    public WidgetClockSample? Clock {get;init;}
+}
 public interface IWidgetProvider
 {
     ValueTask<WidgetSnapshot> GetSnapshotAsync(WidgetRequest request,CancellationToken cancellationToken);
