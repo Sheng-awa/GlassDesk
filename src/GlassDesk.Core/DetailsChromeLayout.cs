@@ -25,12 +25,12 @@ public static class DetailsChromeLayout
 
     public static FloatRect Home(Vector2 size) => new((size.X - HomeWidth) / 2, HomeTop, HomeWidth, HomeHeight);
 
-    /// <summary>The visible handle is small but the pointer target is at least 44×44.</summary>
+    /// <summary>The pointer target covers the whole visible handle and is at least 44×44.</summary>
     public static FloatRect HomeHit(Vector2 size)
     {
         FloatRect home = Home(size);
-        return new(home.X + (home.Width - HomeHitSize) / 2, home.Y + (home.Height - HomeHitSize) / 2,
-            HomeHitSize, HomeHitSize);
+        float width = MathF.Max(home.Width, HomeHitSize), height = MathF.Max(home.Height, HomeHitSize);
+        return new(home.X + (home.Width - width) / 2, home.Y + (home.Height - height) / 2, width, height);
     }
 
     public static FloatRect Dock(Vector2 size) =>

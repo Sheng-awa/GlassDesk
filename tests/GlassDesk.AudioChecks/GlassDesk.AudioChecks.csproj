@@ -10,6 +10,7 @@
          edited Platform/Core build outputs. -->
     <Compile Include="../../src/GlassDesk.Core/UiPreviewContracts.cs" Link="Core/UiPreviewContracts.cs" />
     <Compile Include="../../src/GlassDesk.Core/Contracts.cs" Link="Core/Contracts.cs" />
+    <Compile Include="../../src/GlassDesk.Core/DetailsPageController.cs" Link="Core/DetailsPageController.cs" />
     <Compile Include="../../src/GlassDesk.Core/ContentPolicy.cs" Link="Core/ContentPolicy.cs" />
     <Compile Include="../../src/GlassDesk.Core/PluginEnableMap.cs" Link="Core/PluginEnableMap.cs" />
     <Compile Include="../../src/GlassDesk.Platform/AudioSpectrumAnalyzer.cs" Link="Platform/AudioSpectrumAnalyzer.cs" />

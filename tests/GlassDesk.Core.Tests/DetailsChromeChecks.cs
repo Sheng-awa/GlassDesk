@@ -14,8 +14,8 @@ static class DetailsChromeChecks
         check(DetailsChromeLayout.CardWidth == 360 && home == new FloatRect(151, 14, 58, 28)
             && DetailsChromeLayout.Home(empty) == home && DetailsChromeLayout.Home(widgets) == home,
             "home handle is a centred 58x28 handle at y=14 on every Details page");
-        check(DetailsChromeLayout.HomeHit(empty) == new FloatRect(158, 6, 44, 44),
-            "home handle keeps a 44x44 pointer target around the 58x28 visual");
+        check(DetailsChromeLayout.HomeHit(empty) == new FloatRect(151, 6, 58, 44),
+            "home handle hit target covers the full 58x28 visual and stays at least 44x44");
 
         check(DetailsChromeLayout.Dock(music) == new FloatRect(20, 412, 320, 48)
             && DetailsChromeLayout.Dock(widgets) == new FloatRect(20, 448, 320, 48)
