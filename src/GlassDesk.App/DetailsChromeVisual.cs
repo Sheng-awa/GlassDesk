@@ -20,7 +20,7 @@ internal sealed class DetailsChromeVisual : IDisposable
     const float HomeEyeWidth = 5, HomeEyeHeight = 9, HomeEyeGap = 4;
     const float DockIconSize = 18, ActiveIconSize = 16, ActiveIconGap = 6;
     const float LabelHorizontalPadding = 20;
-    const double SelectionDurationMs = 180, HoverDurationMs = 120, PressDurationMs = 90,
+    const double SelectionDurationMs = 240, HoverDurationMs = 120, PressDurationMs = 90,
         ReleaseDurationMs = 120, PreviewHighlightMs = 1200;
 
     readonly NativeWidgetHost _host;
@@ -228,6 +228,8 @@ internal sealed class DetailsChromeVisual : IDisposable
         if (reduced)
         {
             _dockActive.StopAnimation("Offset.X");
+            _dockActive.StopAnimation("Scale");
+            _dockActive.Scale = Vector3.One;
             _dockActiveTargetX = null;
         }
         Present();
@@ -447,7 +449,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         var operations = new List<SurfaceOp>(DetailsDockItems.All.Count);
         for (int index = 0; index < DetailsDockItems.All.Count; index++)
         {
-            if (index == SelectionIndex) continue; // the active icon is painted on the selection circle
+            if (index == SelectionIndex) continue; // the active icon is painted on the selection tile
             var entry = DetailsDockItems.All[index];
             uint color = highContrast
                 ? Argb(_uiSettings.UIElementColor(UIElementType.WindowText))
@@ -506,9 +508,12 @@ internal sealed class DetailsChromeVisual : IDisposable
                     _dockActive.Offset = new(prior, target.Y, 0);
                 return;
             }
-            using var easing = _compositor.CreateCubicBezierEasingFunction(new(.2f, 0), new(0, 1));
+            using var easing = _compositor.CreateCubicBezierEasingFunction(new(.22f, 1), new(.36f, 1));
             using var animation = _compositor.CreateScalarKeyFrameAnimation();
-            animation.InsertKeyFrame(0, prior);
+            // Interrupt from the presented position, not the previous destination.
+            // One small, bounded settle keeps repeated selections continuous.
+            animation.InsertExpressionKeyFrame(0, "this.StartingValue");
+            animation.InsertKeyFrame(.82f, target.X + MathF.CopySign(1.5f, target.X - prior), easing);
             animation.InsertKeyFrame(1, target.X, easing);
             animation.Duration = TimeSpan.FromMilliseconds(SelectionDurationMs);
             _dockActive.Offset = new(target.X, target.Y, 0);
@@ -585,7 +590,7 @@ internal sealed class DetailsChromeVisual : IDisposable
             var operations = new List<SurfaceOp>(1)
             {
                 Round(0, 0, DetailsChromeLayout.DockItemHitSize, DetailsChromeLayout.DockItemHitSize,
-                    DetailsChromeLayout.DockItemHitSize / 2, color)
+                    DetailsChromeLayout.DockActiveRadius, color)
             };
             Replace(ref _pressSurface, _pressBrush, _host.RenderSurface(
                 DetailsChromeLayout.DockItemHitSize, DetailsChromeLayout.DockItemHitSize, operations));

@@ -13,11 +13,14 @@ public static class DetailsChromeLayout
     public const float CardWidth = 360;
     public const float HomeWidth = 58, HomeHeight = 28, HomeTop = 14, HomeRadius = 14;
     public const float HomeHitSize = 44;
-    public const float DockWidth = 320, DockHeight = 48, DockBottom = 16, DockRadius = 24;
+    public const float DockWidth = 320, DockHeight = 48, DockBottom = 16;
+    // Inset from the 24 DIP shell corner by the 16 DIP bottom margin. The dock
+    // and its selection share this inner radius instead of becoming pills.
+    public const float DockRadius = 8;
     // Five equal slots inside the 320 DIP dock: item centres are 32/96/160/224/288.
     public const float DockItemWidth = DockWidth / 5;
     public const float DockItemHitSize = 44;
-    public const float DockActiveWidth = 36, DockActiveHeight = 36, DockActiveRadius = 18;
+    public const float DockActiveWidth = 36, DockActiveHeight = 36, DockActiveRadius = DockRadius;
     public const float LabelHeight = 20, LabelRadius = 10, LabelGap = 4, HomeLabelGap = 2;
 
     public static FloatRect Home(Vector2 size) => new((size.X - HomeWidth) / 2, HomeTop, HomeWidth, HomeHeight);
@@ -42,7 +45,7 @@ public static class DetailsChromeLayout
         return new(center - DockItemHitSize / 2, Dock(size).Y, DockItemHitSize, DockHeight);
     }
 
-    /// <summary>White selection capsule, vertically centred inside the dock.</summary>
+    /// <summary>Rounded selection tile, vertically centred inside the dock.</summary>
     public static FloatRect DockActive(Vector2 size, int index)
     {
         float center = DockItemCenter(size, index);

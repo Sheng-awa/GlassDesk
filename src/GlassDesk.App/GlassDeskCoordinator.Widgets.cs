@@ -234,8 +234,14 @@ internal sealed partial class GlassDeskCoordinator
         var cards=scene.BoardRender?.Packing.Cards;
         if(cards is null||cards.Count==0)return null;
         Vector2 p=new(x,y+scene.CurrentPageScroll);
-        return cards.Select((c,i)=>(Index:i,Distance:Vector2.DistanceSquared(p,new(c.Bounds.X+c.Bounds.Width/2,c.Bounds.Y+c.Bounds.Height/2))))
-            .OrderBy(c=>c.Distance).First().Index;
+        var target = cards.OrderBy(c => Vector2.DistanceSquared(p,
+            new(c.Bounds.X + c.Bounds.Width / 2, c.Bounds.Y + c.Bounds.Height / 2))).First();
+        // Presentation may hide saved date/plugin instances. Reorder against the
+        // complete saved board, not an index from the filtered visible cards.
+        var instances = boardEditor.State.Instances;
+        for (int index = 0; index < instances.Count; index++)
+            if (instances[index].InstanceId == target.InstanceId) return index;
+        return null;
     }
 
     void ShowWidgetConfiguration(WidgetInstance instance)

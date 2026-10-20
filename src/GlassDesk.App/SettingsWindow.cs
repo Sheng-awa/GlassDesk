@@ -413,12 +413,18 @@ public sealed class SettingsWindow : Window, IDisposable
         colors.Children.Add(SettingTitle("球体颜色"));
         colors.Children.Add(Description("眼睛会自动使用清晰的浅色或深色。"));
         Name(_colorPicker, "陪伴颜色，RGB 不透明取色器");
-        // The template picker is square and much taller than the plan's control
-        // budget; clip it to a rounded 240 DIP well. Precise RGB input stays in
-        // the hex row below, so the colour feature is not reduced.
+        // Keep the compact well, but let the complete picker template scroll
+        // inside it so the channel controls remain reachable at any pane width.
         _colorPicker.MinHeight = 0;
         _colorPicker.VerticalAlignment = VerticalAlignment.Top;
-        _colorPickerHost.Child = _colorPicker;
+        _colorPickerHost.Child = new ScrollViewer
+        {
+            Content = _colorPicker,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
         _colorPickerHost.Clip = _colorPickerClip;
         _colorPickerHost.SizeChanged += (_, args) => ClipColorPicker(args.NewSize);
         colors.Children.Add(_colorPickerHost);

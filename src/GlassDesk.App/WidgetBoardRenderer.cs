@@ -1,4 +1,3 @@
-using System.Globalization;
 using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
@@ -32,7 +31,7 @@ internal static class WidgetBoardRenderer
     const float CardsTop = WidgetBoardLayout.Top, BottomInset = WidgetBoardLayout.BottomInset, Radius = 16, Rim = .75f;
     // Title 16/24 at y=62; ghost 编辑 and 30-high accent 添加 are flush right at y=58.
     // Icon-only toolbar at y=58; the add control is one 32 DIP accent circle, edit is a ghost icon.
-    const float ToolbarTop = 58, ButtonGap = 8;
+    const float ToolbarTop = 58, ButtonGap = 12;
     const float AddMenuRowHeight = 44, AddMenuWidth = 152, AddMenuRadius = 12;
     const uint AccentFill = 0xff1689f9;
     const int FirstCardAction = 1100, CardActionStride = 80;
@@ -144,18 +143,17 @@ internal static class WidgetBoardRenderer
             AddControl(actionBase, $"配置{identity}{(contents.Length > 0 ? "，" + contents : "")}", global,
                 new(WidgetBoardActionKind.Configure, instance.InstanceId), viewport);
 
-            if (isTime)
+            int hour = 0, minute = 0;
+            int? second = null;
+            string display = string.Empty;
+            bool clockAvailable = isTime && hasSnapshot && TryClock(result!, out hour, out minute, out second, out display);
+            if (clockAvailable)
             {
-                if (!hasSnapshot || !TryClock(result!, out int hour, out int minute, out string display))
-                {
-                    // The watch face can draw the local clock immediately; a provider snapshot
-                    // later wins when the user configured another time zone.
-                    var now = DateTime.Now;
-                    hour = now.Hour; minute = now.Minute; display = now.ToString("HH:mm", CultureInfo.InvariantCulture);
-                }
-                WatchFace(cards, local, hour, minute, display, locale);
+                // All hands and the digital value share the provider snapshot,
+                // including its configured time zone and refresh precision.
+                WatchFace(cards, local, hour, minute, second, display, locale);
             }
-            else if (hasSnapshot)
+            else if (!isTime && hasSnapshot)
             {
                 cards.Add(Icon("\uE713", new(local.Right - 27, local.Y + 12, 14, 14), secondary));
                 int elementIndex = 0;
@@ -207,9 +205,9 @@ internal static class WidgetBoardRenderer
             else
             {
                 cards.Add(Text(typeName, TextRole.WidgetLabel, new(local.X + 12, local.Y + 12, local.Width - 48, 16), secondary, locale));
-                cards.Add(Text(failed ? "组件暂不可用" : "正在准备组件", TextRole.Body,
+                cards.Add(Text(failed || hasSnapshot ? "组件暂不可用" : "正在准备组件", TextRole.Body,
                     new(local.X + 12, local.Y + 52, local.Width - 24, 24), primary, locale));
-                cards.Add(Text(failed ? "配置仍保留" : "即将显示当前信息", TextRole.Caption,
+                cards.Add(Text(failed || hasSnapshot ? "配置仍保留" : "即将显示当前信息", TextRole.Caption,
                     new(local.X + 12, local.Y + 88, local.Width - 24, 18), secondary, locale));
             }
             if (failed && hasSnapshot)
@@ -271,7 +269,9 @@ internal static class WidgetBoardRenderer
             if (accent) toolbar.Add(Round(bounds, toolbarButtonSize / 2, AccentFace(enabled, lightInk, highContrast)));
             toolbar.Add(Icon(glyph, new(bounds.X + (bounds.Width - 16) / 2, bounds.Y + (bounds.Height - 16) / 2, 16, 16),
                 accent ? AccentInk(enabled, lightInk, highContrast) : enabled ? primary : secondary));
-            AddControl(id, name, bounds, new(kind), panelBounds, enabled);
+            // Keep the 32 DIP artwork while giving pointer input a full 44 DIP
+            // target. Adjacent target centres remain at least 44 DIP apart.
+            AddControl(id, name, new(bounds.X - 6, bounds.Y - 6, 44, 44), new(kind), panelBounds, enabled);
         }
         void AddControl(int id, string name, FloatRect bounds, WidgetBoardUiAction action, FloatRect clip, bool enabled = true)
         {
@@ -296,10 +296,10 @@ internal static class WidgetBoardRenderer
     static string Name(WidgetInstance instance) => instance.ProviderId switch
     { BuiltInWidgetIds.Time => "时间", BuiltInWidgetIds.Date => "日期", _ => "本地" };
 
-    /// <summary>Reads the visible HH:mm value from the provider snapshot (12h suffixes are ignored).</summary>
-    static bool TryClock(WidgetInstanceResult result, out int hour, out int minute, out string display)
+    /// <summary>Reads one provider sample; a second hand exists only when the sample includes seconds.</summary>
+    static bool TryClock(WidgetInstanceResult result, out int hour, out int minute, out int? second, out string display)
     {
-        hour = minute = 0; display = string.Empty;
+        hour = minute = 0; second = null; display = string.Empty;
         var elements = result.Snapshot?.Elements;
         if (elements is not { Count: > 0 }) return false;
         var text = elements.FirstOrDefault(e => e.Kind == WidgetElementKind.Text
@@ -310,15 +310,20 @@ internal static class WidgetBoardRenderer
         if (colon < 1 || colon + 2 >= text.Length) return false;
         if (!int.TryParse(text.AsSpan(0, colon).Trim(), out hour)) return false;
         if (!int.TryParse(text.AsSpan(colon + 1, 2), out minute)) return false;
-        hour = Math.Clamp(hour, 0, 23);
-        minute = Math.Clamp(minute, 0, 59);
-        display = $"{hour:00}:{minute:00}";
+        if (hour is < 0 or > 23 || minute is < 0 or > 59) return false;
+        if (colon + 3 < text.Length && text[colon + 3] == ':')
+        {
+            if (colon + 5 >= text.Length || !int.TryParse(text.AsSpan(colon + 4, 2), out int seconds)
+                || seconds is < 0 or > 59) return false;
+            second = seconds;
+        }
+        display = FormattableString.Invariant($"{hour:00}:{minute:00}");
         return true;
     }
 
     /// <summary>Apple-Watch-style dial: white face, minute ticks, black hour/minute hands,
-    /// a thin red second hand and a small digital time where the watch logo would sit.</summary>
-    static void WatchFace(List<SurfaceOp> cards, FloatRect local, int hour, int minute, string display, string locale)
+    /// an optional red second hand and a small digital time where the watch logo would sit.</summary>
+    static void WatchFace(List<SurfaceOp> cards, FloatRect local, int hour, int minute, int? second, string display, string locale)
     {
         float radius = Math.Min(local.Width, local.Height) / 2 - 10;
         float cx = local.X + local.Width / 2, cy = local.Y + local.Height / 2 + 2;
@@ -345,12 +350,13 @@ internal static class WidgetBoardRenderer
             float ex = cx + MathF.Sin(a) * outer, ey = cy - MathF.Cos(a) * outer;
             cards.Add(Line(sx, sy, ex - sx, ey - sy, i % 5 == 0 ? strongTick : tick, i % 5 == 0 ? 1.2f : .8f));
         }
-        float hourAngle = (hour % 12 + minute / 60f) * MathF.PI / 6;
-        float minuteAngle = minute * MathF.PI / 30;
-        float secondAngle = DateTime.Now.Second * MathF.PI / 30;
+        float minuteValue = minute + (second ?? 0) / 60f;
+        float hourAngle = (hour % 12 + minuteValue / 60f) * MathF.PI / 6;
+        float minuteAngle = minuteValue * MathF.PI / 30;
         AddHand(hourAngle, radius * .48f, 4.2f, 0, ink);
         AddHand(minuteAngle, radius * .70f, 2.8f, 0, ink);
-        AddHand(secondAngle, radius * .78f, 1.2f, radius * .16f, red);
+        if (second is int seconds)
+            AddHand(seconds * MathF.PI / 30, radius * .78f, 1.2f, radius * .16f, red);
         cards.Add(new SurfaceOp
         {
             Kind = SurfaceOpKind.Ellipse, X = cx - 4, Y = cy - 4, Width = 8, Height = 8, Color = ink
