@@ -12,6 +12,9 @@ public sealed partial class WidgetScene
     float _detailsWidth = 360, _boardScroll;
     long _boardRevision = -1;
     WidgetBoardState _board = WidgetBoardData.CreateDefault();
+    WidgetBoardState _savedBoard = WidgetBoardData.CreateDefault();
+    int _boardPressedAction = -1;
+    string? _boardDragTarget;
     IReadOnlyList<WidgetInstanceResult> _boardResults = [];
     bool _boardEditing, _boardAddMenu;
     SpriteVisual _boardCards = null!;
@@ -21,6 +24,16 @@ public sealed partial class WidgetScene
     public bool WidgetsPage => _detailsPageId == DetailsPageController.Widgets;
     public float CurrentPageScroll => WidgetsPage ? _boardScroll : _detailsScroll;
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
+    internal WidgetBoardState SavedBoard => _savedBoard;
+    // Pointer feedback belongs to the renderer input description; the host repaints once
+    // after changing it and never polls in between.
+    internal void SetBoardInteractionFeedback(int pressedAction, string? dragTargetInstanceId)
+    {
+        if (_boardPressedAction == pressedAction && string.Equals(_boardDragTarget, dragTargetInstanceId, StringComparison.Ordinal)) return;
+        _boardPressedAction = pressedAction;
+        _boardDragTarget = dragTargetInstanceId;
+        _drawingInvalidated = true;
+    }
     public event Action<string>? DetailsPageRequested;
     public event Action? BoardViewportChanged;
     // Empty state needs 16 top + a 144 block + 8 bottom = 168 DIP viewport; adding the
@@ -50,7 +63,10 @@ public sealed partial class WidgetScene
     {
         bool changed = _detailsPageId != pageId || _boardRevision != revision || _boardEditing != editing || _boardAddMenu != addMenuOpen;
         _detailsPageId = DetailsPageController.Normalize(pageId);
-        _board = WidgetBoardData.TimeOnlyForPresentation(WidgetBoardData.ValidateAndClone(board)); _boardResults = results; _boardRevision = revision;
+        // Keep the complete saved board for capacity/hidden management; paint only the
+        // current presentation subset.
+        _savedBoard = WidgetBoardData.ValidateAndClone(board);
+        _board = WidgetBoardData.TimeOnlyForPresentation(_savedBoard); _boardResults = results; _boardRevision = revision;
         _boardEditing = editing; _boardAddMenu = addMenuOpen;
         _boardScroll = float.IsFinite(scrollOffset) ? Math.Max(0,scrollOffset) : 0;
         if(!WidgetsPage)_detailsScroll=_boardScroll;
@@ -63,7 +79,9 @@ public sealed partial class WidgetScene
         var size = LayoutSize(WidgetForm.Details);
         bool firstBoardRender = _boardRender is null;
         _boardRender = WidgetBoardRenderer.Build(_board,_boardResults,size.X,size.Y,_boardScroll,
-            _boardEditing,_boardAddMenu,_lightText,CultureInfo.CurrentUICulture.Name,_accessibility.HighContrast);
+            _boardEditing,_boardAddMenu,_lightText,CultureInfo.CurrentUICulture.Name,_accessibility.HighContrast,
+            _savedBoard.Instances.Count, WidgetBoardData.Counts(_savedBoard).Hidden,
+            _boardPressedAction,_boardDragTarget);
         _boardScroll = _boardRender.ScrollOffset;
         _boardCards.Size = new(size.X, Math.Max(1,size.Y-WidgetBoardLayout.BottomInset-WidgetBoardLayout.Top));
         ReplaceSurface(ref _boardSurface,_boardBrush,RenderTextLayer("WidgetBoard",_boardCards.Size.X,_boardCards.Size.Y,_boardRender.CardOperations));

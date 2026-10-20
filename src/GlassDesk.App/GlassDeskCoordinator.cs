@@ -379,7 +379,14 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     async void InvokeAction(int id)
     {
         if(disposed)return;
-        if(scene.BoardRender?.Actions.TryGetValue(id,out var boardAction)==true){ExecuteBoardAction(boardAction);return;}
+        if(scene.BoardRender?.Actions.TryGetValue(id,out var boardAction)==true)
+        {
+            // UIA Invoke follows the same enabled gate as pointer input: a disabled
+            // control is announced but can never execute its action.
+            bool enabled=scene.BoardRender.Controls.FirstOrDefault(c=>c.Id==id) is {Enabled:true};
+            if(enabled)ExecuteBoardAction(boardAction);
+            return;
+        }
         if(id==WidgetActions.OpenMusic){OpenMusic();return;}
         if(id==WidgetActions.Settings||id==WidgetActions.PluginTools){ShowSettings();if(id==WidgetActions.PluginTools)settings?.ShowPlugins();return;}
         MediaCommand? command=id switch {WidgetActions.Previous=>MediaCommand.Previous,WidgetActions.Toggle=>MediaCommand.TogglePlayPause,WidgetActions.Next=>MediaCommand.Next,_=>null};

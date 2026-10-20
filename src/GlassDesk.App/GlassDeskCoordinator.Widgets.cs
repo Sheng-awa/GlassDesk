@@ -147,9 +147,19 @@ internal sealed partial class GlassDeskCoordinator
             switch(action.Kind)
             {
                 case WidgetBoardActionKind.Add: boardAddMenu=!boardAddMenu;break;
-                case WidgetBoardActionKind.AddTime: AddBuiltIn(BuiltInWidgetIds.Time);break;
-                case WidgetBoardActionKind.AddDate: AddBuiltIn(BuiltInWidgetIds.Date);break;
-                case WidgetBoardActionKind.BeginEdit: boardEditor.Begin();boardAddMenu=false;break;
+                case WidgetBoardActionKind.AddTime:
+                case WidgetBoardActionKind.AddDate:
+                    if(!WidgetBoardData.CanAdd(boardEditor.State))
+                    {
+                        // Capacity is a full saved-instance limit, so explain it here instead
+                        // of letting the editor throw for a control the page just offered.
+                        boardAddMenu=false;notice="组件已达上限（32 个），请先移除部分组件。";
+                        boardRevision++;Render();Changed?.Invoke();return;
+                    }
+                    AddBuiltIn(action.Kind==WidgetBoardActionKind.AddTime?BuiltInWidgetIds.Time:BuiltInWidgetIds.Date);break;
+                case WidgetBoardActionKind.BeginEdit when WidgetBoardData.Counts(boardEditor.State).Visible>0:
+                    boardEditor.Begin();boardAddMenu=false;break;
+                case WidgetBoardActionKind.BeginEdit: return;
                 case WidgetBoardActionKind.Commit: QueueWidgetSave(boardEditor.Commit());boardAddMenu=false;break;
                 case WidgetBoardActionKind.Cancel: CloseWidgetConfiguration();boardEditor.Cancel();boardAddMenu=false;break;
                 case WidgetBoardActionKind.Configure when item is not null: ShowWidgetConfiguration(item);return;
@@ -180,6 +190,7 @@ internal sealed partial class GlassDeskCoordinator
     {
         if(widgetStore is null)return;
         CloseWidgetConfiguration();boardAddMenu=false;boardPressedAction=-1;boardDragInstance=null;
+        scene.SetBoardInteractionFeedback(-1,null);
         if(boardEditor.IsEditing){QueueWidgetSave(boardEditor.Commit());boardRevision++;}
         if(scene.CaptureOwner==PointerCaptureOwner.WidgetBoard)scene.SetCapture(PointerCaptureOwner.None,Now);
         if(pages.SavePending&&pageSaveTimer is not null){pageSaveTimer.Stop();if(!quitting)pageSaveTimer.Start();}
@@ -198,19 +209,38 @@ internal sealed partial class GlassDeskCoordinator
     {
         if(controller.Form!=WidgetForm.Details||pages.CurrentPageId!=DetailsPageController.Widgets)return false;
         var actions=scene.BoardRender?.Actions;
-        bool target=actions?.ContainsKey(id)==true;
-        if(e.Kind==HostEventKind.Invoke&&target){ExecuteBoardAction(actions![id]);return true;}
-        if(e.Kind==HostEventKind.Down&&target)
+        var control=scene.BoardRender?.Controls.FirstOrDefault(c=>c.Id==id);
+        bool known=actions?.ContainsKey(id)==true;
+        bool target=known&&control is {Enabled:true};
+        if(e.Kind==HostEventKind.Invoke)
         {
+            if(target)ExecuteBoardAction(actions![id]);
+            return known; // disabled controls consume their automation invoke, never execute.
+        }
+        if(e.Kind==HostEventKind.Down)
+        {
+            if(!known)return boardPressedAction>=0;
+            if(!target)return true; // disabled: consume the press, no side effect.
             boardPressedAction=id;
+            scene.SetBoardInteractionFeedback(id,null);Render();
             if(actions![id] is {Kind:WidgetBoardActionKind.DragHandle,InstanceId:{ } instance} && boardEditor.IsEditing)
-            {boardDragInstance=instance;boardEditor.PointerDown(instance,new(e.X,e.Y));}
+            {
+                boardDragInstance=instance;boardEditor.PointerDown(instance,new(e.X,e.Y));
+                scene.SetCapture(PointerCaptureOwner.WidgetBoard,Now);
+            }
             return true;
         }
-        if(boardPressedAction<0)return false;
+        if(boardPressedAction<0)
+        {
+            // A disabled board control still owns its click: it was consumed on Down and
+            // must not bubble into the body/drag routes on release.
+            return known;
+        }
         if(e.Kind==HostEventKind.Move&&boardDragInstance is not null)
         {
             if(boardEditor.PointerMove(new(e.X,e.Y)))scene.SetCapture(PointerCaptureOwner.WidgetBoard,Now);
+            scene.SetBoardInteractionFeedback(boardPressedAction,DropInstanceId(BoardDropIndex(e.X,e.Y)));
+            Render();
             UpdateOutsideGeometry();return true;
         }
         if(e.Kind==HostEventKind.Up)
@@ -220,15 +250,31 @@ internal sealed partial class GlassDeskCoordinator
             {
                 int? index=BoardDropIndex(e.X,e.Y);
                 var outcome=boardEditor.PointerUp(new(e.X,e.Y),new(0,WidgetBoardLayout.Top,scene.CurrentSize.X,Math.Max(0,scene.CurrentSize.Y-WidgetBoardLayout.Top-WidgetBoardLayout.BottomInset)),index);
-                boardDragInstance=null;scene.SetCapture(PointerCaptureOwner.None,Now);UpdateOutsideGeometry();
+                boardDragInstance=null;scene.SetCapture(PointerCaptureOwner.None,Now);
+                scene.SetBoardInteractionFeedback(-1,null);UpdateOutsideGeometry();
                 if(outcome!=WidgetDragRelease.NoDrag){boardRevision++;Render();WakeMotion();}
+                else Render();
             }
-            else if(pressed==id&&actions?.TryGetValue(id,out var action)==true)ExecuteBoardAction(action);
+            else
+            {
+                scene.SetBoardInteractionFeedback(-1,null);
+                if(pressed==id&&actions?.TryGetValue(id,out var action)==true)ExecuteBoardAction(action);
+                else Render();
+            }
             return true;
         }
         if(e.Kind==HostEventKind.CaptureLost)
-        {boardEditor.CancelDrag();boardDragInstance=null;boardPressedAction=-1;scene.SetCapture(PointerCaptureOwner.None,Now);UpdateOutsideGeometry();return true;}
+        {
+            boardEditor.CancelDrag();boardDragInstance=null;boardPressedAction=-1;
+            scene.SetBoardInteractionFeedback(-1,null);scene.SetCapture(PointerCaptureOwner.None,Now);
+            UpdateOutsideGeometry();Render();return true;
+        }
         return true;
+    }
+    string? DropInstanceId(int? index)
+    {
+        if(index is not int slot||slot<0||slot>=boardEditor.State.Instances.Count)return null;
+        return boardEditor.State.Instances[slot].InstanceId;
     }
     int? BoardDropIndex(float x,float y)
     {

@@ -44,6 +44,9 @@ public sealed partial class WidgetScene : IDisposable
     bool _sceneVisible = true;
     string? _placementKey;
     PointerCaptureOwner _captureOwner;
+    // -1 = no dock press, -2 = cancelled (slid off the destination), otherwise the
+    // pressed destination action. Release only activates when the action still matches.
+    int _dockPressedAction = -1;
     public double? NextCompanionWake => _form == WidgetForm.Details ? null : _placement.NextWakeTime;
     public bool SceneMotionActive => _chrome.NeedsTick || CompanionMotionActive;
     public PointerCaptureOwner CaptureOwner => _captureOwner;
@@ -872,7 +875,9 @@ public sealed partial class WidgetScene : IDisposable
             if(pointer.Kind is HostEventKind.Enter or HostEventKind.Move)_chrome.PointerMoved(pointer.X,pointer.Y,now);
             else if(pointer.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)_chrome.PointerExited(now);
         }
-        if(_captureOwner is PointerCaptureOwner.WidgetDrag or PointerCaptureOwner.Timeline)return false;
+        // A captured surface keeps every event until it releases: the board must never lose
+        // a drag to the dock/companion routes just because the pointer crossed them.
+        if(_captureOwner is PointerCaptureOwner.WidgetDrag or PointerCaptureOwner.Timeline or PointerCaptureOwner.WidgetBoard)return false;
         if(pointer.Kind==HostEventKind.Down&&_placement.TryCaptureReveal(new(pointer.X,pointer.Y),_placement.OpenSequence))
         {SetCapture(PointerCaptureOwner.CompanionReveal,now);return true;}
         if(_captureOwner==PointerCaptureOwner.CompanionReveal)
@@ -883,11 +888,31 @@ public sealed partial class WidgetScene : IDisposable
         }
         if(action is >= WidgetActions.DockFirst and <= WidgetActions.DockFirst+4 || _captureOwner==PointerCaptureOwner.Navigation)
         {
-            if(pointer.Kind==HostEventKind.Down){_chrome.SetPointerFeedback(action,true,now);SetCapture(PointerCaptureOwner.Navigation,now);}
-            if(pointer.Kind==HostEventKind.Up){_chrome.SetPointerFeedback(action,false,now);_chrome.Activate(action,now);SetCapture(PointerCaptureOwner.None,now);}
-            if(pointer.Kind==HostEventKind.Invoke)_chrome.Activate(action,now);
-            if(pointer.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)_chrome.SetPointerFeedback(action,false,now);
-            if(pointer.Kind==HostEventKind.CaptureLost)SetCapture(PointerCaptureOwner.None,now);
+            if(pointer.Kind==HostEventKind.Down)
+            {_dockPressedAction=action;_chrome.SetPointerFeedback(action,true,now);SetCapture(PointerCaptureOwner.Navigation,now);}
+            else if(pointer.Kind==HostEventKind.Move)
+            {
+                // Sliding off the pressed destination cancels it: the release must not
+                // activate whichever destination happens to be under the pointer.
+                if(_dockPressedAction>=0 && action!=_dockPressedAction)
+                {_chrome.SetPointerFeedback(_dockPressedAction,false,now);_dockPressedAction=-2;}
+            }
+            else if(pointer.Kind==HostEventKind.Up)
+            {
+                int pressed=_dockPressedAction;_dockPressedAction=-1;
+                _chrome.SetPointerFeedback(action,false,now);
+                if(pressed==action)_chrome.Activate(action,now);
+                else if(pressed>=0)_chrome.SetPointerFeedback(pressed,false,now);
+                SetCapture(PointerCaptureOwner.None,now);
+            }
+            else if(pointer.Kind==HostEventKind.Invoke)
+            {_dockPressedAction=-1;_chrome.Activate(action,now);}
+            else if(pointer.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)
+            {
+                if(_dockPressedAction>=0)_chrome.SetPointerFeedback(_dockPressedAction,false,now);
+                _dockPressedAction=-1;
+                if(pointer.Kind==HostEventKind.CaptureLost)SetCapture(PointerCaptureOwner.None,now);
+            }
             // A selection under a stationary hover may require no animation tick.
             // Publish its accessibility label immediately instead of waiting for idle motion.
             BuildControls();

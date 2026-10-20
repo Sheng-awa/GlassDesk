@@ -1,4 +1,4 @@
-using GlassDesk.Core;
+﻿using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
 namespace GlassDesk.App;
@@ -42,7 +42,8 @@ internal static class WidgetBoardRenderer
 
     public static WidgetBoardRenderResult Build(WidgetBoardState board, IReadOnlyList<WidgetInstanceResult> results,
         float width, float panelHeight, float scrollOffset, bool editing, bool addMenuOpen, bool lightInk,
-        string locale, bool highContrast = false)
+        string locale, bool highContrast = false, int savedInstanceCount = -1, int hiddenInstanceCount = 0,
+        int pressedActionId = -1, string? dragTargetInstanceId = null)
     {
         ArgumentNullException.ThrowIfNull(results);
         if (!float.IsFinite(width) || width <= WidgetBoardLayout.Left * 2 || !float.IsFinite(panelHeight) || panelHeight < 0)
@@ -69,6 +70,11 @@ internal static class WidgetBoardRenderer
         uint tone = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : lightInk ? 0x12000000u : 0x14ffffffu;
         var panelBounds = new FloatRect(0, 0, width, panelHeight);
         int instanceCount = board.Instances.Count;
+        // Capacity always counts every saved instance (hidden ones included), while the
+        // layout only sees the presentation subset that is actually painted.
+        int totalSaved = savedInstanceCount >= 0 ? savedInstanceCount : instanceCount;
+        bool canAdd = totalSaved < WidgetBoardData.MaximumInstances;
+        bool hasHidden = hiddenInstanceCount > 0;
 
         // Icon-only toolbar: a plus and a pencil, no title. The active control keeps one accent
         // circle so the page still reads as a compact tool surface rather than a text header.
@@ -83,8 +89,7 @@ internal static class WidgetBoardRenderer
         }
         else
         {
-            ToolbarIconButton(1000, "\uE710", "添加组件", WidgetBoardActionKind.Add, addX, accent: true,
-                instanceCount < WidgetBoardData.MaximumInstances);
+            ToolbarIconButton(1000, "\uE710", "添加组件", WidgetBoardActionKind.Add, addX, accent: true, canAdd);
             ToolbarIconButton(1001, "\uE70F", "编辑组件布局", WidgetBoardActionKind.BeginEdit, editX, accent: false,
                 instanceCount > 0);
         }
@@ -109,6 +114,8 @@ internal static class WidgetBoardRenderer
             // A plain time card: one quiet number, no label and no caption. Editing and
             // fallback states still share the card face.
             CardSurface(cards, local, tone, lightInk, highContrast, editing);
+            if (pressedActionId == actionBase)
+                cards.Add(Round(local, Radius, WithAlpha(primary, 0x0E)));
 
             if (editing)
             {
@@ -129,6 +136,8 @@ internal static class WidgetBoardRenderer
                 void EditButton(int offset, string label, string glyph, WidgetBoardActionKind kind, float x, float y)
                 {
                     var bounds = new FloatRect(x, y, buttonSize, buttonSize);
+                    if (actionBase + offset == pressedActionId)
+                        cards.Add(Round(bounds, 12, WithAlpha(primary, 0x1C)));
                     cards.Add(Icon(glyph, new(x + (buttonSize - 16) / 2, y + (buttonSize - 16) / 2, 16, 16), primary));
                     string verb = kind == WidgetBoardActionKind.ToggleSize ? $"切换为{label}" : label;
                     AddControl(actionBase + offset, $"{verb}{identity}", bounds with { Y = bounds.Y + CardsTop },
@@ -231,7 +240,7 @@ internal static class WidgetBoardRenderer
             cards.Add(Text("还没有组件", TextRole.SectionTitle, new(24, top + 48, width - 48, 24), primary, locale, true));
             cards.Add(Text("添加时间组件开始", TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
             var emptyAdd = new FloatRect(center - 60, top + 112, 120, 32);
-            bool emptyEnabled = instanceCount < WidgetBoardData.MaximumInstances;
+            bool emptyEnabled = canAdd;
             cards.Add(Round(emptyAdd, emptyAdd.Height / 2, AccentFace(emptyEnabled, lightInk, highContrast)));
             cards.Add(Text("添加组件", TextRole.Label, emptyAdd, AccentInk(emptyEnabled, lightInk, highContrast), locale, true));
             AddControl(1007, "添加组件", emptyAdd with { Y = emptyAdd.Y + CardsTop },
@@ -252,10 +261,27 @@ internal static class WidgetBoardRenderer
             {
                 var bounds = Intersect(new(menu.X + 4, y, menu.Width - 8, AddMenuRowHeight), menu);
                 if (bounds.Width <= 0 || bounds.Height <= 0) return;
+                if (id == pressedActionId)
+                    toolbar.Add(Round(bounds, 8, WithAlpha(primary, (byte)(highContrast ? 0x30 : 0x1C))));
                 toolbar.Add(Icon(glyph, new(bounds.X + 12, bounds.Y + 14, 16, 16), menuInk));
                 toolbar.Add(Text(label, TextRole.Label, new(bounds.X + 40, bounds.Y + 12, bounds.Width - 48, 20), menuInk, locale));
                 AddControl(id, $"添加{label}组件", bounds, new(kind), panelBounds,
-                    instanceCount < WidgetBoardData.MaximumInstances);
+                    id == 1005 ? canAdd : true);
+            }
+        }
+        // Drag destination preview: a quiet accent outline on the slot the card would take.
+        if (!string.IsNullOrEmpty(dragTargetInstanceId))
+        {
+            var target = packing.Cards.FirstOrDefault(c => string.Equals(c.InstanceId, dragTargetInstanceId, StringComparison.Ordinal));
+            if (target is not null)
+            {
+                var local = target.Bounds with { Y = target.Bounds.Y - CardsTop - scrollOffset };
+                var preview = Intersect(local, viewport);
+                if (preview.Width > 0 && preview.Height > 0)
+                {
+                    cards.Add(Round(preview, Radius, WithAlpha(AccentFill, 0x1A)));
+                    Ring(cards, preview, Radius, AccentFill, AccentFill, 1.5f);
+                }
             }
         }
         return new(Array.AsReadOnly(toolbar.ToArray()), Array.AsReadOnly(cards.ToArray()), Array.AsReadOnly(controls.ToArray()),
@@ -267,6 +293,8 @@ internal static class WidgetBoardRenderer
             var bounds = Intersect(new(x, ToolbarTop, toolbarButtonSize, toolbarButtonSize), panelBounds);
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
             if (accent) toolbar.Add(Round(bounds, toolbarButtonSize / 2, AccentFace(enabled, lightInk, highContrast)));
+            if (enabled && id == pressedActionId)
+                toolbar.Add(Round(bounds, toolbarButtonSize / 2, WithAlpha(primary, (byte)(highContrast ? 0x30 : 0x1C))));
             toolbar.Add(Icon(glyph, new(bounds.X + (bounds.Width - 16) / 2, bounds.Y + (bounds.Height - 16) / 2, 16, 16),
                 accent ? AccentInk(enabled, lightInk, highContrast) : enabled ? primary : secondary));
             // Keep the 32 DIP artwork while giving pointer input a full 44 DIP
@@ -435,3 +463,4 @@ internal static class WidgetBoardRenderer
         }
     }
 }
+
