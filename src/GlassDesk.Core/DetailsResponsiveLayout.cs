@@ -58,8 +58,13 @@ public static class DetailsResponsiveLayout
 
     public const float CoverTop = 70;
     public const float CoverPreferredSize = 168;
+    /// <summary>Cover floor at or above <see cref="CoverTightHeight"/> (the normal compact range).</summary>
     public const float CoverMinimumSize = 96;
     public const float CoverShrinkPerDip = .60f;
+    /// <summary>Below this height the cover may keep shrinking toward <see cref="CoverTightMinimumSize"/>.</summary>
+    public const float CoverTightHeight = 400;
+    public const float CoverTightMinimumSize = 72;
+    public const float CoverTightShrinkPerDip = .8f;
     public const float CoverRadius = 16;
     public const float TitleX = 24, TitleWidth = 312, TitleHeight = 24, ArtistHeight = 20;
     /// <summary>Below this height the cover/title gaps tighten (the second compact stage).</summary>
@@ -71,7 +76,7 @@ public static class DetailsResponsiveLayout
     public const float ToggleX = 152, ToggleSize = 56;
     public const float SideButtonX = 96, SideButtonNextX = 220, SideButtonSize = 44, SideButtonLift = 6;
     public const float TransportDockInset = 16;
-    public const float BodyTopInset = 4, BodyNoTimelineInset = 8;
+    public const float BodyNoTimelineInset = 8;
     public const float ArtworkTop = 56;
 
     /// <summary>
@@ -110,21 +115,29 @@ public static class DetailsResponsiveLayout
         var next = new FloatRect(SideButtonNextX, sideY, SideButtonSize, SideButtonSize);
         var timeline = new FloatRect(TimelineX, toggleY - TimelineLift, TimelineWidth, TimelineHeight);
 
-        // The cover shrinks first. It never drops below CoverMinimumSize, stays square and
-        // remains centred on the 360 DIP card; at 476+ the frozen 168 DIP cover is kept.
-        float desired = CoverPreferredSize - CoverShrinkPerDip * (PreferredHeight - height);
-        float coverSize = Math.Clamp(desired, CoverMinimumSize, CoverPreferredSize);
+        // The cover shrinks first. Above 400 DIP it stays in the 96..168 range; below 400 it
+        // may continue toward 72 so the body keeps a usable viewport at 360. It stays square
+        // and centred on the 360 DIP card, and at 476+ the frozen 168 DIP cover is kept.
+        float coverSize = height >= CoverTightHeight
+            ? Math.Clamp(CoverPreferredSize - CoverShrinkPerDip * (PreferredHeight - height),
+                CoverMinimumSize, CoverPreferredSize)
+            : Math.Clamp(CoverMinimumSize - CoverTightShrinkPerDip * (CoverTightHeight - height),
+                CoverTightMinimumSize, CoverMinimumSize);
         var cover = new FloatRect((CardWidth - coverSize) / 2, CoverTop, coverSize, coverSize);
         float coverBottom = cover.Bottom;
         var title = new FloatRect(TitleX, coverBottom + gap, TitleWidth, TitleHeight);
         var artist = new FloatRect(TitleX, title.Y + titleGap, TitleWidth, ArtistHeight);
 
-        // Only the body scrolls. Its clip starts just below the title top and ends 4 DIP above
-        // the timeline, or 8 DIP above the transport row when the session exposes no timeline.
-        float bodyTop = coverBottom + gap + BodyTopInset;
+        // Only the body scrolls. Its clip starts exactly at the title top (nothing of the title
+        // is shaved off) and ends 4 DIP above the timeline, or 8 DIP above the transport row
+        // when the session exposes no timeline.
+        float bodyTop = title.Y;
         float bodyBottom = input.HasTimeline ? timeline.Y - TimelineBodyInset : toggleY - BodyNoTimelineInset;
         var bodyViewport = new FloatRect(0, bodyTop, CardWidth, Math.Max(1, bodyBottom - bodyTop));
-        float bodyContentHeight = TitleHeight + titleGap + ArtistHeight + Math.Max(0, input.PluginContentHeight);
+        // The scrollable content runs from the title top to the lower of the title/artist
+        // rects, then continues with the plugin contributions.
+        float contentBottom = Math.Max(title.Bottom, artist.Bottom);
+        float bodyContentHeight = contentBottom - title.Y + Math.Max(0, input.PluginContentHeight);
         float maxScroll = Math.Max(0, bodyContentHeight - bodyViewport.Height);
 
         // Artwork clip: from below the home handle to the title top, so the shrinking cover

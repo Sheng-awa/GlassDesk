@@ -58,27 +58,29 @@ static class CompactLayoutChecks
             var layout = Resolve(360, height, true);
             stacked &= Near(layout.Timeline.Y, layout.ToggleButton.Y - 40)
                 && layout.Timeline.X == 56 && layout.Timeline.Width == 248 && layout.Timeline.Height == 38
-                && layout.Timeline.Bottom <= layout.ToggleButton.Y
+                && Near(layout.Timeline.Bottom, layout.ToggleButton.Y - 2)
                 && !layout.Timeline.Intersects(layout.ToggleButton)
                 && !layout.Timeline.Intersects(layout.Dock)
                 && !layout.ToggleButton.Intersects(layout.Dock);
         }
-        check(stacked, "timeline, transport row and dock stay stacked without overlap at every short height");
+        check(stacked, "timeline bottom clears the transport top by the frozen 2 DIP and never overlaps the dock");
 
         bool covers = true;
-        foreach (float height in new[] { 300f, 360f, 400f, 440f, 476f, 512f })
+        foreach (float height in new[] { 300f, 350f, 360f, 380f, 399f, 400f, 440f, 476f, 512f })
         {
             var layout = Resolve(360, height, true);
+            float floor = height >= 400 ? 96 : 72;
+            float ceiling = height >= 400 ? 168 : 96;
             covers &= layout.Cover.Y == 70 && Near(layout.Cover.Width, layout.Cover.Height)
                 && Near(layout.Cover.X, (360 - layout.Cover.Width) / 2)
-                && layout.Cover.Width >= 96 && layout.Cover.Width <= 168 && layout.CoverRadius == 16;
+                && layout.Cover.Width >= floor && layout.Cover.Width <= ceiling && layout.CoverRadius == 16;
         }
-        covers &= Resolve(360, 300, true).Cover.Width == 96
-            && Resolve(360, 512, true).Cover.Width == 168
-            && Near(Resolve(360, 360, true).Cover.Width, 98.4f)
-            && Near(Resolve(360, 400, true).Cover.Width, 122.4f)
-            && Near(Resolve(360, 440, true).Cover.Width, 146.4f);
-        check(covers, "cover shrinks first from 168 to the 96 DIP floor, stays square and centred at y=70");
+        covers &= Resolve(360, 300, true).Cover.Width == 72 && Resolve(360, 350, true).Cover.Width == 72
+            && Resolve(360, 360, true).Cover.Width == 72 && Near(Resolve(360, 380, true).Cover.Width, 80)
+            && Near(Resolve(360, 399, true).Cover.Width, 95.2f) && Near(Resolve(360, 400, true).Cover.Width, 122.4f)
+            && Near(Resolve(360, 440, true).Cover.Width, 146.4f)
+            && Resolve(360, 512, true).Cover.Width == 168;
+        check(covers, "cover shrinks 168->96 in normal compact and may reach 72 below 400 DIP, always square and centred");
 
         var tight = Resolve(360, 400, true);
         var roomy = Resolve(360, 440, true);
@@ -87,16 +89,39 @@ static class CompactLayoutChecks
             && Near(baseline.Title.Y, baseline.Cover.Bottom + 8) && Near(baseline.Artist.Y - baseline.Title.Y, 28),
             "vertical gaps tighten 8->6 and the title/artist gap tightens 28->24 below 420 DIP");
 
-        check(baseline.BodyViewport == new FloatRect(0, 250, 360, 46)
-            && baseline.BodyContentHeight == 72 && baseline.MaxScroll == 26,
-            "476 DIP body starts below the cover and its formula content needs 26 DIP of scroll with a timeline");
+        check(baseline.BodyViewport == new FloatRect(0, 246, 360, 50)
+            && Near(baseline.BodyViewport.Y, baseline.Title.Y)
+            && baseline.BodyContentHeight == 48 && baseline.MaxScroll == 0,
+            "476 DIP body clips from the title top: 48 DIP of title/artist content fits its 50 DIP viewport");
 
         var noTimeline = Resolve(360, 476, false);
         check(!noTimeline.HasTimeline && noTimeline.Timeline == baseline.Timeline
-            && noTimeline.BodyViewport == new FloatRect(0, 250, 360, 82)
-            && Near(noTimeline.BodyViewport.Bottom, noTimeline.ToggleButton.Y - 8)
-            && noTimeline.BodyContentHeight == 72 && noTimeline.MaxScroll == 0,
-            "without a timeline the body extends 8 DIP above the transport row and has nothing to scroll");
+            && noTimeline.BodyViewport == new FloatRect(0, 246, 360, 86)
+            && Near(noTimeline.BodyViewport.Y, noTimeline.Title.Y)
+            && noTimeline.BodyContentHeight == 48 && noTimeline.MaxScroll == 0,
+            "without a timeline the body runs to 8 DIP above the transport row and still needs no scroll");
+
+        check(Resolve(360, 476, true).MaxScroll == 0 && Resolve(360, 476, false).MaxScroll == 0
+            && Resolve(360, 480, true).MaxScroll == 0 && Resolve(360, 512, true).MaxScroll == 0
+            && Resolve(360, 512, false).MaxScroll == 0,
+            "476+ DIP plugin-free pages report zero scroll with or without a timeline");
+
+        var withPlugin = Resolve(360, 476, true, 112);
+        check(withPlugin.BodyContentHeight == 160 && withPlugin.BodyViewport.Height == 50
+            && withPlugin.MaxScroll == 110,
+            "476 DIP with a 112 DIP plugin contribution scrolls 110 DIP (160 content - 50 viewport)");
+
+        check(Resolve(360, 400, true).MaxScroll > 0 && Near(Resolve(360, 400, true).MaxScroll, 22.4f)
+            && Resolve(360, 440, true).MaxScroll > 0 && Near(Resolve(360, 440, true).MaxScroll, 12.4f),
+            "400/440 DIP with a timeline still need real body scroll for a plugin-free page");
+
+        var short360 = Resolve(360, 360, true);
+        check(short360.BodyViewport.Height >= 24 && Near(short360.BodyViewport.Y, short360.Title.Y)
+            && Near(short360.Timeline.Bottom, short360.ToggleButton.Y - 2)
+            && !short360.Timeline.Intersects(short360.ToggleButton)
+            && !short360.ToggleButton.Intersects(short360.Dock)
+            && short360.ToggleButton.Bottom <= short360.Dock.Y,
+            "360 DIP keeps at least a 24 DIP body viewport while timeline/transport/dock stay separated");
 
         bool bodyRules = true, emptyScroll = true, pluginScroll = true;
         foreach (float height in new[] { 360f, 400f, 440f, 476f })
@@ -106,10 +131,10 @@ static class CompactLayoutChecks
                     var layout = Resolve(360, height, timeline, plugin);
                     float gap = height < 420 ? 6 : 8;
                     float titleGap = height < 420 ? 24 : 28;
-                    float expectedTop = layout.Cover.Bottom + gap + 4;
+                    float expectedTop = layout.Title.Y;
                     float expectedBottom = timeline ? layout.Timeline.Y - 4 : layout.ToggleButton.Y - 8;
                     float expectedHeight = Math.Max(1, expectedBottom - expectedTop);
-                    float expectedContent = 24 + titleGap + 20 + plugin;
+                    float expectedContent = Math.Max(layout.Title.Bottom, layout.Artist.Bottom) - layout.Title.Y + plugin;
                     bodyRules &= Near(layout.Title.Y, layout.Cover.Bottom + gap)
                         && Near(layout.Artist.Y, layout.Title.Y + titleGap)
                         && Near(layout.BodyViewport.Y, expectedTop)
@@ -121,15 +146,15 @@ static class CompactLayoutChecks
                         && Near(layout.MaxScroll, Math.Max(0, expectedContent - expectedHeight))
                         && float.IsFinite(layout.MaxScroll) && layout.MaxScroll >= 0
                         && layout.BodyViewport.Height >= 1 && layout.HasTimeline == timeline;
-                    if (height >= 476 && !timeline && plugin == 0) emptyScroll &= layout.MaxScroll == 0;
+                    if (plugin == 0 && (!timeline || height >= 476)) emptyScroll &= layout.MaxScroll == 0;
                     if (plugin > 0) pluginScroll &= layout.MaxScroll > 0;
                 }
         check(bodyRules, "body/artwork/content/scroll formulas hold for the height x timeline x plugin matrix");
-        check(emptyScroll, "at or above 476 DIP a plugin-free page without a timeline reports no empty scroll");
+        check(emptyScroll, "plugin-free pages avoid empty scroll unless a timeline squeezes the short viewport");
         check(pluginScroll, "112 DIP of plugin content always produces real body scroll");
 
         check(Resolve(360, 512, false).MaxScroll == 0 && Resolve(360, 512, true).MaxScroll == 0,
-            "476+ DIP plugin-free pages keep an empty scroll range");
+            "512 DIP plugin-free pages keep an empty scroll range");
 
         check(Throws(() => DetailsResponsiveLayout.Resolve(new DetailsResponsiveInput(new Vector2(float.NaN, 476), true)))
             && Throws(() => Resolve(360, float.PositiveInfinity, true))
