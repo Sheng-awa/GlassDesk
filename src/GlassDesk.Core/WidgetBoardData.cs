@@ -20,6 +20,9 @@ public static class WidgetBoardData
         new WidgetInstance("time.default", BuiltInWidgetIds.Time, WidgetCardSize.Small, 0, EmptySettings())
     }));
 
+    // Audit #11: presentation scope is currently only the time card; saved data is never pruned.
+    private static bool InPresentationScope(WidgetInstance instance) => instance.ProviderId == BuiltInWidgetIds.Time;
+
     /// <summary>
     /// Temporary presentation filter: only the offline time card is exposed while the other
     /// built-ins are redesigned. Saved boards keep every instance; this only hides them from
@@ -27,8 +30,53 @@ public static class WidgetBoardData
     /// </summary>
     public static WidgetBoardState TimeOnlyForPresentation(WidgetBoardState state)
     {
-        var kept = state.Instances.Where(i => i.ProviderId == BuiltInWidgetIds.Time).ToArray();
+        var kept = state.Instances.Where(InPresentationScope).ToArray();
         return new(state.Version, Array.AsReadOnly(kept));
+    }
+
+    /// <summary>Saved instances hidden by the current presentation scope, in saved order.</summary>
+    public static IReadOnlyList<HiddenWidgetInstance> HiddenForPresentation(WidgetBoardState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var hidden = new List<HiddenWidgetInstance>();
+        foreach (var instance in state.Instances)
+            if (!InPresentationScope(instance)) hidden.Add(new(instance, WidgetHiddenReason.OutsideCurrentScope));
+        return Array.AsReadOnly(hidden.ToArray());
+    }
+
+    /// <summary>Capacity always measures complete saved instances, independently of what is visible.</summary>
+    public static WidgetBoardCounts Counts(WidgetBoardState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        int saved = state.Instances.Count, visible = state.Instances.Count(InPresentationScope);
+        return new(saved, visible, saved - visible, Math.Max(0, MaximumInstances - saved));
+    }
+
+    /// <summary>Adding is governed by saved capacity; hidden instances still occupy their slots.</summary>
+    public static bool CanAdd(WidgetBoardState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.Instances.Count < MaximumInstances;
+    }
+
+    /// <summary>
+    /// Explicit management removal only (nothing is pruned automatically): drops one instance,
+    /// renumbers Order contiguously and leaves every other saved field untouched.
+    /// </summary>
+    public static bool TryRemove(WidgetBoardState state, string instanceId, out WidgetBoardState next)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (instanceId is null || !state.Instances.Any(i => i.InstanceId == instanceId))
+        { next = state; return false; }
+        var kept = new List<WidgetInstance>(state.Instances.Count - 1);
+        foreach (var instance in state.Instances)
+        {
+            if (instance.InstanceId == instanceId) continue;
+            // Reuse the saved record whenever the contiguous position already matches.
+            kept.Add(instance.Order == kept.Count ? instance : instance with { Order = kept.Count });
+        }
+        next = new(state.Version, Array.AsReadOnly(kept.ToArray()));
+        return true;
     }
 
     public static bool IsIdentifier(string? value) => value is { Length: > 0 and <= MaximumIdentifierLength }
@@ -69,6 +117,15 @@ public static class WidgetBoardData
             .Select((i, order) => i with { Order = order }).ToArray()));
     }
 }
+
+/// <summary>Why a saved instance is not part of the current presentation.</summary>
+public enum WidgetHiddenReason { OutsideCurrentScope }
+
+/// <summary>A saved instance absent from the current presentation; carries the saved record itself.</summary>
+public sealed record HiddenWidgetInstance(WidgetInstance Instance, WidgetHiddenReason Reason);
+
+/// <summary>Saved capacity versus what the current presentation scope shows.</summary>
+public readonly record struct WidgetBoardCounts(int Saved, int Visible, int Hidden, int Remaining);
 
 public sealed record WidgetCardPlacement(string InstanceId, WidgetCardSize Size, FloatRect Bounds);
 public sealed record WidgetBoardPacking(IReadOnlyList<WidgetCardPlacement> Cards, int Columns, float ContentBottom);
