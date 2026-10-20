@@ -100,7 +100,13 @@ public static class BuiltInWidgetProviders
             long interval = options.ShowSeconds ? TimeSpan.TicksPerSecond : TimeSpan.TicksPerMinute;
             long ticks = request.UtcNow.UtcTicks;
             DateTimeOffset? next = ticks > DateTimeOffset.MaxValue.UtcTicks - interval ? null : new(ticks - ticks % interval + interval, TimeSpan.Zero);
-            return ValueTask.FromResult(new WidgetSnapshot(Array.AsReadOnly(elements.ToArray()), next));
+            // Display text stays culture-formatted; the structured sample is what the clock face
+            // consumes so localized separators and the 12-hour period never need re-parsing.
+            return ValueTask.FromResult(new WidgetSnapshot(Array.AsReadOnly(elements.ToArray()), next)
+            {
+                Clock = new(local.Hour, local.Minute, options.ShowSeconds ? local.Second : 0, options.ShowSeconds,
+                    !options.Use24Hour, options.Use24Hour ? null : local.ToString("tt", culture))
+            });
         }
     }
 
