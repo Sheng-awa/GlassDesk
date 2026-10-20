@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using GlassDesk.Core;
@@ -23,6 +23,10 @@ internal sealed partial class GlassDeskCoordinator
     long boardRevision;
     int boardPressedAction = -1;
     string? boardDragInstance;
+    WidgetInstance? boardUndoHidden;
+    int boardUndoHiddenIndex = -1;
+    string? boardUndoHiddenLabel;
+    float boardHiddenScroll;
     Task widgetSaveTail = Task.CompletedTask;
     Task widgetLoadTask = Task.CompletedTask;
 
@@ -160,6 +164,10 @@ internal sealed partial class GlassDeskCoordinator
                 case WidgetBoardActionKind.BeginEdit when WidgetBoardData.Counts(boardEditor.State).Visible>0:
                     boardEditor.Begin();boardAddMenu=false;break;
                 case WidgetBoardActionKind.BeginEdit: return;
+                case WidgetBoardActionKind.OpenHidden: OpenHiddenPanel();return;
+                case WidgetBoardActionKind.CloseHidden: CloseHiddenPanel();return;
+                case WidgetBoardActionKind.RemoveHidden when action.InstanceId is { } hiddenId: RemoveHiddenInstance(hiddenId);return;
+                case WidgetBoardActionKind.UndoHidden: UndoHiddenRemoval();return;
                 case WidgetBoardActionKind.Commit: QueueWidgetSave(boardEditor.Commit());boardAddMenu=false;break;
                 case WidgetBoardActionKind.Cancel: CloseWidgetConfiguration();boardEditor.Cancel();boardAddMenu=false;break;
                 case WidgetBoardActionKind.Configure when item is not null: ShowWidgetConfiguration(item);return;
@@ -186,11 +194,69 @@ internal sealed partial class GlassDeskCoordinator
         if(!editing)QueueWidgetSave(boardEditor.Commit());
         boardAddMenu=false;
     }
+    static string InstanceDisplayName(WidgetInstance instance)=>instance.ProviderId switch
+    { BuiltInWidgetIds.Time=>"时间", BuiltInWidgetIds.Date=>"日期", _=>"组件" };
+    // Hidden management is an explicit, reversible transaction: removing one saved instance
+    // never touches the others, and undo restores it at its original order until the sheet closes.
+    void OpenHiddenPanel()
+    {
+        boardAddMenu=false;boardHiddenScroll=0;boardPressedAction=-1;
+        boardUndoHidden=null;boardUndoHiddenIndex=-1;boardUndoHiddenLabel=null;
+        scene.SetBoardHiddenState(true,null,0);
+        boardRevision++;Render();WakeMotion();
+    }
+    void CloseHiddenPanel()
+    {
+        boardUndoHidden=null;boardUndoHiddenIndex=-1;boardUndoHiddenLabel=null;boardHiddenScroll=0;
+        scene.SetBoardHiddenState(false,null,0);
+        boardRevision++;Render();
+    }
+    void RemoveHiddenInstance(string instanceId)
+    {
+        var saved=boardEditor.State;
+        int index=saved.Instances.ToList().FindIndex(i=>i.InstanceId==instanceId);
+        if(index<0)return;
+        var instance=saved.Instances[index];
+        if(!boardEditor.RemoveSaved(instanceId))return;
+        boardUndoHidden=instance;boardUndoHiddenIndex=index;boardUndoHiddenLabel=InstanceDisplayName(instance);
+        QueueWidgetSave(boardEditor.State);
+        boardRevision++;ClampHiddenScroll();
+        scene.SetBoardHiddenState(true,boardUndoHiddenLabel,boardHiddenScroll);
+        Render();WakeMotion();
+    }
+    void UndoHiddenRemoval()
+    {
+        if(boardUndoHidden is null)return;
+        if(WidgetBoardData.CanAdd(boardEditor.State)&&boardEditor.InsertSaved(boardUndoHidden,boardUndoHiddenIndex))
+            QueueWidgetSave(boardEditor.State);
+        boardUndoHidden=null;boardUndoHiddenIndex=-1;boardUndoHiddenLabel=null;
+        boardRevision++;ClampHiddenScroll();
+        scene.SetBoardHiddenState(true,null,boardHiddenScroll);
+        Render();
+    }
+    void ClampHiddenScroll()
+    {
+        int hiddenCount=WidgetBoardData.Counts(boardEditor.State).Hidden;
+        const float panelTopOffset=WidgetBoardLayout.Top-6, titleHeight=36, rowHeight=48, undoHeight=44;
+        float available=Math.Max(0,scene.CurrentSize.Y-panelTopOffset-WidgetBoardLayout.BottomInset);
+        float panelHeight=Math.Min(titleHeight+hiddenCount*rowHeight+undoHeight+12,available);
+        float rowsHeight=Math.Max(0,panelHeight-titleHeight-undoHeight-8);
+        float maximum=Math.Max(0,hiddenCount*rowHeight-rowsHeight);
+        boardHiddenScroll=Math.Clamp(boardHiddenScroll,0,maximum);
+    }
+    void ScrollHiddenPanel(float delta)
+    {
+        boardHiddenScroll=Math.Max(0,boardHiddenScroll+delta);
+        ClampHiddenScroll();
+        scene.SetBoardHiddenState(true,boardUndoHiddenLabel,boardHiddenScroll);
+        Render();
+    }
     void CommitBoardOnLeave()
     {
         if(widgetStore is null)return;
         CloseWidgetConfiguration();boardAddMenu=false;boardPressedAction=-1;boardDragInstance=null;
-        scene.SetBoardInteractionFeedback(-1,null);
+        boardUndoHidden=null;boardUndoHiddenIndex=-1;boardUndoHiddenLabel=null;boardHiddenScroll=0;
+        scene.SetBoardInteractionFeedback(-1,null);scene.SetBoardHiddenState(false,null,0);
         if(boardEditor.IsEditing){QueueWidgetSave(boardEditor.Commit());boardRevision++;}
         if(scene.CaptureOwner==PointerCaptureOwner.WidgetBoard)scene.SetCapture(PointerCaptureOwner.None,Now);
         if(pages.SavePending&&pageSaveTimer is not null){pageSaveTimer.Stop();if(!quitting)pageSaveTimer.Start();}
@@ -357,3 +423,5 @@ internal sealed partial class GlassDeskCoordinator
     [DllImport("user32.dll")] static extern bool IsWindowVisible(nint hwnd);
     [DllImport("user32.dll",EntryPoint="SetWindowLongPtrW")] static extern nint SetWindowLongPtr(nint hwnd,int index,nint value);
 }
+
+

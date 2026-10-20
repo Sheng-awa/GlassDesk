@@ -15,6 +15,9 @@ public sealed partial class WidgetScene
     WidgetBoardState _savedBoard = WidgetBoardData.CreateDefault();
     int _boardPressedAction = -1;
     string? _boardDragTarget;
+    bool _boardHiddenPanelOpen;
+    string? _boardUndoHiddenLabel;
+    float _boardHiddenScroll;
     IReadOnlyList<WidgetInstanceResult> _boardResults = [];
     bool _boardEditing, _boardAddMenu;
     SpriteVisual _boardCards = null!;
@@ -25,6 +28,7 @@ public sealed partial class WidgetScene
     public float CurrentPageScroll => WidgetsPage ? _boardScroll : _detailsScroll;
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     internal WidgetBoardState SavedBoard => _savedBoard;
+    internal bool BoardHiddenPanelOpen => _boardHiddenPanelOpen;
     // Pointer feedback belongs to the renderer input description; the host repaints once
     // after changing it and never polls in between.
     internal void SetBoardInteractionFeedback(int pressedAction, string? dragTargetInstanceId)
@@ -32,6 +36,15 @@ public sealed partial class WidgetScene
         if (_boardPressedAction == pressedAction && string.Equals(_boardDragTarget, dragTargetInstanceId, StringComparison.Ordinal)) return;
         _boardPressedAction = pressedAction;
         _boardDragTarget = dragTargetInstanceId;
+        _drawingInvalidated = true;
+    }
+    // Hidden-component management state: the sheet, its scroll offset and the last explicit
+    // removal that can still be undone while the sheet stays open.
+    internal void SetBoardHiddenState(bool panelOpen, string? undoHiddenLabel, float scrollOffset)
+    {
+        _boardHiddenPanelOpen = panelOpen;
+        _boardUndoHiddenLabel = panelOpen ? undoHiddenLabel : null;
+        _boardHiddenScroll = float.IsFinite(scrollOffset) ? Math.Max(0, scrollOffset) : 0;
         _drawingInvalidated = true;
     }
     public event Action<string>? DetailsPageRequested;
@@ -81,7 +94,9 @@ public sealed partial class WidgetScene
         _boardRender = WidgetBoardRenderer.Build(_board,_boardResults,size.X,size.Y,_boardScroll,
             _boardEditing,_boardAddMenu,_lightText,CultureInfo.CurrentUICulture.Name,_accessibility.HighContrast,
             _savedBoard.Instances.Count, WidgetBoardData.Counts(_savedBoard).Hidden,
-            _boardPressedAction,_boardDragTarget);
+            _boardPressedAction,_boardDragTarget,
+            hiddenPanelOpen: _boardHiddenPanelOpen, undoHiddenLabel: _boardUndoHiddenLabel,
+            hiddenInstances: WidgetBoardData.HiddenForPresentation(_savedBoard), hiddenPanelScroll: _boardHiddenScroll);
         _boardScroll = _boardRender.ScrollOffset;
         _boardCards.Size = new(size.X, Math.Max(1,size.Y-WidgetBoardLayout.BottomInset-WidgetBoardLayout.Top));
         ReplaceSurface(ref _boardSurface,_boardBrush,RenderTextLayer("WidgetBoard",_boardCards.Size.X,_boardCards.Size.Y,_boardRender.CardOperations));

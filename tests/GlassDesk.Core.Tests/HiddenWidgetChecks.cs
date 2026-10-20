@@ -83,5 +83,18 @@ static class HiddenWidgetChecks
         check(removedLast && emptied.Instances.Count == 0 && WidgetBoardData.CanAdd(emptied)
             && WidgetBoardData.Counts(emptied) == new WidgetBoardCounts(0, 0, 0, 32),
             "removing the last saved instance yields a valid empty board");
+
+        // Hidden-item management edits the committed board without opening an edit transaction.
+        var editor = new WidgetBoardEditor(mixed);
+        check(editor.RemoveSaved("date.default")
+            && editor.State.Instances.Select(i => i.InstanceId).SequenceEqual(new[] { "time.default", "plugin.local-status" })
+            && editor.State.Instances.Select(i => i.Order).SequenceEqual(new[] { 0, 1 }) && !editor.IsEditing,
+            "hidden management removes a saved instance outside an edit transaction and renumbers it");
+        check(editor.InsertSaved(WidgetBoardData.HiddenForPresentation(mixed)[0].Instance, 1)
+            && editor.State.Instances[1].InstanceId == "date.default"
+            && editor.State.Instances.Select(i => i.Order).SequenceEqual(new[] { 0, 1, 2 }),
+            "undo restores the removed saved instance at its original index");
+        check(!editor.RemoveSaved("missing.instance") && !editor.InsertSaved(time, 0),
+            "hidden management reports false for an unknown removal and a duplicate restore");
     }
 }

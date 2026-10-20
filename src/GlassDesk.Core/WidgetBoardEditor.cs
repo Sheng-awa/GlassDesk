@@ -61,6 +61,31 @@ public sealed class WidgetBoardEditor
         return removed;
     }
 
+    /// <summary>Removes a saved instance outside an edit transaction (hidden-item management).</summary>
+    public bool RemoveSaved(string instanceId)
+    {
+        if (_draft is not null) return Remove(instanceId);
+        var remaining = _committed.Instances.Where(i => i.InstanceId != instanceId).ToArray();
+        if (remaining.Length == _committed.Instances.Count) return false;
+        _committed = WidgetBoardData.ValidateAndClone(new(WidgetBoardData.Version,
+            remaining.Select((instance, order) => instance with { Order = order }).ToArray()));
+        return true;
+    }
+
+    /// <summary>Restores a previously removed saved instance at its original index (undo).</summary>
+    public bool InsertSaved(WidgetInstance instance, int index)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (_draft is not null) throw new InvalidOperationException("Finish the edit transaction before restoring a saved instance.");
+        if (_committed.Instances.Any(i => i.InstanceId == instance.InstanceId)) return false;
+        if (_committed.Instances.Count >= WidgetBoardData.MaximumInstances) return false;
+        var list = _committed.Instances.ToList();
+        list.Insert(Math.Clamp(index, 0, list.Count), instance);
+        _committed = WidgetBoardData.ValidateAndClone(new(WidgetBoardData.Version,
+            list.Select((item, order) => item with { Order = order }).ToArray()));
+        return true;
+    }
+
     public void Configure(string instanceId, JsonElement settings) => Replace(instanceId,
         i => i with { Settings = WidgetBoardData.CloneSettings(settings) });
 

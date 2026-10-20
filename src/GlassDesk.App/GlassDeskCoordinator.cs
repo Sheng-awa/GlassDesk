@@ -332,7 +332,11 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         if(e.Kind==HostEventKind.Down)scene.SetCapture(id==WidgetActions.Seek?PointerCaptureOwner.Timeline:PointerCaptureOwner.WidgetDrag,Now);
         if(e.Kind is HostEventKind.Up or HostEventKind.CaptureLost)scene.SetCapture(PointerCaptureOwner.None,Now);
         UpdateOutsideGeometry();
-        if(e.Kind==HostEventKind.Wheel){TryScene(()=>scene.ScrollDetails(-(float)e.Value*40));pages.SetScrollOffset(scene.CurrentPageScroll);return;}
+        if(e.Kind==HostEventKind.Wheel)
+        {
+            if(scene.BoardHiddenPanelOpen){ScrollHiddenPanel(-(float)e.Value*40);return;}
+            TryScene(()=>scene.ScrollDetails(-(float)e.Value*40));pages.SetScrollOffset(scene.CurrentPageScroll);return;
+        }
         if(e.Kind==HostEventKind.RangeValue)
         {
             var control=scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==WidgetActions.Seek);

@@ -1,11 +1,12 @@
-﻿using GlassDesk.Core;
+using GlassDesk.Core;
 using GlassDesk.NativeBridge;
 
 namespace GlassDesk.App;
 
 internal enum WidgetBoardActionKind
 {
-    Add, AddTime, AddDate, BeginEdit, Commit, Cancel, Configure, Remove, ToggleSize, DragHandle, InvokeCommand
+    Add, AddTime, AddDate, BeginEdit, Commit, Cancel, Configure, Remove, ToggleSize, DragHandle, InvokeCommand,
+    OpenHidden, RemoveHidden, UndoHidden, CloseHidden
 }
 
 internal sealed record WidgetBoardUiAction(WidgetBoardActionKind Kind, string? InstanceId = null, string? CommandId = null);
@@ -34,7 +35,7 @@ internal static class WidgetBoardRenderer
     const float ToolbarTop = 58, ButtonGap = 12;
     const float AddMenuRowHeight = 44, AddMenuWidth = 152, AddMenuRadius = 12;
     const uint AccentFill = 0xff1689f9;
-    const int FirstCardAction = 1100, CardActionStride = 80;
+    const int FirstCardAction = 1100, CardActionStride = 80, FirstHiddenRemoveAction = 5000;
 
     /// <summary>Whole-card controls need the 16 DIP card radius for their press layer, never a pill radius.</summary>
     internal static bool IsCardPressTarget(AccessibleControl control) =>
@@ -43,7 +44,9 @@ internal static class WidgetBoardRenderer
     public static WidgetBoardRenderResult Build(WidgetBoardState board, IReadOnlyList<WidgetInstanceResult> results,
         float width, float panelHeight, float scrollOffset, bool editing, bool addMenuOpen, bool lightInk,
         string locale, bool highContrast = false, int savedInstanceCount = -1, int hiddenInstanceCount = 0,
-        int pressedActionId = -1, string? dragTargetInstanceId = null)
+        int pressedActionId = -1, string? dragTargetInstanceId = null,
+        bool hiddenPanelOpen = false, string? undoHiddenLabel = null,
+        IReadOnlyList<HiddenWidgetInstance>? hiddenInstances = null, float hiddenPanelScroll = 0f)
     {
         ArgumentNullException.ThrowIfNull(results);
         if (!float.IsFinite(width) || width <= WidgetBoardLayout.Left * 2 || !float.IsFinite(panelHeight) || panelHeight < 0)
@@ -74,7 +77,13 @@ internal static class WidgetBoardRenderer
         // layout only sees the presentation subset that is actually painted.
         int totalSaved = savedInstanceCount >= 0 ? savedInstanceCount : instanceCount;
         bool canAdd = totalSaved < WidgetBoardData.MaximumInstances;
-        bool hasHidden = hiddenInstanceCount > 0;
+        var hidden = hiddenInstances ?? Array.Empty<HiddenWidgetInstance>();
+        int hiddenCount = hidden.Count;
+        bool hasHidden = hiddenCount > 0;
+        // The add button stays reachable while hidden instances exist: its menu carries the
+        // hidden-components entry and the time row respects the same capacity gate.
+        bool addMenuAvailable = canAdd || hasHidden;
+        float hiddenScroll = float.IsFinite(hiddenPanelScroll) ? Math.Max(0, hiddenPanelScroll) : 0;
 
         // Icon-only toolbar: a plus and a pencil, no title. The active control keeps one accent
         // circle so the page still reads as a compact tool surface rather than a text header.
@@ -89,7 +98,7 @@ internal static class WidgetBoardRenderer
         }
         else
         {
-            ToolbarIconButton(1000, "\uE710", "添加组件", WidgetBoardActionKind.Add, addX, accent: true, canAdd);
+            ToolbarIconButton(1000, "\uE710", "添加组件", WidgetBoardActionKind.Add, addX, accent: true, addMenuAvailable);
             ToolbarIconButton(1001, "\uE70F", "编辑组件布局", WidgetBoardActionKind.BeginEdit, editX, accent: false,
                 instanceCount > 0);
         }
@@ -233,42 +242,69 @@ internal static class WidgetBoardRenderer
         if (packing.Cards.Count == 0 && viewportHeight > 0)
         {
             // Empty state is vertically centered in the card viewport: 32 DIP trough,
-            // title, caption and an accent add button share one 144 DIP block.
+            // title, caption and one action button share one 144 DIP block. When the full
+            // saved board is at capacity with hidden instances, the action becomes management.
             float top = Math.Max(16, (viewportHeight - 144) / 2), center = width / 2;
             cards.Add(Round(new(center - 16, top, 32, 32), 16,
                 highContrast ? WithAlpha(primary, 0x48) : lightInk ? 0x1fffffffu : 0x1020252cu));
             cards.Add(Text("还没有组件", TextRole.SectionTitle, new(24, top + 48, width - 48, 24), primary, locale, true));
-            cards.Add(Text("添加时间组件开始", TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
-            var emptyAdd = new FloatRect(center - 60, top + 112, 120, 32);
-            bool emptyEnabled = canAdd;
+            string caption = !canAdd
+                ? (hasHidden ? $"已达 {WidgetBoardData.MaximumInstances} 个上限 · {hiddenCount} 个已隐藏"
+                             : $"组件已达 {WidgetBoardData.MaximumInstances} 个上限")
+                : "添加时间组件开始";
+            cards.Add(Text(caption, TextRole.Caption, new(24, top + 76, width - 48, 16), secondary, locale, true));
+            bool manageHidden = !canAdd && hasHidden;
+            float buttonWidth = manageHidden ? 160 : 120;
+            var emptyAdd = new FloatRect(center - buttonWidth / 2, top + 112, buttonWidth, 32);
+            bool emptyEnabled = manageHidden || canAdd;
             cards.Add(Round(emptyAdd, emptyAdd.Height / 2, AccentFace(emptyEnabled, lightInk, highContrast)));
-            cards.Add(Text("添加组件", TextRole.Label, emptyAdd, AccentInk(emptyEnabled, lightInk, highContrast), locale, true));
-            AddControl(1007, "添加组件", emptyAdd with { Y = emptyAdd.Y + CardsTop },
-                new(WidgetBoardActionKind.Add), viewport, emptyEnabled);
+            cards.Add(Text(manageHidden ? "管理已隐藏组件" : "添加组件", TextRole.Label, emptyAdd,
+                AccentInk(emptyEnabled, lightInk, highContrast), locale, true));
+            AddControl(manageHidden ? 1008 : 1007, manageHidden ? $"管理已隐藏组件（{hiddenCount}）" : "添加组件",
+                emptyAdd with { Y = emptyAdd.Y + CardsTop },
+                manageHidden ? new(WidgetBoardActionKind.OpenHidden) : new(WidgetBoardActionKind.Add),
+                viewport, emptyEnabled);
         }
         if (!editing && addMenuOpen)
         {
             // A short light flyout belongs to the toolbar layer above the card surface;
-            // its right edge lines up with the 添加 button.
-            float menuWidth = Math.Min(AddMenuWidth, width - 48);
-            var menu = new FloatRect(right - menuWidth, ToolbarTop + 32 + 4, menuWidth, AddMenuRowHeight + 8);
+            // its right edge lines up with the 添加 button. Hidden components add one row,
+            // and the time row stays disabled once the full saved board reaches capacity.
+            // The hidden label is wider than a single word, so the flyout widens with it.
+            float menuWidth = Math.Min(hasHidden ? 184 : AddMenuWidth, width - 48);
+            int menuRows = 1 + (hasHidden ? 1 : 0);
+            var menu = new FloatRect(right - menuWidth, ToolbarTop + 32 + 4, menuWidth, menuRows * AddMenuRowHeight + 8);
             uint menuFill = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : 0xfff8fafcu;
             uint menuInk = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0xff20252cu;
             toolbar.Add(Round(menu, AddMenuRadius, menuFill));
-            MenuEntry(1005, "时间", "\uE917", WidgetBoardActionKind.AddTime, menu.Y + 4);
+            MenuEntry(1005, "时间", "\uE917", WidgetBoardActionKind.AddTime, menu.Y + 4, canAdd, "添加时间组件");
+            if (hasHidden)
+                MenuEntry(1008, $"已隐藏组件（{hiddenCount}）", "\uE8A5", WidgetBoardActionKind.OpenHidden,
+                    menu.Y + 4 + AddMenuRowHeight, true, $"打开已隐藏组件（{hiddenCount}）");
 
-            void MenuEntry(int id, string label, string glyph, WidgetBoardActionKind kind, float y)
+            void MenuEntry(int id, string label, string glyph, WidgetBoardActionKind kind, float y, bool enabled, string name)
             {
                 var bounds = Intersect(new(menu.X + 4, y, menu.Width - 8, AddMenuRowHeight), menu);
                 if (bounds.Width <= 0 || bounds.Height <= 0) return;
-                if (id == pressedActionId)
+                if (enabled && id == pressedActionId)
                     toolbar.Add(Round(bounds, 8, WithAlpha(primary, (byte)(highContrast ? 0x30 : 0x1C))));
-                toolbar.Add(Icon(glyph, new(bounds.X + 12, bounds.Y + 14, 16, 16), menuInk));
-                toolbar.Add(Text(label, TextRole.Label, new(bounds.X + 40, bounds.Y + 12, bounds.Width - 48, 20), menuInk, locale));
-                AddControl(id, $"添加{label}组件", bounds, new(kind), panelBounds,
-                    id == 1005 ? canAdd : true);
+                toolbar.Add(Icon(glyph, new(bounds.X + 12, bounds.Y + 14, 16, 16), enabled ? menuInk : secondary));
+                toolbar.Add(Text(label, TextRole.Label, new(bounds.X + 40, bounds.Y + 12, bounds.Width - 48, 20),
+                    enabled ? menuInk : secondary, locale));
+                AddControl(id, name, bounds, new(kind), panelBounds, enabled);
             }
         }
+        if (!editing && !canAdd && instanceCount > 0)
+        {
+            // Capacity is explained on the page that shows the cards; the add menu still
+            // exposes hidden-instance management when there is anything to manage.
+            string capacity = hasHidden
+                ? $"已达 {WidgetBoardData.MaximumInstances} 个上限 · {hiddenCount} 个已隐藏"
+                : $"组件已达 {WidgetBoardData.MaximumInstances} 个上限";
+            toolbar.Add(Text(capacity, TextRole.Caption, new(24, 90, Math.Max(0, width - 200), 14), secondary, locale));
+        }
+        if (hiddenPanelOpen)
+            DrawHiddenPanel();
         // Drag destination preview: a quiet accent outline on the slot the card would take.
         if (!string.IsNullOrEmpty(dragTargetInstanceId))
         {
@@ -307,6 +343,56 @@ internal static class WidgetBoardRenderer
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
             controls.Add(new(id, name, bounds.X, bounds.Y, bounds.Width, bounds.Height, enabled));
             actions.Add(id, action);
+        }
+        // A compact management sheet drawn on the toolbar layer. Rows may be scrolled by
+        // the host; the sheet never deletes data on its own, only exposes explicit actions.
+        void DrawHiddenPanel()
+        {
+            const float titleHeight = 36, rowHeight = 48, undoHeight = 44;
+            float panelWidth = Math.Min(300, width - 48);
+            float undoSpace = undoHiddenLabel is null ? 0 : undoHeight;
+            float requested = titleHeight + Math.Max(1, hiddenCount) * rowHeight + undoSpace + 12;
+            float top = CardsTop - 6;
+            float available = Math.Max(0, panelHeight - top - BottomInset);
+            var panel = new FloatRect((width - panelWidth) / 2, top, panelWidth, Math.Min(requested, available));
+            if (panel.Width <= 0 || panel.Height <= 0) return;
+            uint fill = highContrast ? (lightInk ? 0xff000000u : 0xffffffffu) : 0xfff8fafcu;
+            uint ink = highContrast ? (lightInk ? 0xffffffffu : 0xff000000u) : 0xff20252c;
+            uint quiet = highContrast ? ink : 0xff626c78;
+            uint divider = highContrast ? WithAlpha(ink, 0x40) : 0x1a20252c;
+            toolbar.Add(Round(panel, 12, fill));
+            toolbar.Add(Text($"已隐藏组件（{hiddenCount}）", TextRole.Body, new(panel.X + 16, panel.Y + 8, panel.Width - 72, 20), ink, locale));
+            var close = new FloatRect(panel.Right - 40, panel.Y + 4, 36, 36);
+            toolbar.Add(Icon("\uE711", new(close.X + 10, close.Y + 10, 16, 16), ink));
+            AddControl(1009, "关闭已隐藏组件列表", close, new(WidgetBoardActionKind.CloseHidden), panelBounds);
+            float rowsTop = panel.Y + titleHeight;
+            float rowsHeight = Math.Max(0, panel.Height - titleHeight - undoSpace - 8);
+            if (hiddenCount == 0)
+                toolbar.Add(Text("没有已隐藏组件", TextRole.Caption, new(panel.X + 16, rowsTop + 8, panel.Width - 32, 16), quiet, locale));
+            for (int i = 0; i < hiddenCount; i++)
+            {
+                float y = rowsTop + i * rowHeight - hiddenScroll;
+                if (y < rowsTop - 1 || y + rowHeight > rowsTop + rowsHeight + 1) continue;
+                var item = hidden[i];
+                string name = Name(item.Instance);
+                toolbar.Add(Text(name, TextRole.Body, new(panel.X + 16, y + 6, panel.Width - 90, 20), ink, locale));
+                toolbar.Add(Text("当前版本仅展示时间组件", TextRole.Caption, new(panel.X + 16, y + 26, panel.Width - 90, 14), quiet, locale));
+                var remove = new FloatRect(panel.Right - 56, y + 6, 44, 36);
+                toolbar.Add(Icon("\uE74D", new(remove.X + 14, remove.Y + 10, 16, 16), ink));
+                AddControl(FirstHiddenRemoveAction + i, $"移除已隐藏的{name}组件", remove,
+                    new(WidgetBoardActionKind.RemoveHidden, item.Instance.InstanceId), panelBounds);
+            }
+            if (undoHiddenLabel is not null && rowsHeight > 0)
+            {
+                float undoY = panel.Y + panel.Height - undoHeight - 4;
+                toolbar.Add(Line(panel.X + 12, undoY - 2, panel.Width - 24, 0, divider, 1));
+                toolbar.Add(Text($"已移除「{undoHiddenLabel}」", TextRole.Caption,
+                    new(panel.X + 16, undoY + 12, Math.Max(0, panel.Width - 110), 16), quiet, locale));
+                var undo = new FloatRect(panel.Right - 96, undoY + 6, 80, 32);
+                toolbar.Add(Round(undo, 16, highContrast ? fill : 0xffedf4fd));
+                toolbar.Add(Text("撤销", TextRole.Label, undo, highContrast ? ink : 0xff0b6bcb, locale, true));
+                AddControl(1010, "撤销移除已隐藏组件", undo, new(WidgetBoardActionKind.UndoHidden), panelBounds);
+            }
         }
     }
 
