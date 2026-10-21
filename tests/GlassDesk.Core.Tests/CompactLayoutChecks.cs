@@ -66,7 +66,7 @@ static class CompactLayoutChecks
         check(stacked, "timeline bottom clears the transport top by the frozen 2 DIP and never overlaps the dock");
 
         bool covers = true;
-        foreach (float height in new[] { 300f, 350f, 360f, 380f, 399f, 400f, 440f, 476f, 512f })
+        foreach (float height in new[] { 360f, 380f, 399f, 400f, 440f, 476f, 512f })
         {
             var layout = Resolve(360, height, true);
             float floor = height >= 400 ? 96 : 72;
@@ -75,12 +75,34 @@ static class CompactLayoutChecks
                 && Near(layout.Cover.X, (360 - layout.Cover.Width) / 2)
                 && layout.Cover.Width >= floor && layout.Cover.Width <= ceiling && layout.CoverRadius == 16;
         }
-        covers &= Resolve(360, 300, true).Cover.Width == 72 && Resolve(360, 350, true).Cover.Width == 72
-            && Resolve(360, 360, true).Cover.Width == 72 && Near(Resolve(360, 380, true).Cover.Width, 80)
+        covers &= Resolve(360, 360, true).Cover.Width == 72 && Near(Resolve(360, 380, true).Cover.Width, 80)
             && Near(Resolve(360, 399, true).Cover.Width, 95.2f) && Near(Resolve(360, 400, true).Cover.Width, 122.4f)
             && Near(Resolve(360, 440, true).Cover.Width, 146.4f)
             && Resolve(360, 512, true).Cover.Width == 168;
-        check(covers, "cover shrinks 168->96 in normal compact and may reach 72 below 400 DIP, always square and centred");
+        check(covers, "cover shrinks 168->96 in normal compact and may reach 72 from 360 to below 400 DIP, always square and centred");
+
+        var extreme300 = Resolve(360, 300, true);
+        var extreme320 = Resolve(360, 320, true);
+        var extreme340 = Resolve(360, 340, true);
+        check(extreme300.ExtremeCompact && extreme320.ExtremeCompact && extreme340.ExtremeCompact
+            && !Resolve(360, 360, true).ExtremeCompact
+            && extreme300.Cover == new FloatRect(24, 56, 48, 48)
+            && extreme300.Title == new FloatRect(84, 56, 252, 24)
+            && extreme300.Artist == new FloatRect(84, 86, 252, 20)
+            && extreme300.BodyViewport == new FloatRect(0, 56, 360, 64)
+            && extreme300.BodyContentHeight == 50 && extreme300.MaxScroll == 0
+            && extreme320.BodyViewport.Height == 84 && extreme340.BodyViewport.Height == 104
+            && !extreme300.Cover.Intersects(extreme300.Timeline)
+            && !extreme300.Title.Intersects(extreme300.Timeline)
+            && !extreme300.Artist.Intersects(extreme300.Timeline)
+            && Near(extreme300.Timeline.Bottom, extreme300.ToggleButton.Y - 2)
+            && extreme300.BodyViewport.Bottom <= extreme300.Timeline.Y
+            && extreme300.ToggleButton.Bottom <= extreme300.Dock.Y,
+            "below 360 DIP the page switches to a horizontal cover+title body with a readable viewport and no timeline overlap");
+
+        check(Resolve(360, 300, true, 112).MaxScroll > 0
+            && Near(Resolve(360, 300, true, 112).MaxScroll, 98),
+            "extreme compact still scrolls plugin content instead of clipping it");
 
         var tight = Resolve(360, 400, true);
         var roomy = Resolve(360, 440, true);
@@ -156,6 +178,29 @@ static class CompactLayoutChecks
         check(Resolve(360, 512, false).MaxScroll == 0 && Resolve(360, 512, true).MaxScroll == 0,
             "512 DIP plugin-free pages keep an empty scroll range");
 
+        var width320 = Resolve(320, 476, true);
+        check(width320.Home == new FloatRect(131, 14, 58, 28)
+            && width320.Dock == new FloatRect(0, 412, 320, 48)
+            && width320.Cover == new FloatRect(76, 70, 168, 168)
+            && width320.Title == new FloatRect(4, 246, 312, 24)
+            && width320.Timeline == new FloatRect(36, 300, 248, 38)
+            && width320.PreviousButton == new FloatRect(76, 346, 44, 44)
+            && width320.ToggleButton == new FloatRect(132, 340, 56, 56)
+            && width320.NextButton == new FloatRect(200, 346, 44, 44)
+            && width320.BodyViewport == new FloatRect(0, 246, 320, 50)
+            && width320.ArtworkViewport == new FloatRect(0, 56, 320, 190)
+            && width320.Title.Right <= 320 && width320.Timeline.Right <= 320
+            && Near(width320.Timeline.X, width320.Title.X + 32),
+            "320 DIP width shifts cover/title/timeline/transport as one block and keeps body/artwork at the real width");
+
+        var extremeWidth320 = Resolve(320, 320, true);
+        check(extremeWidth320.Cover == new FloatRect(4, 56, 48, 48)
+            && extremeWidth320.Title == new FloatRect(64, 56, 232, 24)
+            && extremeWidth320.BodyViewport == new FloatRect(0, 56, 320, 84)
+            && extremeWidth320.Timeline == new FloatRect(36, 144, 248, 38)
+            && extremeWidth320.Title.Right <= 320,
+            "extreme compact also follows the real 320 DIP width for cover/title/body");
+
         check(Throws(() => DetailsResponsiveLayout.Resolve(new DetailsResponsiveInput(new Vector2(float.NaN, 476), true)))
             && Throws(() => Resolve(360, float.PositiveInfinity, true))
             && Throws(() => Resolve(360, 476, true, float.NaN))
@@ -169,7 +214,6 @@ static class CompactLayoutChecks
         check(clamped == minCard && Resolve(360, 476, true, -40) == baseline
             && Resolve(360, 512, true).Cover.Width == 168,
             "too-small finite heights clamp to 300, negative plugin height clamps to 0, taller cards keep the 168 cover");
-
         check(Resolve(300, 476, true).Home == new FloatRect(131, 14, 58, 28)
             && Resolve(300, 476, true).Dock == new FloatRect(0, 412, 320, 48)
             && baseline.Home == new FloatRect(151, 14, 58, 28),

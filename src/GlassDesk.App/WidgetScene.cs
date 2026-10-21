@@ -638,7 +638,8 @@ public sealed partial class WidgetScene : IDisposable
             Text(operations, "播放时间暂不可用", 0, 10, trackWidth, 24, TextRole.Caption, InkRole.Secondary, center: true);
         }
         _timeline.Size = new(trackWidth, 38);
-        _timeline.Offset = new(56, ResponsiveDetails()?.Timeline.Y ?? 300, 0);
+        var timelineLayout = ResponsiveDetails();
+        _timeline.Offset = new(timelineLayout?.Timeline.X ?? 56, timelineLayout?.Timeline.Y ?? 300, 0);
         ReplaceSurface(ref _timelineSurface, _timelineBrush, RenderTextLayer("Timeline", trackWidth, 38, operations));
         _lastTimeline = key;
         BuildControls();
@@ -667,7 +668,10 @@ public sealed partial class WidgetScene : IDisposable
     public TimeSpan? SeekPositionFor(float dipX)
     {
         if (_form != WidgetForm.Details || !float.IsFinite(dipX) || !SeekAvailable(_media) || _media.Timeline is not { Valid: true } time) return null;
-        double fraction = Math.Clamp((dipX - (_presentedSize.X - 360) / 2 - 56) / 248, 0, 1);
+        var track = ResponsiveDetails()?.Timeline;
+        float trackX = track?.X ?? (_presentedSize.X - 360) / 2 + 56;
+        float trackWidth = track?.Width ?? 248;
+        double fraction = Math.Clamp((dipX - trackX) / trackWidth, 0, 1);
         long ticks = time.Start.Ticks + (long)((time.End.Ticks - time.Start.Ticks) * fraction);
         return TimeSpan.FromTicks(Math.Clamp(ticks, Math.Max(time.Start.Ticks, time.MinSeek.Ticks), Math.Min(time.End.Ticks, time.MaxSeek.Ticks)));
     }
@@ -725,7 +729,10 @@ public sealed partial class WidgetScene : IDisposable
         _peekButtons.Offset = _peekContent.Offset; _detailsButtons.Offset = _content.Offset;
         _detailsViewport.Offset = new((pose.Width - _content.Size.X) / 2,
             ResponsiveDetails() is { } details ? details.BodyViewport.Y : 56, 0);
-        _timeline.Offset = new((pose.Width - 360) / 2 + 56, ResponsiveDetails()?.Timeline.Y ?? 300, 0);
+        var timelineLayout = ResponsiveDetails();
+        _timeline.Offset = new(
+            timelineLayout?.Timeline.X ?? (pose.Width - 360) / 2 + 56,
+            timelineLayout?.Timeline.Y ?? 300, 0);
         UpdateAuxiliaryPlacement();
         BuildControls();
         var feedbackControl = _controls.FirstOrDefault(control => control.Id == _feedbackId);
@@ -1316,9 +1323,10 @@ public sealed partial class WidgetScene : IDisposable
         layer.Visual.Opacity = music ? 1 : 0;
         if (_preferences.ReducedMotion) layer.Finish();
         if (!music) return;
-        float width = form == WidgetForm.Capsule ? LayoutSize(form).X - 60 - (_preferences.AudioVisualizationEnabled ? 52 : 12)
-            : form == WidgetForm.Peek ? (CompanionVisible || _preferences.AudioVisualizationEnabled ? 164 : 200) : 312;
         var details = form == WidgetForm.Details ? ResponsiveDetails() : null;
+        float width = form == WidgetForm.Capsule ? LayoutSize(form).X - 60 - (_preferences.AudioVisualizationEnabled ? 52 : 12)
+            : form == WidgetForm.Peek ? (CompanionVisible || _preferences.AudioVisualizationEnabled ? 164 : 200)
+            : details?.Title.Width ?? 312;
         float offsetX = form == WidgetForm.Capsule ? 60 : form == WidgetForm.Peek ? 96 : details?.Title.X ?? 24;
         float offsetY = form == WidgetForm.Capsule ? 9 : form == WidgetForm.Peek ? 56
             : details is not null ? details.Title.Y - details.BodyViewport.Y : 166;
