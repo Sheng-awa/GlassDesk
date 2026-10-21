@@ -3,84 +3,140 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GlassDesk 首页导航 v0.2 · massive-insect-5 转译</title>
+<title>GlassDesk 首页 v0.3 · 导航卡 + 文件夹卡</title>
 <style>
   :root{
     --bg:#07090d;--ink:#f1f5f9;--ink-2:#a8b3c2;--ink-3:#6b7686;--line:rgba(255,255,255,.09);
-    --cyan:#00ffee;--blue:#62c2fe;--pink:#ff89cc;--violet:#969fff;--amber:#fbbf24;
     --font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
     --mono:"Cascadia Code","Consolas",monospace;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6}
   a{color:#7dd3fc;text-decoration:none}a:hover{text-decoration:underline}
-  .wrap{max-width:1080px;margin:0 auto;padding:44px 32px 80px}
+  .wrap{max-width:1060px;margin:0 auto;padding:42px 32px 76px}
   .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
-  h1{font-size:32px;line-height:1.25;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
-  h2{font-size:20px;margin:46px 0 10px;font-weight:640}
-  h2 .num{color:var(--ink-3);font-family:var(--mono);font-size:13px;margin-right:8px}
+  h1{font-size:30px;line-height:1.28;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
+  h2{font-size:19px;margin:42px 0 10px;font-weight:640}
+  h2 .num{color:var(--ink-3);font-family:var(--mono);font-size:12px;margin-right:8px}
   p{margin:6px 0;color:var(--ink-2)}
   ul{padding-left:20px;color:var(--ink-2);margin:6px 0}
-  li{margin:4px 0}
+  li{margin:3px 0}
   .meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
   .chip{font-size:11.5px;color:var(--ink-2);border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:999px;padding:3px 10px}
   .chip b{color:var(--ink);font-weight:600}
-  .glass{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .glass{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:16px 18px}
 
-  /* ── device ─────────────────────────────────────────────────── */
-  .stage{display:flex;justify-content:center;margin:26px 0 6px;position:relative}
-  .device{width:590px;height:780px;position:relative;flex:none}
-  .device::before{content:"";position:absolute;inset:-40px -80px;z-index:0;pointer-events:none;
-    background:radial-gradient(340px 280px at 20% 0%,rgba(98,194,254,.20),transparent 70%),
-               radial-gradient(320px 260px at 86% 24%,rgba(255,137,204,.14),transparent 70%),
-               radial-gradient(360px 300px at 46% 100%,rgba(0,255,238,.10),transparent 70%);filter:blur(16px)}
-  .screen{position:absolute;inset:0;width:360px;height:476px;transform:scale(1.64);transform-origin:top left;
+  /* ── device ─────────────────────────────────────────────── */
+  .stage{display:flex;justify-content:center;margin:26px 0 0;position:relative}
+  .device{width:522px;height:742px;position:relative;flex:none}
+  .device::before{content:"";position:absolute;inset:-38px -90px;z-index:0;pointer-events:none;
+    background:radial-gradient(360px 300px at 24% 0%,rgba(150,180,210,.18),transparent 70%),
+               radial-gradient(320px 260px at 88% 30%,rgba(255,255,255,.06),transparent 72%),
+               radial-gradient(360px 300px at 46% 100%,rgba(120,145,175,.10),transparent 70%);filter:blur(16px)}
+  .screen{position:absolute;inset:0;width:360px;height:512px;transform:scale(1.45);transform-origin:top left;
     border-radius:26px;overflow:hidden;
-    background:radial-gradient(140% 90% at 20% -10%,rgba(96,165,250,.18),transparent 55%),
-               radial-gradient(140% 100% at 90% 0%,rgba(255,137,204,.08),transparent 52%),
-               linear-gradient(168deg,#20262f 0%,#141920 46%,#0b0f14 100%);
+    background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.20),transparent 55%),
+               radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.06),transparent 52%),
+               linear-gradient(168deg,#242b35 0%,#161b22 46%,#0b0f14 100%);
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 40px 90px rgba(0,0,0,.55)}
   .screen::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 26%);pointer-events:none}
   .handle{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:58px;height:28px;border-radius:14px;background:#05070a;
-    box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:7px;z-index:4}
+    box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:7px;z-index:6}
   .eye{width:6px;height:9px;border-radius:4px;background:linear-gradient(180deg,#f8fafc,#aab4c2)}
-  .clock-block{position:absolute;top:52px;left:0;right:0;text-align:center;z-index:2}
-  .clock{font-size:52px;line-height:1;font-weight:600;letter-spacing:-.03em;color:#f8fafc;font-variant-numeric:tabular-nums}
-  .date{margin-top:9px;font-size:11.5px;color:var(--ink-2)}
-  .hintline{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-size:10px;color:var(--ink-3);z-index:3}
+  .clock-block{position:absolute;top:44px;left:0;right:0;text-align:center;z-index:2}
+  .clock{font-size:35px;line-height:1;font-weight:600;letter-spacing:-.03em;color:#f8fafc;font-variant-numeric:tabular-nums}
+  .date{margin-top:8px;font-size:10.5px;color:#b6c1cf}
 
-  /* the card, adapted from Uiverse / Smit-Prajapati (MIT) */
-  .navwrap{position:absolute;left:0;right:0;top:128px;display:flex;justify-content:center;z-index:2}
-  .navcard{position:relative;width:236px;height:236px;border-radius:40px;cursor:pointer;
-    background:radial-gradient(circle at 100% 107%,#ff89cc 0%,#9cb8ec 28%,#00ffee 58%,#62c2fe 100%);
-    box-shadow:0 26px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -18px 30px rgba(255,255,255,.14);
-    transition:transform .8s cubic-bezier(.4,0,.2,1);transform-origin:50% 80%}
-  .navcard:hover{transform:scale(1.035)}
-  .navlogo{position:absolute;right:50%;bottom:50%;transform:translate(50%,50%);z-index:5;transition:all .8s cubic-bezier(.4,0,.2,1);display:flex;gap:6px}
-  .navcard.expanded .navlogo{right:20px;bottom:18px;transform:none}
-  .navlogo span{width:9px;height:13px;border-radius:5px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.22)}
-  .fan{position:absolute;left:0;top:0;width:100%;height:100%;z-index:3}
-  .tile{position:absolute;border-radius:24px;display:flex;align-items:center;justify-content:center;
-    border-top:2px solid rgba(255,255,255,.92);border-right:1px solid rgba(255,255,255,.6);
-    box-shadow:-8px 10px 28px rgba(20,40,70,.35),inset 0 -10px 18px rgba(255,255,255,.18);
-    opacity:0;transform:translate(-46%,58%) scale(.55);transition:all .85s cubic-bezier(.34,1.16,.4,1);cursor:pointer;
-    backdrop-filter:blur(2px)}
-  .navcard.expanded .tile{opacity:1;transform:none}
-  .tile svg{width:26px;height:26px;color:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
-  .tile::after{content:attr(data-label);position:absolute;left:50%;top:calc(100% + 7px);transform:translateX(-50%);
-    font-size:10px;color:#f8fafc;background:rgba(7,10,15,.72);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:2px 9px;
-    white-space:nowrap;opacity:0;transition:.18s;pointer-events:none}
-  .tile:hover::after{opacity:1}
-  .tile:hover{filter:brightness(1.06)}
-  .t1{width:86px;height:86px;left:-34px;bottom:-26px;background:radial-gradient(circle at 30% 107%,#fdf497 0%,#fdf497 6%,#ff53d4 60%,#62c2fe 94%);z-index:4;transition-delay:.02s}
-  .t2{width:72px;height:72px;left:34px;bottom:4px;background:radial-gradient(circle at 30% 107%,#e6fbff 0%,#9be7ff 30%,#00ACEE 92%);z-index:3;transition-delay:.10s}
-  .t3{width:60px;height:60px;left:92px;bottom:30px;background:radial-gradient(circle at 30% 107%,#ecebff 0%,#b9b3ff 34%,#8b5cf6 94%);z-index:2;transition-delay:.18s}
-  .t4{width:54px;height:54px;left:142px;bottom:56px;background:radial-gradient(circle at 30% 107%,#fff3d1 0%,#fde68a 30%,#f59e0b 94%);z-index:1;transition-delay:.26s}
-  .collapsed-hint{position:absolute;left:0;right:0;bottom:-30px;text-align:center;font-size:10.5px;color:var(--ink-3)}
-  .toast{position:absolute;left:50%;bottom:44px;transform:translate(-50%,12px);background:rgba(8,11,16,.92);border:1px solid var(--line);
-    color:#e2e8f0;font-size:10.5px;border-radius:999px;padding:6px 13px;opacity:0;transition:.24s;z-index:8;white-space:nowrap}
+  /* ── ① navigation card：faithful copy of Uiverse / Smit-Prajapati，只换配色与图标 ── */
+  .nav-stage{position:absolute;left:50%;top:110px;transform:translateX(-50%);z-index:3;width:200px;height:200px}
+  .card{
+    position:relative;width:200px;height:200px;background:rgba(255,255,255,.06);
+    border-radius:30px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.20);
+    box-shadow:rgba(10,16,24,.32) 0 12px 30px 0,inset 0 1px 0 rgba(255,255,255,.35);
+    transition:all 1s ease-in-out;
+    backdrop-filter:blur(18px) saturate(120%);
+  }
+  .background{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(circle at 100% 107%,rgba(255,255,255,.88) 0%,rgba(224,236,248,.46) 30%,rgba(176,196,218,.24) 60%,rgba(120,144,172,.14) 100%),
+      linear-gradient(140deg,rgba(255,255,255,.20),rgba(255,255,255,.02) 55%);
+  }
+  .logo{
+    position:absolute;right:50%;bottom:50%;transform:translate(50%,50%);
+    transition:all .6s ease-in-out;display:flex;gap:6px;z-index:7;
+  }
+  .logo span{width:9px;height:14px;border-radius:6px;background:#fff;box-shadow:0 2px 10px rgba(30,60,90,.25)}
+  .icon{display:inline-block;width:20px;height:20px}
+  .icon svg{fill:rgba(255,255,255,.797);width:100%;transition:all .5s ease-in-out}
+  .box{
+    position:absolute;padding:10px;text-align:right;
+    background:rgba(255,255,255,.30);
+    border-top:2px solid rgba(255,255,255,.9);
+    border-right:1px solid rgba(255,255,255,.6);
+    border-radius:10% 13% 42% 0%/10% 12% 75% 0%;
+    box-shadow:rgba(20,32,46,.32) -7px 7px 29px 0px;
+    transform-origin:bottom left;transition:all 1s ease-in-out;
+    backdrop-filter:blur(8px);
+  }
+  .box::before{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;transition:all .5s ease-in-out}
+  .box:hover .icon svg{fill:#fff}
+  .box1{width:70%;height:70%;bottom:-70%;left:-70%}
+  .box1::before{background:radial-gradient(circle at 30% 107%,rgba(255,255,255,.55) 0%,rgba(226,238,250,.28) 45%,rgba(150,178,208,.20) 90%)}
+  .box1:hover::before{opacity:1}
+  .box1:hover .icon svg{filter:drop-shadow(0 0 5px white)}
+  .box2{width:50%;height:50%;bottom:-50%;left:-50%;transition-delay:.2s}
+  .box2::before{background:radial-gradient(circle at 30% 107%,rgba(224,242,255,.55) 0%,rgba(168,198,226,.22) 90%)}
+  .box2:hover::before{opacity:1}
+  .box2:hover .icon svg{filter:drop-shadow(0 0 5px white)}
+  .box3{width:30%;height:30%;bottom:-30%;left:-30%;transition-delay:.4s}
+  .box3::before{background:radial-gradient(circle at 30% 107%,rgba(238,236,255,.5) 0%,rgba(174,168,214,.22) 90%)}
+  .box3:hover::before{opacity:1}
+  .box3:hover .icon svg{filter:drop-shadow(0 0 5px white)}
+  .box4{width:10%;height:10%;bottom:-10%;left:-10%;transition-delay:.6s;background:rgba(255,255,255,.22)}
+  .card:hover,.card.expanded{transform:scale(1.1)}
+  .card:hover .box,.card.expanded .box{bottom:-1px;left:-1px}
+  .card:hover .logo,.card.expanded .logo{transform:translate(0,0);bottom:20px;right:20px}
+  .nav-caption{display:none}
+
+  /* ── ② folder：faithful copy of Uiverse / Cobp，只把提示文字换成入口名称 ── */
+  .folder-stage{position:absolute;left:50%;top:334px;transform:translateX(-50%);z-index:3;width:244px;height:142px;perspective:1500px;cursor:pointer}
+  .folder-stage .file{position:relative;width:244px;height:142px;transform-origin:bottom;perspective:1500px;z-index:50;transition:transform .3s ease}
+  .folder-stage .work-5{
+    background:#d97706;width:100%;height:100%;transform-origin:top;border-radius:16px;border-top-left-radius:0;
+    transition:all .3s ease;position:relative;
+  }
+  .folder-stage .work-5::after{content:"";position:absolute;bottom:99%;left:0;width:80px;height:16px;background:#d97706;border-radius:16px 16px 0 0}
+  .folder-stage .work-5::before{content:"";position:absolute;top:-14px;left:75px;width:16px;height:16px;background:#d97706;clip-path:polygon(0 35%,0 100%,50% 100%)}
+  .folder-stage .work-4,.folder-stage .work-3,.folder-stage .work-2{
+    position:absolute;inset:4px;border-radius:16px;transition:all .3s ease;transform-origin:bottom;user-select:none;
+  }
+  .folder-stage .work-4{background:#a1a1aa}
+  .folder-stage .work-3{background:#d4d4d8}
+  .folder-stage .work-2{background:#e4e4e7}
+  .folder-stage .work-1{
+    position:absolute;bottom:0;left:0;width:100%;height:138px;border-radius:16px;border-top-right-radius:0;
+    background:linear-gradient(to top,#f59e0b,#fbbf24);transition:all .3s ease;transform-origin:bottom;
+    display:flex;align-items:flex-end;justify-content:flex-end;
+  }
+  .folder-stage .work-1::after{content:"";position:absolute;bottom:99%;right:0;width:146px;height:16px;background:#fbbf24;border-radius:16px 16px 0 0}
+  .folder-stage .work-1::before{content:"";position:absolute;top:-10px;right:142px;width:12px;height:12px;background:#fbbf24;clip-path:polygon(100% 14%,50% 100%,100% 100%)}
+  .folder-stage:hover .work-4{transform:rotateX(-20deg)}
+  .folder-stage:hover .work-3{transform:rotateX(-30deg)}
+  .folder-stage:hover .work-2{transform:rotateX(-38deg)}
+  .folder-stage:hover .work-1{transform:rotateX(-46deg) translateY(1px);box-shadow:inset 0 20px 40px #fbbf24,inset 0 -20px 40px #d97706}
+  .folder-stage:hover .file{transform:scale(1.02)}
+  .folder-label{
+    position:absolute;left:50%;top:490px;transform:translateX(-50%);
+    font-size:11px;color:#f8fafc;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;padding:3px 12px;white-space:nowrap;cursor:pointer;
+  }
+  .folder-caption{display:none}
+  .toast{position:absolute;left:50%;bottom:92px;transform:translate(-50%,12px);background:rgba(8,11,16,.92);border:1px solid var(--line);
+    color:#e2e8f0;font-size:10.5px;border-radius:999px;padding:6px 13px;opacity:0;transition:.24s;z-index:9;white-space:nowrap}
   .toast.on{opacity:1;transform:translate(-50%,0)}
-  .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:44px}
+  .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:10px}
 
   table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top;color:var(--ink-2)}
@@ -89,194 +145,193 @@
   code{font-family:var(--mono);font-size:11.5px;background:rgba(255,255,255,.06);border-radius:5px;padding:1px 5px}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:860px){.cols{grid-template-columns:1fr}}
-  .review{border:1px solid rgba(0,255,238,.2);background:linear-gradient(180deg,rgba(0,255,238,.06),rgba(255,255,255,.012));border-radius:16px;padding:18px 20px}
+  .review{border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border-radius:16px;padding:16px 20px}
   .q{counter-reset:q;list-style:none;padding:0;margin:8px 0 0}
   .q li{counter-increment:q;position:relative;padding:7px 0 7px 30px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:13.5px;color:var(--ink-2)}
   .q li:last-child{border-bottom:none}
-  .q li::before{content:"Q" counter(q);position:absolute;left:0;top:8px;font-family:var(--mono);font-size:10px;color:var(--cyan);border:1px solid rgba(0,255,238,.3);border-radius:5px;padding:0 4px}
-  details{margin-top:10px}
+  .q li::before{content:"Q" counter(q);position:absolute;left:0;top:8px;font-family:var(--mono);font-size:10px;color:#cbd5e1;border:1px solid rgba(255,255,255,.25);border-radius:5px;padding:0 4px}
+  details{margin-top:8px}
   summary{cursor:pointer;font-size:12.5px;color:var(--ink-2)}
-  pre{background:#0b0f14;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;font-family:var(--mono);font-size:11.5px;line-height:1.65;color:#c7d2fe}
-  footer{margin-top:50px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
-  .warn{border-left:2px solid var(--amber);padding:9px 14px;background:rgba(251,191,36,.06);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink-2)}
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
+  .warn{border-left:2px solid rgba(255,255,255,.35);padding:9px 14px;background:rgba(255,255,255,.04);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink-2)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">GlassDesk · Home Navigation · v0.2 · 待 GPT 审美审查</div>
-  <h1>导航页：把 massive-insect-5 展开成四个入口</h1>
-  <p>收起是一张渐变卡；展开时四张渐变卡从卡片左下角扇形铺开，图标就是入口：时钟、音乐、小组件、文件夹。文字只在 hover 时出现，其余时间保持安静。</p>
+  <div class="eyebrow">GlassDesk · Home v0.3 · 导航卡 + 文件夹卡</div>
+  <h1>首页：一张导航卡，一个文件夹</h1>
+  <p>导航卡用 massive-insect-5 原结构（4 个 box、悬停展开、logo 移角），只换磨砂玻璃渐变和图标；文件夹卡用 mighty-pig-13 原结构（5 层 3D 文件夹），点开资源管理器。没有多余文字。</p>
   <div class="meta">
-    <span class="chip">参考 <b>Smit-Prajapati / massive-insect-5</b>（MIT）</span>
-    <span class="chip">日期 <b>2026-10-21</b></span>
-    <span class="chip">设计/实现 <b>DeepSeek</b></span>
-    <span class="chip">审美审查 <b>GPT（待）</b></span>
+    <span class="chip">导航 <b>Smit-Prajapati / massive-insect-5</b>（MIT）</span>
+    <span class="chip">文件夹 <b>Cobp / mighty-pig-13</b>（MIT）</span>
+    <span class="chip">配色 <b>磨砂玻璃</b>（替换原粉青渐变）</span>
   </div>
 
   <div class="stage">
     <div class="device">
       <div class="screen">
-        <div class="handle" title="回胶囊"><span class="eye"></span><span class="eye"></span></div>
+        <div class="handle"><span class="eye"></span><span class="eye"></span></div>
         <div class="clock-block">
           <div class="clock">09:41</div>
           <div class="date">10月21日 星期三</div>
         </div>
-        <div class="navwrap">
-          <div class="navcard expanded" id="navcard">
-            <div class="navlogo" aria-hidden="true"><span></span><span></span></div>
-            <div class="fan">
-              <div class="tile t1" data-label="时钟" data-action="clock" title="时钟">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2v5l3.2 1.9"/></svg>
-              </div>
-              <div class="tile t2" data-label="音乐" data-action="music" title="音乐">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg>
-              </div>
-              <div class="tile t3" data-label="小组件" data-action="widgets" title="小组件">
-                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg>
-              </div>
-              <div class="tile t4" data-label="文件夹 · 打开资源管理器" data-action="folder" title="文件夹">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.2 6.2A2.2 2.2 0 0 1 5.4 4h4.1c.6 0 1.16.24 1.58.66l.9.9h6.62a2.2 2.2 0 0 1 2.2 2.2v8.04a2.2 2.2 0 0 1-2.2 2.2H5.4a2.2 2.2 0 0 1-2.2-2.2V6.2Z"/></svg>
-              </div>
+
+        <!-- ① navigation card -->
+        <div class="nav-stage">
+          <div class="card expanded" id="navcard">
+            <div class="background"></div>
+            <div class="logo" aria-hidden="true"><span></span><span></span></div>
+            <div class="box box1" data-action="clock" title="时钟">
+              <span class="icon"><svg viewBox="0 0 24 24"><path d="M12 2.6a9.4 9.4 0 1 0 0 18.8 9.4 9.4 0 0 0 0-18.8Zm0 2a7.4 7.4 0 1 1 0 14.8 7.4 7.4 0 0 1 0-14.8Zm-.9 2.6h1.8v5.4l3.2 1.9-.9 1.5-4.1-2.4V7.2Z"/></svg></span>
             </div>
+            <div class="box box2" data-action="music" title="音乐">
+              <span class="icon"><svg viewBox="0 0 24 24"><path d="M19 3.6v9.8a3.7 3.7 0 1 1-1.7-3.1V7.8l-7 1.6v8.3a3.7 3.7 0 1 1-1.7-3.1V6.5c0-.5.35-.94.84-1.05l8.5-1.93c.64-.15 1.26.34 1.26 1V3.6Z"/></svg></span>
+            </div>
+            <div class="box box3" data-action="widgets" title="小组件">
+              <span class="icon"><svg viewBox="0 0 24 24"><path d="M5.2 3.6h4.6a1.6 1.6 0 0 1 1.6 1.6v4.6a1.6 1.6 0 0 1-1.6 1.6H5.2A1.6 1.6 0 0 1 3.6 9.8V5.2a1.6 1.6 0 0 1 1.6-1.6Zm9 0h4.6a1.6 1.6 0 0 1 1.6 1.6v4.6a1.6 1.6 0 0 1-1.6 1.6h-4.6a1.6 1.6 0 0 1-1.6-1.6V5.2a1.6 1.6 0 0 1 1.6-1.6Zm-9 9h4.6a1.6 1.6 0 0 1 1.6 1.6v4.6a1.6 1.6 0 0 1-1.6 1.6H5.2a1.6 1.6 0 0 1-1.6-1.6v-4.6a1.6 1.6 0 0 1 1.6-1.6Zm9 0h4.6a1.6 1.6 0 0 1 1.6 1.6v4.6a1.6 1.6 0 0 1-1.6 1.6h-4.6a1.6 1.6 0 0 1-1.6-1.6v-4.6a1.6 1.6 0 0 1 1.6-1.6Z"/></svg></span>
+            </div>
+            <div class="box box4"></div>
           </div>
         </div>
-        <div class="hintline">hover 或点按卡片：展开 / 收起；点图标进入</div>
+
+        <!-- ② folder card -->
+        <div class="folder-stage" data-action="folder" title="打开资源管理器">
+          <div class="file">
+            <div class="work-5"></div>
+            <div class="work-4"></div>
+            <div class="work-3"></div>
+            <div class="work-2"></div>
+            <div class="work-1"></div>
+          </div>
+        </div>
+        <div class="folder-label" data-action="folder">打开资源管理器</div>
+
         <div class="toast" id="toast">已打开资源管理器（此电脑）</div>
       </div>
     </div>
   </div>
-  <div class="caption">↑ 截图即为「展开」态；鼠标移到卡片会轻微放大，四张入口卡带延迟依次落位</div>
+  <div class="caption">↑ 截图是「导航卡展开」态；鼠标移入导航卡可展开，移入文件夹会打开。两张卡都在首页，没有其它入口。</div>
 
-  <h2><span class="num">01</span>怎么转译</h2>
+  <h2><span class="num">01</span>结构照抄，只换颜色和图标</h2>
   <div class="cols">
     <div class="glass">
-      <p><b>原组件（真实结构，已取源码）</b></p>
+      <p><b>导航卡（原结构）</b></p>
       <ul>
-        <li>236 左右的渐变圆角卡：<code>radial-gradient(#ff89cc → #9cb8ec → #00ffee → #62c2fe)</code></li>
-        <li>四个 <code>.box</code>（70%/50%/30%/10%）藏在左下角，hover 时依次滑入，各带自己的渐变和图标</li>
-        <li>中心 logo 在 hover 时移到右下角；卡片整体 <code>scale(1.1)</code></li>
+        <li>200×200、圆角 30、<code>overflow:hidden</code>、hover <code>scale(1.1)</code></li>
+        <li>4 个 box：70% / 50% / 30% / 10%，藏在左下角（-70%…-10%）</li>
+        <li>hover 时全部滑到 <code>bottom:-1px;left:-1px</code>，延迟 0.2/0.4/0.6s 依次落位</li>
+        <li>白边玻璃方块（<code>rgba(255,255,255,.389)</code> + 2px 白顶边），logo 从中心移到右下</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>GlassDesk 版本</b></p>
+      <p><b>改了什么</b></p>
       <ul>
-        <li>四张「入口卡」= 时钟 / 音乐 / 小组件 / 文件夹（原来的 4 个 box 正好对应 4 个入口）</li>
-        <li>入口卡尺寸 86/72/60/54，保证命中 ≥44 DIP；从卡片左下角向右上依次展开</li>
-        <li>图标 only；名字只在 hover 时以小胶囊出现，UIA 名称完整</li>
-        <li>中心 logo（陪伴的两只眼睛）在展开时移到右下角</li>
+        <li>背景：粉青 radial → <b>磨砂玻璃渐变</b>（冷白→灰蓝，低饱和、半透明）</li>
+        <li>box 的 hover 渐变：彩色 → 玻璃冷光；仍保留原白边/阴影</li>
+        <li>图标：相机/Twitter/Discord → <b>时钟 / 音乐 / 小组件</b>；box4 留空</li>
+        <li>logo：原 “UI” 标 → 陪伴的两只眼睛（你说这个效果可以）</li>
       </ul>
     </div>
   </div>
 
-  <h2><span class="num">02</span>视觉规格（收敛版）</h2>
+  <h2><span class="num">02</span>两层内容的关系</h2>
   <table>
-    <tr><th>项</th><th>值</th><th>说明</th></tr>
-    <tr><td>导航卡</td><td>236×236，圆角 40，radial 渐变</td><td>唯一彩色焦点，其余页面保持深色玻璃</td></tr>
-    <tr><td>入口卡</td><td>86 / 72 / 60 / 54，圆角 24，左上白边</td><td>大→小叠放，每张一个色系</td></tr>
-    <tr><td>动效</td><td>0.85s，<code>cubic-bezier(.34,1.16,.4,1)</code>，每张延迟 80ms</td><td>展开从下往上依次落位；收起反向</td></tr>
-    <tr><td>文字</td><td>只有 hover 胶囊 + 时钟/日期</td><td>没有副标题、没有说明文字</td></tr>
-    <tr><td>命中</td><td>入口卡整块可点，最小边 54&gt;44</td><td>键盘 Tab / Enter / UIA Invoke</td></tr>
-    <tr><td>降级</td><td>减少动态：无位移，直接显隐</td><td>跟随系统设置</td></tr>
+    <tr><th>首页元素</th><th>组件</th><th>行为</th></tr>
+    <tr><td><b>导航卡</b>（上）</td><td>massive-insect-5 原结构</td><td>hover/点击展开：3 个图标 = 时钟/音乐/小组件，可点进入；第 4 个 box 留空装饰</td></tr>
+    <tr><td><b>文件夹</b>（下）</td><td>mighty-pig-13 原结构</td><td>hover 前盖打开、纸片升起；点击打开资源管理器（此电脑）</td></tr>
+    <tr><td>时钟</td><td>现有</td><td>只保留 09:41 + 日期，占顶部一条</td></tr>
   </table>
+  <p class="muted" style="font-size:12px">专注/随记等占位页不进首页；以后有真实页面再考虑加卡。</p>
 
-  <h2><span class="num">03</span>技术落地（自绘管线）</h2>
+  <h2><span class="num">03</span>技术落地（不改 native）</h2>
   <div class="cols">
     <div class="glass">
-      <p><b>可以做到</b></p>
       <ul>
-        <li>渐变卡：预烘焙一张 PNG 当 <code>SurfaceOp.Image</code> 贴图（不用改 native，也能得到真 radial 渐变）</li>
-        <li>展开/收起：Composition offset + opacity 逐张延迟动画；图标用现有 Icon 原语</li>
-        <li>文件夹入口：Platform 增加 <code>OpenExplorer()</code>，ShellExecute “explorer.exe”；失败走当前页错误条</li>
+        <li>导航卡的磨砂渐变：预烘焙 PNG（含 alpha）当 <code>SurfaceOp.Image</code> 贴图；box 的白边/阴影用现有圆角矩形 + 半透明描边</li>
+        <li>展开：Composition offset 动画，逐张延迟 0.2/0.4/0.6s；logo 移动用 offset 动画</li>
+        <li>文件夹 3D：用「纸片上升 + 前盖下移 + 内阴影」近似（没有 rotateX）；或也预烘焙两帧图交叉淡入</li>
+        <li>点击文件夹：Platform 加 <code>OpenExplorer()</code>（ShellExecute <code>explorer.exe</code>），失败走当前页错误条</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>近似与边界</b></p>
+      <p><b>需要真机确认</b></p>
       <ul>
-        <li>卡片缩放/白边浮雕可用 1px 半透明描边近似，不做真 blur</li>
-        <li>渐变卡的边缘高光如果 PNG 烘焙不好，会退化为纯色 + 顶部高光线（需在真机校验）</li>
-        <li>首版只做 4 个入口；专注/随记暂不出现（等真实页面再用同一张卡扩展）</li>
+        <li>磨砂渐变贴图在 WinUI Composition 上的色彩和暗色底是否接近本页</li>
+        <li>200×200 卡片 + 142 文件夹在 360×512 里的比例（本页按此比例做）</li>
+        <li>hover 展开在 1s 内完成，减少动态时直接显隐</li>
+        <li>入口命中：box1/2/3 均有 60–140 DIP，折叠时不可点隐藏区域</li>
       </ul>
     </div>
   </div>
 
-  <h2><span class="num">04</span>实施（审查通过后）</h2>
+  <h2><span class="num">04</span>实施</h2>
   <table>
     <tr><th>阶段</th><th>内容</th><th>验收</th><th>估时</th></tr>
-    <tr><td>P1 首页 + 导航卡</td><td>home 页；时钟；渐变导航卡收起/展开静态版；4 入口切页</td><td>0/0 构建；入口命中 ≥44；去掉底部 Dock</td><td>0.5–1 天</td></tr>
-    <tr><td>P2 动效 + 文件夹</td><td>逐张展开/收起、hover 放大、logo 位移；OpenExplorer + 错误条</td><td>展开/收起流畅；启动资源管理器；减少动态生效</td><td>0.5 天</td></tr>
-    <tr><td>P3 打磨</td><td>键盘/UIA、渐变贴图真机校验、截图、测试</td><td>282+ checks；截图矩阵</td><td>0.5 天</td></tr>
+    <tr><td>P1 首页骨架</td><td>home 页：时钟 + 导航卡（收起/展开）+ 文件夹卡；去掉底部 Dock</td><td>0/0 构建；三块布局正确；入口命中达标</td><td>0.5 天</td></tr>
+    <tr><td>P2 动效 + 文件夹</td><td>展开逐张落位、logo 移角；文件夹 hover 打开；OpenExplorer + 错误条</td><td>展开/收起流畅；点击启动 Explorer；减少动态生效</td><td>0.5 天</td></tr>
+    <tr><td>P3 打磨</td><td>磨砂贴图真机校验、键盘/UIA、截图、测试</td><td>282+ checks；截图矩阵</td><td>0.5 天</td></tr>
   </table>
-  <div class="warn" style="margin-top:10px">范围：不改 native、不新增导航项（4 个入口 = 4 个 box）、不改设置 IA、不自动删数据；文件夹首版固定“此电脑”。</div>
 
-  <h2><span class="num">05</span>请 GPT 审查（审美）</h2>
+  <h2><span class="num">05</span>请 GPT 审查</h2>
   <div class="review">
-    <p>每项请给 1–5 分，并标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
+    <p>每项 1–5 分，标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
     <ol class="q">
-      <li>展开的四张渐变卡作为导航，是否成立？会不会太像社交卡、太“网感”？</li>
-      <li>图标 only、hover 才出名字：可接受，还是必须常驻文字？</li>
-      <li>渐变卡是首页唯一彩色焦点，和深色玻璃的比例是否合适（236 / 360 宽）？</li>
-      <li>四张入口卡尺寸 86/72/60/54 的扇形节奏好看吗？是否需要统一大小？</li>
-      <li>展开触发：hover 展开（桌面）＋点击展开（触屏），还是点击才展开、再点进入？</li>
-      <li>最刺眼的一处是什么？给一个更克制的替代色/结构建议。</li>
+      <li>磨砂玻璃渐变替代原粉青渐变后，导航卡还有没有原来的通透感？会不会太灰、太像塑料？</li>
+      <li>导航卡展开后是 3 个图标 + 1 个空 box，这个“不完整”的排布是保留原作的节奏，还是应该补第 4 个入口？</li>
+      <li>导航卡（200×200）+ 文件夹（约 244×142）上下叠放，与时钟的比例舒服吗？</li>
+      <li>文件夹用琥珀色，在磨砂玻璃首页里会不会太跳？要不要也做灰阶玻璃？</li>
+      <li>最刺眼的一处是什么？给一个最小修改建议。</li>
     </ol>
   </div>
 
   <details>
-    <summary>展开查看导航卡原始结构（截取；完整源码见 artifacts/qa/ui-home/massive-insect-5.source.html）</summary>
-<pre>/* From Uiverse.io by Smit-Prajapati (MIT) */
-&lt;div class="card"&gt;
-  &lt;div class="background"&gt;&lt;/div&gt;
-  &lt;div class="logo"&gt;…logo svg…&lt;/div&gt;
-  &lt;div class="box box1"&gt;&lt;span class="icon"&gt;…&lt;/span&gt;&lt;/div&gt;
-  &lt;div class="box box2"&gt;…&lt;/div&gt;
-  &lt;div class="box box3"&gt;…&lt;/div&gt;
-  &lt;div class="box box4"&gt;&lt;/div&gt;
-&lt;/div&gt;
-
-.card { width:200px; height:200px; border-radius:30px; overflow:hidden; }
-.background { background:radial-gradient(circle at 100% 107%,#ff89cc 0%,#9cb8ec 30%,#00ffee 60%,#62c2fe 100%); }
-.box { position:absolute; transform-origin:bottom left; transition:all 1s ease-in-out; }
+    <summary>用户提供的导航卡原始 CSS（未改动结构，仅注释配色位置）</summary>
+<pre>/* From Uiverse.io by Smit-Prajapati (MIT) —— 原版配色如下，本稿已替换为磨砂玻璃 */
+.card { width:200px; height:200px; background:lightgrey; border-radius:30px; overflow:hidden;
+        box-shadow:rgba(100,100,111,.2) 0 7px 29px 0; transition:all 1s ease-in-out; }
+.background { position:absolute; inset:0;
+        background:radial-gradient(circle at 100% 107%,#ff89cc 0%,#9cb8ec 30%,#00ffee 60%,#62c2fe 100%); }
+.logo { position:absolute; right:50%; bottom:50%; transform:translate(50%,50%); transition:all .6s ease-in-out; }
+.box { position:absolute; padding:10px; text-align:right; background:rgba(255,255,255,.389);
+       border-top:2px solid #fff; border-right:1px solid #fff;
+       border-radius:10% 13% 42% 0%/10% 12% 75% 0%;
+       box-shadow:rgba(100,100,111,.364) -7px 7px 29px 0; transform-origin:bottom left; transition:all 1s ease-in-out; }
 .box1 { width:70%; height:70%; bottom:-70%; left:-70%; }
 .box2 { width:50%; height:50%; bottom:-50%; left:-50%; transition-delay:.2s; }
 .box3 { width:30%; height:30%; bottom:-30%; left:-30%; transition-delay:.4s; }
 .box4 { width:10%; height:10%; bottom:-10%; left:-10%; transition-delay:.6s; }
-.card:hover .box { bottom:-1px; left:-1px; }
 .card:hover { transform:scale(1.1); }
-.card:hover .logo { right:20px; bottom:20px; transform:none; }</pre>
+.card:hover .box { bottom:-1px; left:-1px; }
+.card:hover .logo { transform:translate(0,0); bottom:20px; right:20px; }</pre>
   </details>
 
   <footer>
-    参考：<a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Uiverse / Smit-Prajapati / massive-insect-5</a>（MIT，样式转译，非源码复刻）；文件夹卡结构参考 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT）。本页为 HTML 概念稿，实际 WinUI3/Composition 渲染会按第 03 节近似处理。仓库：<code>ui/final</code>。
+    导航卡结构参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT）；文件夹结构参考 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT）。本页只做颜色/图标替换，结构未改；实际 WinUI3/Composition 渲染见第 03 节近似说明。
   </footer>
 </div>
 
 <script>
   const card = document.getElementById('navcard');
   const toast = document.getElementById('toast');
-  let holdOpen = false;
-  const setExpanded = v => card.classList.toggle('expanded', v);
-  card.addEventListener('mouseenter', () => setExpanded(true));
-  card.addEventListener('mouseleave', () => { if(!holdOpen) setExpanded(false); });
-  card.addEventListener('click', e => {
-    if (e.target.closest('.tile')) return;
-    holdOpen = !card.classList.contains('expanded');
-    setExpanded(holdOpen);
-  });
   function showToast(text){
-    toast.textContent = text;
-    toast.classList.add('on');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => toast.classList.remove('on'), 1600);
+    toast.textContent = text; toast.classList.add('on');
+    clearTimeout(showToast._t); showToast._t = setTimeout(()=>toast.classList.remove('on'), 1600);
   }
-  document.querySelectorAll('.tile').forEach(tile => {
-    tile.addEventListener('click', e => {
+  card.addEventListener('click', e => {
+    if (e.target.closest('.box')) return;
+    card.classList.toggle('expanded');
+  });
+  document.querySelectorAll('.box[data-action]').forEach(box => {
+    box.addEventListener('click', e => {
       e.stopPropagation();
-      const action = tile.dataset.action;
-      if (action === 'folder') showToast('已打开资源管理器（此电脑）');
-      else if (action === 'clock') showToast('进入：时钟');
-      else if (action === 'music') showToast('进入：音乐');
+      const a = box.dataset.action;
+      if (a === 'clock') showToast('进入：时钟');
+      else if (a === 'music') showToast('进入：音乐');
       else showToast('进入：小组件');
     });
+  });
+  document.querySelectorAll('.folder-stage,.folder-label').forEach(el => {
+    el.addEventListener('click', () => showToast('已打开资源管理器（此电脑）'));
   });
 </script>
 </body>
