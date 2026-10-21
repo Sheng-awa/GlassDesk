@@ -32,10 +32,25 @@ public static class HomeLayout
     public const float PreviewTop = 40, PreviewHeight = 100, PreviewGap = 8;
     public const float OpenButtonHeight = 44, OpenButtonBottom = 16;
 
-    public const float NavEntrySize = 44;
-    public const float NavEntryInset = 8, NavEntryGap = 4;
+    /// <summary>Four nested glass boxes slide out of the bottom-left corner on hover/pin,
+    /// replicating the massive-insect-5 reference (70/50/30/10% with staggered delays).</summary>
+    public static readonly float[] NavBoxScales = { .70f, .50f, .30f, .10f };
 
-    /// <summary>App slot rect (the 72×96 cell); icon and label are centred inside it.</summary>
+    public static FloatRect NavBox(int index)
+    {
+        if (index is < 0 or > 3) throw new ArgumentOutOfRangeException(nameof(index));
+        var card = NavCard;
+        float width = card.Width * NavBoxScales[index];
+        float height = card.Height * NavBoxScales[index];
+        return new(card.X - 1, card.Bottom - height + 1, width, height);
+    }
+
+    /// <summary>The first three boxes are the interactive destinations (music/widgets/settings).</summary>
+    public static FloatRect NavEntry(int index)
+    {
+        if (index is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(index));
+        return NavBox(index);
+    }
     public static FloatRect AppSlot(int column, int row)
     {
         CheckCell(column, row);
@@ -68,15 +83,6 @@ public static class HomeLayout
         Inset + (int)NavColumn * (CellWidth + ColumnGap),
         GridTop + (int)NavRow * (CellHeight + RowGap),
         NavWidth, NavHeight);
-
-    /// <summary>Three 44×44 navigation entries revealed in the bottom-left of the card.</summary>
-    public static FloatRect NavEntry(int index)
-    {
-        if (index is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(index));
-        var card = NavCard;
-        float y = card.Y + card.Height - NavEntrySize - 12;
-        return new(card.X + NavEntryInset + index * (NavEntrySize + NavEntryGap), y, NavEntrySize, NavEntrySize);
-    }
 
     /// <summary>Expand/collapse affordance; the eyes sit at the card centre in rest state.</summary>
     public static FloatRect NavCardHit => NavCard;

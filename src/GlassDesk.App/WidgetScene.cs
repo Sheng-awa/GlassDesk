@@ -49,7 +49,7 @@ public sealed partial class WidgetScene : IDisposable
     // pressed destination action. Release only activates when the action still matches.
     int _dockPressedAction = -1;
     public double? NextCompanionWake => _form == WidgetForm.Details ? null : _placement.NextWakeTime;
-    public bool SceneMotionActive => _chrome.NeedsTick || CompanionMotionActive;
+    public bool SceneMotionActive => _chrome.NeedsTick || CompanionMotionActive || _homeAnimating;
     public PointerCaptureOwner CaptureOwner => _captureOwner;
     readonly ContainerVisual _peekButtons;
     readonly ContainerVisual _detailsButtons;
@@ -583,8 +583,13 @@ public sealed partial class WidgetScene : IDisposable
                     var size = LayoutSize(form); _content.Size = size;
                     ReplaceSurface(ref _contentSurface, _contentBrush, RenderTextLayer("Details", size.X, size.Y, operations));
                     var body = new List<SurfaceOp>();
-                    DrawDetailsBody(body, ResponsiveDetails());
-                    ReplaceSurface(ref _detailsSurface, _detailsBrush, RenderTextLayer("DetailsBody", size.X, _detailsBody.Size.Y, body));
+                    // The home page has no details body; during the collapse transition the
+                    // body surface can still be 0 DIP tall, which the native renderer rejects.
+                    if (!HomePage && size.X > 0 && _detailsBody.Size.Y > 0)
+                    {
+                        DrawDetailsBody(body, ResponsiveDetails());
+                        ReplaceSurface(ref _detailsSurface, _detailsBrush, RenderTextLayer("DetailsBody", size.X, _detailsBody.Size.Y, body));
+                    }
                     if (_timelineSurface is not null)
                     {
                         _lastTimeline = null;

@@ -106,7 +106,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         plugins.CompanionChanged+=state=>{if(!disposed)TryScene(()=>{scene.SetMonotonicTime(Now);scene.SetCompanionState(state);WakeMotion();});};
         plugins.VisualsChanged+=visuals=>{if(!disposed)TryScene(()=>scene.SetPluginVisuals(visuals));};
         plugins.Changed+=()=>{if(!disposed){TryScene(()=>scene.SetPluginPages(plugins.Pages));Render();Changed?.Invoke();}};
-        motionTimer=queue.CreateTimer();motionTimer.Interval=TimeSpan.FromMilliseconds(16);motionTimer.Tick+=(_,_)=>{controller.Tick(Now);TryScene(()=>scene.TickCompanion(Now));if(!controller.NeedsTick&&!scene.SceneMotionActive){motionTimer.Stop();ScheduleCompanionIdle();}UpdateOutsideGeometry();};
+        motionTimer=queue.CreateTimer();motionTimer.Interval=TimeSpan.FromMilliseconds(16);motionTimer.Tick+=(_,_)=>{controller.Tick(Now);bool homeAnim=false;TryScene(()=>{scene.TickCompanion(Now);homeAnim=scene.TickHome(Now);});if(homeAnim)Render();if(!controller.NeedsTick&&!scene.SceneMotionActive){motionTimer.Stop();ScheduleCompanionIdle();}UpdateOutsideGeometry();};
         clockTimer=queue.CreateTimer();clockTimer.IsRepeating=false;clockTimer.Tick+=(_,_)=>Render();
         cursorTimer=queue.CreateTimer();cursorTimer.Interval=TimeSpan.FromMilliseconds(33);cursorTimer.Tick+=(_,_)=>UpdateCursorGaze();
         textToneTimer=queue.CreateTimer();textToneTimer.IsRepeating=false;textToneTimer.Interval=TimeSpan.FromMilliseconds(220);
@@ -143,15 +143,21 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         controller.FormChanged+=form=>
         {
             if(form!=WidgetForm.Details)CommitBoardOnLeave();
-            // The new Home page is the landing page of an expanded session for now. Music /
-            // widget page memory stays within the session; a capsule collapse resets to Home
-            // until the home-entry contract is finalised.
-            else if(pages.CurrentPageId!=DetailsPageController.Home)
+            if(form==WidgetForm.Details)
             {
-                pages.Select(DetailsPageController.Home);
-                Preferences=pages.ApplyTo(Preferences);
-                pageSaveTimer?.Start();
+                // The Home page is the landing page of an expanded session for now. Music /
+                // widget page memory stays within the session; a capsule collapse resets to
+                // Home until the home-entry contract is finalised.
+                if(pages.CurrentPageId!=DetailsPageController.Home)
+                {
+                    pages.Select(DetailsPageController.Home);
+                    Preferences=pages.ApplyTo(Preferences);
+                    pageSaveTimer?.Start();
+                }
+                // Never carry a transient hover/popover animation into a fresh expansion.
+                scene.ResetHomeState();
             }
+            else if(scene.HomePage)scene.ResetHomeState();
             Render();
             ScheduleTextTone();
             if(form==WidgetForm.Details)scene.BeginDetails(++openSequence,Now);else scene.EndDetails();
@@ -354,8 +360,9 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         else if(e.Kind==HostEventKind.Up)CompanionReact(CompanionInteraction.Release);
         else if(e.Kind==HostEventKind.CaptureLost)CompanionReact(CompanionInteraction.None);
         qa?.RecordPointer(e,id,host.Context);
+        bool homePageVisible=scene.HomePage&&controller.Form==WidgetForm.Details;
         bool homeHoverChanged=false;
-        if(scene.HomePage)
+        if(homePageVisible)
         {
             if(e.Kind is HostEventKind.Enter or HostEventKind.Move)homeHoverChanged=scene.UpdateHomePointer(e.X,e.Y);
             else if(e.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)homeHoverChanged=scene.ClearHomeHover();
@@ -363,7 +370,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         if(scene.RouteSpecialPointer(e,id,Now)){UpdateOutsideGeometry();WakeMotion();return;}
         // The chrome handle is still the only way back to the capsule on Home; it is not a
         // dock action, so the controller must receive it before the home route consumes events.
-        if(scene.HomePage&&id==WidgetActions.Close)
+        if(homePageVisible&&id==WidgetActions.Close)
         {
             controller.HandlePointer(e,id,Now);UpdateOutsideGeometry();WakeMotion();return;
         }
@@ -372,7 +379,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             if(homeHoverChanged)Render();
             UpdateOutsideGeometry();WakeMotion();return;
         }
-        if(scene.HomePage){if(homeHoverChanged)Render();UpdateOutsideGeometry();WakeMotion();return;}
+        if(homePageVisible){if(homeHoverChanged)Render();UpdateOutsideGeometry();WakeMotion();return;}
         if(RouteBoardPointer(e,id))return;
         if(e.Kind==HostEventKind.Down)scene.SetCapture(id==WidgetActions.Seek?PointerCaptureOwner.Timeline:PointerCaptureOwner.WidgetDrag,Now);
         if(e.Kind is HostEventKind.Up or HostEventKind.CaptureLost)scene.SetCapture(PointerCaptureOwner.None,Now);
@@ -439,8 +446,10 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         }
         if(scene.HomeActions.TryGetValue(id,out var homeAction))
         {
+            if(controller.Form!=WidgetForm.Details)return;
             bool enabled=scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==id) is not {Enabled:false};
             if(enabled)ExecuteHomeAction(homeAction);
+            WakeMotion();
             return;
         }
         if(id==WidgetActions.OpenMusic){OpenMusic();return;}

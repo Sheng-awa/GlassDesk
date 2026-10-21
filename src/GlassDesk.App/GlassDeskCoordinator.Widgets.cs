@@ -354,7 +354,7 @@ internal sealed partial class GlassDeskCoordinator
     }
     bool RouteHomePointer(HostPointerEvent e,int id)
     {
-        if(!scene.HomePage)return false;
+        if(!scene.HomePage||controller.Form!=WidgetForm.Details)return false;
         var actions=scene.HomeActions;
         bool known=actions.ContainsKey(id);
         if(e.Kind==HostEventKind.Invoke)
@@ -423,7 +423,7 @@ internal sealed partial class GlassDeskCoordinator
             }
             case HomeActionKind.ClosePopover: scene.CloseHomePopover();break;
         }
-        Render();Changed?.Invoke();
+        Render();WakeMotion();Changed?.Invoke();
     }
     void ShowHomeFolder(int index)
     {

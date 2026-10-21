@@ -69,15 +69,22 @@ static class HomeLayoutChecks
             "application cell/icon/label geometry stays inside the 72x96 slot");
 
         bool navEntries = true;
-        for (int index = 0; index < 3; index++)
+        for (int index = 0; index < 4; index++)
         {
-            var entry = HomeLayout.NavEntry(index);
-            navEntries &= entry.Width >= 44 && entry.Height >= 44
-                && entry.X >= nav.X && entry.Right <= nav.Right
-                && entry.Y >= nav.Y && entry.Bottom <= nav.Bottom
-                && (index == 0 || entry.X > HomeLayout.NavEntry(index - 1).Right);
+            var box = HomeLayout.NavBox(index);
+            navEntries &= Near(box.X, nav.X - 1) && Near(box.Bottom, nav.Bottom + 1)
+                && Near(box.Width, nav.Width * HomeLayout.NavBoxScales[index])
+                && Near(box.Height, nav.Height * HomeLayout.NavBoxScales[index])
+                && box.Height >= 20
+                && (index == 0 || box.Width < HomeLayout.NavBox(index - 1).Width);
+            if (index < 3)
+            {
+                var entry = HomeLayout.NavEntry(index);
+                navEntries &= entry == box && entry.Width >= 44 && entry.Height >= 44;
+            }
         }
-        check(navEntries, "three >=44 DIP navigation entries fit inside the navigation card");
+        check(navEntries,
+            "four nested navigation boxes keep the reference 70/50/30/10% bottom-left fan with >=44 DIP destinations");
 
         bool outside = false;
         try { HomeLayout.AppSlot(4, 0); } catch (ArgumentOutOfRangeException) { outside = true; }
