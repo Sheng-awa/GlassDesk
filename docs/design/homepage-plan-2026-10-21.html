@@ -48,16 +48,16 @@
   .state-label{position:absolute;left:50%;transform:translateX(-50%);top:-24px;font-size:11px;color:var(--ink-3);white-space:nowrap}
 
   /* 应用图标：无外框，统一 52×52 + 标签 */
-  .apps{position:absolute;left:22px;top:62px;display:grid;grid-template-columns:repeat(3,72px);gap:24px 18px;z-index:2}
-  .app{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer}
+  .layout{position:absolute;left:18px;right:18px;top:64px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:96px 96px 96px;gap:14px 12px;z-index:2}
+  .app{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer}
   .app .ico{width:52px;height:52px;border-radius:var(--r-app);display:flex;align-items:center;justify-content:center;color:#fff;
     font-size:23px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 6px 14px rgba(0,0,0,.22);
     transition:transform .16s ease}
   .app:hover .ico{transform:translateY(-2px) scale(1.04)}
   .app .nm{font-size:9.5px;color:var(--ink-2)}
 
-  /* 右下角大卡片 = 导航页（massive-insect-5 缩小到 152×152） */
-  .navcard{position:absolute;left:186px;top:268px;width:152px;height:152px;border-radius:var(--r-nav);z-index:4;overflow:hidden;cursor:pointer;
+  /* 右下角大卡片 = 导航页（massive-insect-5，占 4×3 网格的右下 2×2 格） */
+  .navcard{position:relative;grid-column:3/5;grid-row:2/4;border-radius:var(--r-nav);z-index:4;overflow:hidden;cursor:pointer;
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.20);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 16px 34px rgba(0,0,0,.38);
     backdrop-filter:blur(18px) saturate(120%);
@@ -175,23 +175,26 @@
       <div class="screen">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
-        <div class="apps">
+        <div class="layout">
           <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
           <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
           <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
           <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
           <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-        </div>
+          <div class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
 
-        <div class="navcard expanded" id="navA">
-          <div class="nav-bg"></div>
-          <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
-          <div class="nb nb1" title="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
-          <div class="nb nb2" title="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
-          <div class="nb nb3" title="时钟"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-          <div class="nb nb4"></div>
-          <div class="nav-tip">导航</div>
+          <div class="navcard expanded" id="navA">
+            <div class="nav-bg"></div>
+            <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
+            <div class="nb nb1" title="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
+            <div class="nb nb2" title="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
+            <div class="nb nb3" title="时钟"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+            <div class="nb nb4"></div>
+            <div class="nav-tip">导航</div>
+          </div>
+
+          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
+          <div class="app" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
         </div>
 
         <div class="dock">
@@ -215,22 +218,25 @@
       <div class="screen">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
-        <div class="apps">
+        <div class="layout">
           <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
           <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
           <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
           <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
           <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-        </div>
+          <div class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
 
-        <div class="navcard" id="navB">
-          <div class="nav-bg"></div>
-          <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
-          <div class="nb nb1"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
-          <div class="nb nb2"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
-          <div class="nb nb3"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-          <div class="nb nb4"></div>
+          <div class="navcard" id="navB">
+            <div class="nav-bg"></div>
+            <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
+            <div class="nb nb1"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
+            <div class="nb nb2"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
+            <div class="nb nb3"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+            <div class="nb nb4"></div>
+          </div>
+
+          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
+          <div class="app" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
         </div>
 
         <div class="popover open" id="popB">
@@ -268,7 +274,7 @@
     <p><b>用户明确要求：</b></p>
     <ul>
       <li>右下角大卡片是<b>导航页</b>，用 massive-insect-5 那个组件（玻璃卡 + 眼睛 + hover 展开的 4 个格子）；不是时钟。</li>
-      <li>其余是常用应用图标：<b>统一大小、无外框、可以留空、不要求占满</b>。</li>
+      <li>其余是常用应用图标：<b>统一大小、无外框、可以留空、不要求占满</b>；按 <b>4 列 × 3 行</b>排列。</li>
       <li>底部 Dock <b>只放文件夹</b>；文件夹用之前给的 3D 文件夹动画缩小；点击展开文件夹内容气泡（如图 1），再点打开资源管理器。</li>
       <li>动画要有；圆角要统一；不要一层又一层的框。</li>
     </ul>
@@ -278,8 +284,8 @@
   <h2><span class="num">01</span>布局</h2>
   <table>
     <tr><th>区域</th><th>说明</th></tr>
-    <tr><td>应用图标（左上区域）</td><td>6 个示例应用，图标统一 52×52、标签 9.5px、无外框；3 列 × 2 行，间距 18/24；右侧和下方留空（不占满）</td></tr>
-    <tr><td><b>导航页</b>（右下角大卡）</td><td>massive-insect-5 缩小到 152×152：收起只剩眼睛；hover 时 4 个格子（70/50/30/10%，延迟 0.2/0.4/0.6s）滑入左下角，眼睛移到右下角，卡片放大 1.06；3 个图标 = 音乐 / 小组件 / 时钟，第 4 个留空装饰</td></tr>
+    <tr><td>应用图标（左上区域）</td><td>8 个示例应用，<b>4 列 × 3 行</b>网格；图标统一 52×52、标签 9.5px、无外框；行高 96、列距 12、行距 14；空位可以留空（不要求占满）</td></tr>
+    <tr><td><b>导航页</b>（右下角大卡）</td><td>占网格右下 <b>2×2 格</b>（约 156×206）：massive-insect-5 收起只剩眼睛；hover 时 4 个格子（70/50/30/10%，延迟 0.2/0.4/0.6s）滑入左下角，眼睛移到右下角，卡片放大 1.06；3 个图标 = 音乐 / 小组件 / 时钟，第 4 个留空装饰</td></tr>
     <tr><td>Dock（底部）</td><td>只放文件夹（示例 crucial / 项目 / 下载，路径在设置里指定）；文件夹是 34×24 的 5 层 3D 文件夹缩小版</td></tr>
     <tr><td>文件夹气泡</td><td>点击 Dock 文件夹 → 上方弹出：标题 + 最多 3 个文件预览 + 「在文件中打开」；再点关闭；点条目打开资源管理器</td></tr>
   </table>
@@ -289,7 +295,7 @@
     <div class="glass">
       <p><b>只有三层容器有“框”</b></p>
       <ul>
-        <li>导航卡（152×152，圆角 26）</li>
+        <li>导航卡（约 156×206，占右下 2×2 格，圆角 26）</li>
         <li>Dock（320×56，圆角 20）</li>
         <li>文件夹气泡（296×166，圆角 20）</li>
         <li>其余（应用图标、气泡条目、导航格）都是无边框的填充面/图标，不再套框</li>
@@ -299,7 +305,7 @@
       <p><b>统一规则</b></p>
       <ul>
         <li>图标 52×52，圆角 14；标签 9.5px、颜色 <code>#A8B3C2</code></li>
-        <li>应用网格：列 72、行间距 24、列间距 18；不强行铺满</li>
+        <li>应用网格：4 列 × 3 行，行高 96、列距 12、行距 14；不强行铺满</li>
         <li>圆角阶梯：24 / 26 / 20 / 14 / 12 / 5</li>
         <li>间距只用 4 的倍数（8/12/16/18/24）</li>
       </ul>
@@ -321,8 +327,8 @@
   <div class="cols">
     <div class="glass">
       <ul>
-        <li>应用网格：Core 定义 52×52 图标 + 72/18/24 间距常量，按实际数量排布（少了就留空）</li>
-        <li>导航卡：自绘 152×152 玻璃卡 + 4 个 70/50/30/10% 方块的 offset 动画；眼睛用现有 companion 指针位置</li>
+        <li>应用网格：Core 定义 4 列 × 3 行（行高 96、列距 12、行距 14），图标 52×52 + 标签；按实际数量排布，空位留空</li>
+        <li>导航卡：Core 里占右下 2×2 格（约 156×206），自绘玻璃卡 + 4 个 70/50/30/10% 方块的 offset 动画；眼睛用现有 companion 指针位置</li>
         <li>Dock 文件夹：设置里存 3 个路径（settings.json 新字段）；点击时枚举目录最多 3 项</li>
         <li>打开资源管理器：Platform 新增 <code>OpenExplorer(path)</code>（ShellExecute explorer.exe）</li>
         <li>不改 native；渐变/磨砂用预烘焙 PNG 或半透明叠加近似</li>
@@ -342,8 +348,8 @@
   <div class="review">
     <p>每项 1–5 分，标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
     <ol class="q">
-      <li>6 个应用图标（统一大小、无外框）+ 右下角导航卡，这个层级和留白舒服吗？</li>
-      <li>导航卡放右下角、152×152，比例和重量对吗？会不会太小/太抢？</li>
+      <li>8 个应用图标（4×3 网格、统一大小、无外框）+ 右下角 2×2 格的导航卡，这个层级和留白舒服吗？</li>
+      <li>导航卡占右下 2×2 格（约 156×206），比例和重量对吗？会不会太小/太抢？</li>
       <li>应用图标没有外框，会不会太散？需要一点底色/分组吗？</li>
       <li>Dock 只放 3 个文件夹（3D 图标），会不会太空？</li>
       <li>统一圆角/间距/字号后，整体是否“统一”了？还有哪些地方不齐？</li>
@@ -352,7 +358,7 @@
   </div>
 
   <footer>
-    导航卡参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT），缩放到 152×152；文件夹动画来自 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT），缩放到 34×24。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
+    导航卡参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT），放在 4×3 网格的右下 2×2 格；文件夹动画来自 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT），缩放到 34×24。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
   </footer>
 </div>
 
