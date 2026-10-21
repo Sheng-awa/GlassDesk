@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GlassDesk 首页 v0.4 · 文件夹 + 时钟 + 长方形导航</title>
+<title>GlassDesk 首页 v0.5 · macOS Dock 风格导航</title>
 <style>
   :root{
     --bg:#07090d;--ink:#f1f5f9;--ink-2:#a8b3c2;--ink-3:#6b7686;--line:rgba(255,255,255,.09);
@@ -13,52 +13,51 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6}
   a{color:#7dd3fc;text-decoration:none}a:hover{text-decoration:underline}
-  .wrap{max-width:1040px;margin:0 auto;padding:42px 32px 76px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 30px 70px}
   .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
-  h1{font-size:29px;line-height:1.3;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
-  h2{font-size:18px;margin:40px 0 10px;font-weight:640}
+  h1{font-size:28px;line-height:1.3;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
+  h2{font-size:18px;margin:36px 0 10px;font-weight:640}
   h2 .num{color:var(--ink-3);font-family:var(--mono);font-size:12px;margin-right:8px}
   p{margin:6px 0;color:var(--ink-2)}
   ul{padding-left:20px;color:var(--ink-2);margin:6px 0}
   li{margin:3px 0}
-  .meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
   .chip{font-size:11.5px;color:var(--ink-2);border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:999px;padding:3px 10px}
   .chip b{color:var(--ink);font-weight:600}
   .glass{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:16px 18px}
 
   /* device */
-  .stage{display:flex;justify-content:center;margin:24px 0 0;position:relative}
-  .device{width:522px;height:742px;position:relative;flex:none}
-  .device::before{content:"";position:absolute;inset:-38px -90px;z-index:0;pointer-events:none;
-    background:radial-gradient(360px 300px at 24% 0%,rgba(150,180,210,.16),transparent 70%),
-               radial-gradient(320px 260px at 88% 34%,rgba(255,255,255,.05),transparent 72%),
-               radial-gradient(360px 300px at 46% 100%,rgba(120,145,175,.09),transparent 70%);filter:blur(16px)}
-  .screen{position:absolute;inset:0;width:360px;height:512px;transform:scale(1.45);transform-origin:top left;
-    border-radius:26px;overflow:hidden;
-    background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.20),transparent 55%),
-               radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.06),transparent 52%),
+  .stage{display:flex;justify-content:center;margin:22px 0 0;position:relative}
+  .device{width:486px;height:604px;position:relative;flex:none}
+  .device::before{content:"";position:absolute;inset:-34px -80px;z-index:0;pointer-events:none;
+    background:radial-gradient(320px 260px at 24% 0%,rgba(150,180,210,.14),transparent 70%),
+               radial-gradient(300px 240px at 88% 34%,rgba(255,255,255,.05),transparent 72%),
+               radial-gradient(320px 260px at 46% 100%,rgba(120,145,175,.08),transparent 70%);filter:blur(15px)}
+  .screen{position:absolute;inset:0;width:360px;height:420px;transform:scale(1.35);transform-origin:top left;
+    border-radius:24px;overflow:hidden;
+    background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.18),transparent 55%),
+               radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.05),transparent 52%),
                linear-gradient(168deg,#242b35 0%,#161b22 46%,#0b0f14 100%);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 40px 90px rgba(0,0,0,.55)}
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 36px 80px rgba(0,0,0,.55)}
   .screen::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 26%);pointer-events:none}
   .handle{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:58px;height:28px;border-radius:14px;background:#05070a;
     box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:7px;z-index:8}
   .eye{width:6px;height:9px;border-radius:4px;background:linear-gradient(180deg,#f8fafc,#aab4c2)}
 
-  /* 上排：文件夹 + 时钟，按示意图 */
-  .row{position:absolute;left:20px;right:20px;top:58px;display:flex;gap:12px;z-index:3}
-  .tile-card{width:154px;height:156px;border-radius:24px;position:relative;overflow:hidden;cursor:pointer;
+  /* 上排：文件夹 + 时钟（缩小） */
+  .row{position:absolute;left:26px;top:54px;display:flex;gap:12px;z-index:3}
+  .tile-card{width:148px;height:120px;border-radius:20px;position:relative;overflow:hidden;cursor:pointer;
     background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.025));
     border:1px solid rgba(255,255,255,.16);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 14px 30px rgba(0,0,0,.32);
-    backdrop-filter:blur(16px) saturate(120%);
-    transition:transform .22s ease,border-color .22s ease}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 12px 26px rgba(0,0,0,.32);
+    backdrop-filter:blur(14px) saturate(120%);transition:transform .22s ease,border-color .22s ease}
   .tile-card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.28)}
-  .tile-card .cap{position:absolute;left:12px;top:10px;font-size:10px;letter-spacing:.06em;color:var(--ink-3)}
+  .tile-card .cap{position:absolute;left:10px;top:8px;font-size:9.5px;color:var(--ink-3)}
 
-  /* 文件夹卡：mighty-pig-13 结构，缩放到 154×156 卡片内 */
+  /* 文件夹卡：mighty-pig-13 结构缩到卡内 */
   .folder-card{background:linear-gradient(180deg,rgba(245,158,11,.10),rgba(255,255,255,.02));border-color:rgba(251,191,36,.20)}
   .folder-card:hover{border-color:rgba(251,191,36,.45)}
-  .folder-viewport{position:absolute;left:50%;top:50%;width:240px;height:160px;transform:translate(-50%,-50%) scale(.46);transform-origin:center}
+  .folder-viewport{position:absolute;left:50%;top:43%;width:240px;height:160px;transform:translate(-50%,-50%) scale(.36);transform-origin:center}
   .folder-viewport .file{position:relative;width:240px;height:160px;transform-origin:bottom;perspective:1500px;cursor:pointer;transition:transform .3s ease}
   .folder-viewport .work-5{background:#d97706;width:100%;height:100%;transform-origin:top;border-radius:16px;border-top-left-radius:0;position:relative;transition:all .3s ease}
   .folder-viewport .work-5::after{content:"";position:absolute;bottom:99%;left:0;width:80px;height:16px;background:#d97706;border-radius:16px 16px 0 0}
@@ -74,56 +73,46 @@
   .folder-card:hover .work-2,.folder-card.demo-open .work-2{transform:rotateX(-38deg)}
   .folder-card:hover .work-1,.folder-card.demo-open .work-1{transform:rotateX(-46deg) translateY(1px);box-shadow:inset 0 20px 40px #fbbf24,inset 0 -20px 40px #d97706}
   .folder-card:hover .file,.folder-card.demo-open .file{transform:scale(1.03)}
-  .folder-card .label{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:10.5px;color:var(--ink-2)}
+  .folder-card .label{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:9.5px;color:var(--ink-2)}
 
   /* 时钟卡 */
   .clock-card{text-align:center}
-  .clock-card .time{margin-top:52px;font-size:32px;line-height:1;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:#f8fafc}
-  .clock-card .date{margin-top:8px;font-size:10px;color:var(--ink-2)}
-  .clock-card .label{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:10.5px;color:var(--ink-3)}
+  .clock-card .time{margin-top:38px;font-size:28px;line-height:1;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:#f8fafc}
+  .clock-card .date{margin-top:6px;font-size:9px;color:var(--ink-2)}
+  .clock-card .label{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:9.5px;color:var(--ink-3)}
 
-  /* 底部：长方形导航条（massive-insect-5 拉宽） */
-  .navbar{position:absolute;left:16px;top:300px;width:328px;height:156px;border-radius:38px;overflow:hidden;cursor:pointer;z-index:4;
-    background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.20);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 16px 38px rgba(0,0,0,.38);
-    backdrop-filter:blur(18px) saturate(120%);
-    transition:transform .8s cubic-bezier(.4,0,.2,1),border-color .6s ease}
-  .navbar:hover{transform:scale(1.012);border-color:rgba(255,255,255,.30)}
-  .nav-bg{position:absolute;inset:0;
-    background:
-      radial-gradient(120% 160% at 100% 110%,rgba(255,255,255,.72) 0%,rgba(222,234,246,.34) 32%,rgba(170,192,215,.18) 62%,rgba(110,132,160,.10) 100%),
-      linear-gradient(120deg,rgba(255,255,255,.16),rgba(255,255,255,.02) 60%)}
-  .nav-eyes{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:7px;z-index:6;
-    transition:all .8s cubic-bezier(.4,0,.2,1)}
-  .eye-shell{width:16px;height:23px;border-radius:10px;background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 10px rgba(20,40,70,.20);overflow:hidden;transition:width .4s,height .4s}
-  .pupil{width:6px;height:6px;border-radius:3px;background:#0b0f14;transition:transform .10s ease-out}
-  .navbar.expanded .nav-eyes,.navbar:hover .nav-eyes{left:auto;right:22px;top:20px;transform:none}
-  .navbar.expanded .eye-shell,.navbar:hover .eye-shell{width:15px;height:21px}
-  .nav-tiles{position:absolute;inset:0;z-index:5;pointer-events:none}
-  .ntile{position:absolute;bottom:-120px;width:76px;height:76px;border-radius:22px;display:flex;align-items:center;justify-content:center;
-    pointer-events:auto;cursor:pointer;
-    background:rgba(255,255,255,.30);border-top:2px solid rgba(255,255,255,.92);border-right:1px solid rgba(255,255,255,.55);
-    box-shadow:-6px 8px 24px rgba(20,32,46,.30),inset 0 -10px 18px rgba(255,255,255,.16);
-    transition:all .9s cubic-bezier(.34,1.16,.4,1);backdrop-filter:blur(6px)}
-  .ntile svg{width:26px;height:26px;fill:#fff;filter:drop-shadow(0 1px 3px rgba(20,40,70,.25))}
-  .ntile:hover{filter:brightness(1.06)}
-  .ntile.n1{left:22px;transition-delay:.02s}
-  .ntile.n2{left:110px;transition-delay:.14s}
-  .ntile.n3{left:198px;transition-delay:.26s}
-  .ntile.n4{left:286px;bottom:-60px;width:24px;height:24px;border-radius:9px;background:rgba(255,255,255,.22);transition-delay:.38s;pointer-events:none}
-  .navbar.expanded .ntile,.navbar:hover .ntile{bottom:20px}
-  .navbar.expanded .ntile.n4,.navbar:hover .ntile.n4{bottom:18px}
-  .nav-tip{position:absolute;left:20px;bottom:14px;font-size:9.5px;color:var(--ink-3);z-index:6;opacity:0;transition:.3s}
-  .navbar.expanded .nav-tip,.navbar:hover .nav-tip{opacity:1}
+  /* 底部：macOS 风格 Dock */
+  .dock{position:absolute;left:20px;top:316px;width:320px;height:72px;border-radius:22px;z-index:6;
+    display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.20);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 14px 32px rgba(0,0,0,.42);
+    backdrop-filter:blur(18px) saturate(130%);transform-origin:50% 100%}
+  .dock-item{position:relative;width:40px;height:40px;border-radius:11px;flex:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transform-origin:50% 100%;
+    transition:transform .12s cubic-bezier(.2,.7,.3,1),filter .15s ease}
+  .dock-item svg{width:24px;height:24px;fill:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.28))}
+  .dock-item::after{content:attr(data-label);position:absolute;bottom:calc(100% + 14px);left:50%;transform:translateX(-50%) translateY(4px);
+    background:rgba(10,14,20,.92);color:#e2e8f0;font-size:9.5px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px;
+    white-space:nowrap;opacity:0;pointer-events:none;transition:.15s}
+  .dock-item:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+  .dock-item:hover{z-index:7;filter:brightness(1.06)}
+  .dock-sep{width:1px;height:26px;background:rgba(255,255,255,.18);flex:none;margin:0 3px}
+  .app-explorer{background:linear-gradient(160deg,#7dd3fc,#3b82f6)}
+  .app-browser{background:linear-gradient(160deg,#60a5fa,#2563eb)}
+  .app-terminal{background:linear-gradient(160deg,#334155,#0f172a)}
+  .app-music{background:linear-gradient(160deg,#fb7185,#f43f5e)}
+  .app-settings{background:linear-gradient(160deg,#94a3b8,#475569)}
+  .app-eyes{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);gap:4px}
+  .app-eyes .eye{width:5px;height:8px;border-radius:3px}
+  .dock-eyes-wrap{display:flex;gap:4px;align-items:center;justify-content:center;width:100%;height:100%}
 
-  .toast{position:absolute;left:50%;bottom:60px;transform:translate(-50%,12px);background:rgba(8,11,16,.92);border:1px solid var(--line);
-    color:#e2e8f0;font-size:10.5px;border-radius:999px;padding:6px 13px;opacity:0;transition:.24s;z-index:9;white-space:nowrap}
+  .toast{position:absolute;left:50%;bottom:48px;transform:translate(-50%,10px);background:rgba(8,11,16,.92);border:1px solid var(--line);
+    color:#e2e8f0;font-size:10px;border-radius:999px;padding:5px 12px;opacity:0;transition:.24s;z-index:9;white-space:nowrap}
   .toast.on{opacity:1;transform:translate(-50%,0)}
 
-  .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:12px}
+  .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:10px}
   .replay{margin-left:10px;font:inherit;font-size:11px;color:#e2e8f0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);
-    border-radius:999px;padding:2px 10px;cursor:pointer;transition:.18s}
+    border-radius:999px;padding:2px 10px;cursor:pointer}
   .replay:hover{background:rgba(255,255,255,.12)}
 
   table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
@@ -138,20 +127,20 @@
   .q li{counter-increment:q;position:relative;padding:7px 0 7px 30px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:13.5px;color:var(--ink-2)}
   .q li:last-child{border-bottom:none}
   .q li::before{content:"Q" counter(q);position:absolute;left:0;top:8px;font-family:var(--mono);font-size:10px;color:#cbd5e1;border:1px solid rgba(255,255,255,.25);border-radius:5px;padding:0 4px}
-  footer{margin-top:44px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
   .warn{border-left:2px solid rgba(255,255,255,.35);padding:9px 14px;background:rgba(255,255,255,.04);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink-2)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">GlassDesk · Home v0.4 · 按手绘示意图</div>
-  <h1>首页：文件夹 + 时钟，底部一条长方形导航</h1>
-  <p>顶部把手；上方左边文件夹卡、右边时钟卡；底部是拉宽的 massive-insect-5 导航条，hover 时三张图标卡从底部依次滑出，眼睛移到右侧并跟随鼠标。文件夹 hover 打开，点击打开资源管理器。</p>
+  <div class="eyebrow">GlassDesk · Home v0.5 · macOS Dock 风格</div>
+  <h1>首页：文件夹 + 时钟，底部是 macOS 风格 Dock</h1>
+  <p>按你发的 Dock 示意改：底部一条磨砂玻璃 Dock，图标常驻并 hover 放大（macOS 方式），不再有“展开一堆方块”的动画。眼睛改成没有瞳孔的两只白眼睛，跟随鼠标时整体轻微偏移。</p>
   <div class="meta">
-    <span class="chip">布局 <b>文件夹 / 时钟 / 长方形导航</b></span>
-    <span class="chip">导航 <b>massive-insect-5</b>（MIT）</span>
-    <span class="chip">文件夹 <b>mighty-pig-13</b>（MIT）</span>
-    <span class="chip">新增 <b>眼睛跟随鼠标</b></span>
+    <span class="chip">布局 <b>文件夹 / 时钟 / Dock</b></span>
+    <span class="chip">Dock <b>macOS 风格 · hover 放大</b></span>
+    <span class="chip">眼睛 <b>无瞳孔 · 轻微跟随</b></span>
+    <span class="chip">图标 <b>占位，实际应用待定</b></span>
   </div>
 
   <div class="stage">
@@ -166,9 +155,9 @@
                 <div class="work-5"></div><div class="work-4"></div><div class="work-3"></div><div class="work-2"></div><div class="work-1"></div>
               </div>
             </div>
-            <div class="label">打开资源管理器</div>
+            <div class="label">文件夹</div>
           </div>
-          <div class="tile-card clock-card" data-action="clock" title="时钟">
+          <div class="tile-card clock-card" title="时钟">
             <div class="cap">时钟</div>
             <div class="time">09:41</div>
             <div class="date">10月21日 星期三</div>
@@ -176,58 +165,60 @@
           </div>
         </div>
 
-        <div class="navbar" id="navbar" title="导航">
-          <div class="nav-bg"></div>
-          <div class="nav-eyes" id="nav-eyes" aria-hidden="true">
-            <span class="eye-shell"><span class="pupil"></span></span>
-            <span class="eye-shell"><span class="pupil"></span></span>
+        <div class="dock" id="dock">
+          <div class="dock-item app-explorer" data-action="explorer" data-label="文件夹">
+            <svg viewBox="0 0 24 24"><path d="M3.2 6.4A2.1 2.1 0 0 1 5.3 4.3h3.9c.55 0 1.08.22 1.47.62l.9.9h7.1a2.1 2.1 0 0 1 2.1 2.1v8a2.1 2.1 0 0 1-2.1 2.1H5.3a2.1 2.1 0 0 1-2.1-2.1v-9.5Z"/></svg>
           </div>
-          <div class="nav-tiles">
-            <div class="ntile n1" data-action="music" title="音乐">
-              <svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg>
-            </div>
-            <div class="ntile n2" data-action="widgets" title="小组件">
-              <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg>
-            </div>
-            <div class="ntile n3" data-action="focus" title="专注（预览）">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="12" cy="12" r="3.2"/></svg>
-            </div>
-            <div class="ntile n4"></div>
+          <div class="dock-item app-browser" data-action="browser" data-label="浏览器">
+            <svg viewBox="0 0 24 24"><path d="M12 2.6a9.4 9.4 0 1 0 0 18.8 9.4 9.4 0 0 0 0-18.8Zm4.9 4.5-2.7 6.1-6.1 2.7 2.7-6.1 6.1-2.7Z"/></svg>
           </div>
-          <div class="nav-tip">导航</div>
+          <div class="dock-item app-terminal" data-action="terminal" data-label="终端">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16a1.6 1.6 0 0 1 1.6 1.6v12.8A1.6 1.6 0 0 1 20 20H4a1.6 1.6 0 0 1-1.6-1.6V5.6A1.6 1.6 0 0 1 4 4Zm2.2 4.1 3.4 3.9-3.4 3.9 1.2 1.1 4.5-5-4.5-5-1.2 1.1Zm7.1 8.2h5.2v-1.6h-5.2v1.6Z"/></svg>
+          </div>
+          <div class="dock-item app-music" data-action="music" data-label="音乐">
+            <svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg>
+          </div>
+          <div class="dock-item app-settings" data-action="settings" data-label="设置">
+            <svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.2 3.8c0 .55-.06 1.09-.16 1.6l2 1.55-1.9 3.3-2.36-.95c-.84.7-1.8 1.25-2.87 1.6L14.6 21h-5.2l-.35-2.5a8.1 8.1 0 0 1-2.87-1.6l-2.36.95-1.9-3.3 2-1.55a7.6 7.6 0 0 1 0-3.2l-2-1.55 1.9-3.3 2.36.95c.84-.7 1.8-1.25 2.87-1.6L9.4 3h5.2l.35 2.5c1.07.35 2.03.9 2.87 1.6l2.36-.95 1.9 3.3-2 1.55c.1.51.16 1.05.16 1.6Z"/></svg>
+          </div>
+          <div class="dock-sep"></div>
+          <div class="dock-item app-eyes" id="dock-eyes" data-action="eyes" data-label="陪伴">
+            <div class="dock-eyes-wrap"><span class="eye"></span><span class="eye"></span></div>
+          </div>
         </div>
 
         <div class="toast" id="toast">已打开资源管理器（此电脑）</div>
       </div>
     </div>
   </div>
-  <div class="caption">hover 导航条展开、移入文件夹打开；眼睛会跟着鼠标看。<button class="replay" id="replay">重播动效</button></div>
+  <div class="caption">hover Dock 图标：macOS 式放大，两侧联动放大；文件夹卡 hover 打开。<button class="replay" id="replay">重播动效</button></div>
 
-  <h2><span class="num">01</span>布局（按你的示意图）</h2>
+  <h2><span class="num">01</span>布局（按你的示意图，整体缩小）</h2>
   <table>
     <tr><th>位置</th><th>元素</th><th>行为</th></tr>
     <tr><td>顶部</td><td>陪伴把手</td><td>回胶囊</td></tr>
-    <tr><td>左上</td><td><b>文件夹卡</b>（mighty-pig-13）</td><td>hover 打开文件夹；点击打开资源管理器</td></tr>
-    <tr><td>右上</td><td><b>时钟卡</b></td><td>09:41 + 日期；点击进时钟页</td></tr>
-    <tr><td>底部</td><td><b>长方形导航条</b>（massive-insect-5 拉宽）</td><td>hover/点击展开：音乐 / 小组件 / 专注 三张图标卡从底部依次滑出；眼睛移到右侧并跟随鼠标</td></tr>
+    <tr><td>左上</td><td>文件夹卡（148×120）</td><td>hover 打开；点击打开资源管理器</td></tr>
+    <tr><td>右上</td><td>时钟卡（148×120）</td><td>09:41 + 日期</td></tr>
+    <tr><td>底部</td><td><b>Dock（320×72）</b></td><td>常驻图标：文件夹 / 浏览器 / 终端 / 音乐 / 设置 + 分隔线 + 眼睛；hover 放大</td></tr>
   </table>
+  <p class="muted" style="font-size:12px">首页 360×420（比上一版 512 更紧凑）。图标只是占位，实际放哪些应用等你定。</p>
 
-  <h2><span class="num">02</span>导航条改造</h2>
+  <h2><span class="num">02</span>Dock 规则（macOS 式）</h2>
   <div class="cols">
     <div class="glass">
-      <p><b>保留原组件的骨架</b></p>
+      <p><b>视觉</b></p>
       <ul>
-        <li>渐变底 + 白色玻璃方块 + 白顶边 + 从左下角展开的延迟节奏（0.2 / 0.4 / 0.6s）</li>
-        <li>hover 时整体轻微放大；图标卡从下往上落位</li>
+        <li>磨砂玻璃长条，圆角 22，白边 + 内高光，悬浮在底部</li>
+        <li>图标 40×40 圆角 11；分组之间一条 1px 分隔线</li>
+        <li>图标常驻，不隐藏；hover 才显示名称气泡</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>为长方形做的调整</b></p>
+      <p><b>交互</b></p>
       <ul>
-        <li>200×200 方卡 → <b>328×156 长条</b>；box 从“左下角扇形叠放” → “底部横向依次滑出”</li>
-        <li>4 个 box：3 个图标卡（音乐 / 小组件 / 专注）+ 1 个装饰小方块，保留原节奏</li>
-        <li>眼睛：收起时居中；展开后移到右上角，<b>瞳孔跟随鼠标</b>（限制 2.5 DIP 位移）</li>
-        <li>配色：磨砂玻璃渐变（冷白/灰蓝），替换原粉青；文件夹保留琥珀色</li>
+        <li>hover 放大：目标图标 1.5×，左右邻居 1.2× / 1.1×，底部对齐向上生长</li>
+        <li>动画 0.12s 弹性曲线；移开后回落</li>
+        <li>眼睛位于最后一项：<b>无瞳孔</b>，跟随鼠标只做整体 ≤2 DIP 偏移</li>
       </ul>
     </div>
   </div>
@@ -235,29 +226,30 @@
   <h2><span class="num">03</span>动效 / 鼠标跟随</h2>
   <table>
     <tr><th>项</th><th>规则</th></tr>
-    <tr><td>导航条展开</td><td>hover 或点击；三张图标卡 delay 0.02/0.14/0.26s，0.9s <code>cubic-bezier(.34,1.16,.4,1)</code>；装饰小块 delay 0.38s</td></tr>
-    <tr><td>眼睛跟随</td><td>读取指针相对眼睛中心的方向，瞳孔最大位移 2.5 DIP，10ms 缓动；离开窗口回中</td></tr>
-    <tr><td>文件夹</td><td>hover 0.3s：前盖 rotateX(-46deg)，纸片 -20/-30/-38deg 依次打开</td></tr>
-    <tr><td>减少动态</td><td>所有位移/旋转直接完成，只保留透明度</td></tr>
-    <tr><td>说明</td><td>本页有自动演示（约 0.7s 后播放一次）；点「重播动效」可重看</td></tr>
+    <tr><td>Dock 放大</td><td>按指针与图标中心距离计算 scale=1+0.5·max(0,1-d/110)，向上抬 26·(scale-1) DIP；邻居自动带动</td></tr>
+    <tr><td>眼睛</td><td>无瞳孔；整体（两只）朝鼠标方向偏移 ≤2 DIP，离开回中</td></tr>
+    <tr><td>文件夹</td><td>hover：前盖 rotateX(-46°)，纸片 -20/-30/-38° 依次打开</td></tr>
+    <tr><td>减少动态</td><td>放大/位移直接完成，只保留透明度</td></tr>
+    <tr><td>演示</td><td>本页自动演示一次：鼠标扫过 Dock → 文件夹打开；也可点「重播动效」</td></tr>
   </table>
 
   <h2><span class="num">04</span>技术落地（不改 native）</h2>
   <div class="cols">
     <div class="glass">
       <ul>
-        <li>玻璃渐变：预烘焙 PNG（含 alpha）当 <code>SurfaceOp.Image</code>；白边/阴影用现有圆角矩形 + 半透明线</li>
-        <li>导航条/图标卡展开：Composition offset + opacity，逐张延迟；眼睛跟手可用现有 companion 指针位置</li>
-        <li>文件夹 3D：纸片上升 + 前盖下移 + 内阴影近似；点击走 Platform 新增 <code>OpenExplorer()</code></li>
+        <li>Dock 底：预烘焙 PNG（alpha）当 <code>SurfaceOp.Image</code>，或叠层半透明圆角矩形</li>
+        <li>图标：先用自绘 glyph；后续可从 Shell 取真实应用图标（不复制 macOS 图标）</li>
+        <li>放大：Composition scale + offset，按指针位置逐图标求值；眼睛用现有 companion 指针位置</li>
+        <li>文件夹：纸片上升 + 前盖下移近似 3D；点击走 Platform <code>OpenExplorer()</code></li>
       </ul>
     </div>
     <div class="glass">
       <p><b>需要真机确认</b></p>
       <ul>
-        <li>磨砂 PNG 在 Composition 上的色偏与暗色底表现</li>
-        <li>328×156 长条 + 154×156 上排卡在 360×512 的比例</li>
-        <li>眼睛在 15×21 尺寸下的可视度/跟随幅度</li>
-        <li>图标卡命中 76×76 ≥44；文件夹卡整块可点</li>
+        <li>40×40 图标在 150% DPI 下的清晰度与命中（整块 40 &lt;44，需透明外扩命中到 44+）</li>
+        <li>Dock 放大时上升 10–14 DIP，不会压到上排卡片</li>
+        <li>磨砂贴图在 Composition 上的色偏</li>
+        <li>眼睛无瞳孔时，2 DIP 跟随是否看得出来</li>
       </ul>
     </div>
   </div>
@@ -265,42 +257,76 @@
   <h2><span class="num">05</span>实施</h2>
   <table>
     <tr><th>阶段</th><th>内容</th><th>验收</th><th>估时</th></tr>
-    <tr><td>P1 首页骨架</td><td>home 页：把手 / 文件夹卡 / 时钟卡 / 长方形导航条；去掉底部 Dock</td><td>0/0 构建；布局按本页；命中达标</td><td>0.5 天</td></tr>
-    <tr><td>P2 动效 + 眼睛</td><td>导航条展开逐张落位；眼睛跟手；文件夹打开；OpenExplorer + 错误条</td><td>展开/收起流畅；瞳孔跟手；点击启动 Explorer</td><td>0.5 天</td></tr>
-    <tr><td>P3 打磨</td><td>磨砂贴图真机校验、键盘/UIA、减少动态、截图、测试</td><td>282+ checks；截图矩阵</td><td>0.5 天</td></tr>
+    <tr><td>P1 首页骨架</td><td>home 页（360×420）：把手 / 文件夹卡 / 时钟卡 / Dock；去掉底部旧 Dock</td><td>0/0 构建；布局按本页；命中 ≥44</td><td>0.5 天</td></tr>
+    <tr><td>P2 Dock 动效</td><td>hover 放大、名称气泡、眼睛跟随、文件夹打开、OpenExplorer</td><td>放大流畅；点击启动 Explorer；减少动态生效</td><td>0.5 天</td></tr>
+    <tr><td>P3 应用图标</td><td>确定常用应用列表；取真实图标或统一 glyph</td><td>图标清晰、不侵权、可配置</td><td>待你定</td></tr>
+    <tr><td>P4 打磨</td><td>键盘/UIA、截图、282+ checks、文档</td><td>0/0 + 测试全过</td><td>0.5 天</td></tr>
   </table>
-  <div class="warn" style="margin-top:10px">范围：不改 native；首页无 Dock；导航条 3 个入口（音乐/小组件/专注）；文件夹固定打开“此电脑”；专注首版可为预览态。</div>
+  <div class="warn" style="margin-top:10px">范围：不改 native；首页 Dock 常驻；应用列表暂用占位图标；文件夹固定打开“此电脑”。</div>
 
   <h2><span class="num">06</span>请 GPT 审查</h2>
   <div class="review">
     <p>每项 1–5 分，标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
     <ol class="q">
-      <li>上排文件夹 + 时钟两张卡、底部一条长方形导航，这个比例和层级舒服吗？</li>
-      <li>导航条拉宽后，从“方形扇形”改成“底部横向依次滑出”，还保留原组件的感觉吗？</li>
-      <li>磨砂玻璃渐变 + 琥珀文件夹，整体会不会太灰/太闷？需要一点彩色点缀吗？</li>
-      <li>眼睛跟随鼠标：瞳孔位移 2.5 DIP 够不够明显？会不会分散注意力？</li>
-      <li>3 个图标入口（音乐/小组件/专注）够不够？要不要把设置也放进来？</li>
+      <li>Dock 尺寸 320×72、图标 40，放在 360×420 首页里比例合适吗？</li>
+      <li>磨砂玻璃 Dock + 40×40 彩色占位图标，像 macOS 还是像 Windows 任务栏？</li>
+      <li>hover 放大 1.5× + 邻居 1.2× 的幅度合适吗？</li>
+      <li>无瞳孔眼睛放在 Dock 最右侧，会不会奇怪？还是应该移回顶部把手/去掉？</li>
+      <li>上排文件夹 + 时钟两张小卡在 Dock 上方，留白是否过多？需要加什么吗？</li>
       <li>最刺眼的一处是什么？给一个最小修改建议。</li>
     </ol>
   </div>
 
   <footer>
-    导航参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT）；文件夹参考 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT）。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
+    Dock 参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT）的玻璃/图标语言；文件夹参考 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT）。本页为 HTML 概念稿，实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
   </footer>
 </div>
 
 <script>
-  const navbar = document.getElementById('navbar');
+  const dock = document.getElementById('dock');
+  const items = [...dock.querySelectorAll('.dock-item')];
   const folderCard = document.querySelector('.folder-card');
-  const eyes = document.getElementById('nav-eyes');
-  const pupils = [...document.querySelectorAll('.pupil')];
+  const eyesWrap = document.getElementById('dock-eyes');
   const toast = document.getElementById('toast');
   const params = new URLSearchParams(location.search || location.hash.slice(1));
   let demoTimer = null;
 
-  // still 模式用于截图：?still=1&nav=open&folder=open
+  // 放大算法：距离越近越大，向上抬升
+  function magnifyAt(clientX){
+    const dockRect = dock.getBoundingClientRect();
+    items.forEach(el => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      let scale = 1;
+      if (clientX !== null && clientX >= dockRect.left - 40 && clientX <= dockRect.right + 40) {
+        const d = Math.abs(clientX - cx);
+        scale = 1 + 0.5 * Math.max(0, 1 - d / 110);
+      }
+      const lift = (scale - 1) * 52;
+      el.style.transform = `translateY(${-lift}px) scale(${scale})`;
+      el.style.zIndex = scale > 1.05 ? 7 : 1;
+    });
+  }
+  dock.addEventListener('mousemove', e => magnifyAt(e.clientX));
+  dock.addEventListener('mouseleave', () => magnifyAt(null));
+
+  // 眼睛：无瞳孔，整体轻微跟随鼠标（≤2px）
+  window.addEventListener('mousemove', e => {
+    const r = eyesWrap.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2);
+    const dy = e.clientY - (r.top + r.height / 2);
+    const len = Math.hypot(dx, dy) || 1;
+    eyesWrap.style.transform = `translate(${dx / len * 2}px, ${dy / len * 2}px)`;
+  });
+  document.addEventListener('mouseleave', () => { eyesWrap.style.transform = 'translate(0,0)'; });
+
+  // still 截图模式：?still=1&mag=3&folder=open
   if (params.has('still')) {
-    if (params.get('nav') === 'open') navbar.classList.add('expanded');
+    const mag = parseInt(params.get('mag') || '-1', 10);
+    if (mag >= 0) {
+      const r = items[mag].getBoundingClientRect();
+      magnifyAt(r.left + r.width / 2);
+    }
     if (params.get('folder') === 'open') folderCard.classList.add('demo-open');
   }
 
@@ -309,46 +335,39 @@
     clearTimeout(showToast._t); showToast._t = setTimeout(()=>toast.classList.remove('on'), 1600);
   }
 
-  // 眼睛跟随鼠标：瞳孔偏移上限 2.5px，离开窗口回中
-  window.addEventListener('mousemove', e => {
-    const r = eyes.getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    const dx = e.clientX - cx, dy = e.clientY - cy;
-    const len = Math.hypot(dx, dy) || 1;
-    const max = 2.5;
-    const ox = dx / len * max, oy = dy / len * max;
-    pupils.forEach(p => { p.style.transform = `translate(${ox}px, ${oy}px)`; });
-  });
-  document.addEventListener('mouseleave', () => pupils.forEach(p => { p.style.transform = 'translate(0,0)'; }));
-
   function playDemo(){
     clearTimeout(demoTimer);
-    navbar.classList.remove('expanded');
     folderCard.classList.remove('demo-open');
-    demoTimer = setTimeout(()=>navbar.classList.add('expanded'), 600);
-    demoTimer = setTimeout(()=>navbar.classList.remove('expanded'), 2800);
-    demoTimer = setTimeout(()=>folderCard.classList.add('demo-open'), 3100);
-    demoTimer = setTimeout(()=>folderCard.classList.remove('demo-open'), 4600);
+    // 鼠标扫过 Dock（1.4s），然后文件夹打开
+    const start = performance.now();
+    const sweep = () => {
+      const t = Math.min(1, (performance.now() - start) / 1400);
+      const dockRect = dock.getBoundingClientRect();
+      magnifyAt(dockRect.left + dockRect.width * t);
+      if (t < 1) requestAnimationFrame(sweep);
+      else magnifyAt(null);
+    };
+    requestAnimationFrame(sweep);
+    demoTimer = setTimeout(()=>folderCard.classList.add('demo-open'), 1800);
+    demoTimer = setTimeout(()=>folderCard.classList.remove('demo-open'), 3300);
   }
   if (!params.has('still')) setTimeout(playDemo, 700);
   document.getElementById('replay').addEventListener('click', playDemo);
   window.playDemo = playDemo;
 
-  navbar.addEventListener('click', e => {
-    if (e.target.closest('.ntile')) return;
-    navbar.classList.toggle('expanded');
-  });
-  document.querySelectorAll('.ntile[data-action]').forEach(tile => {
-    tile.addEventListener('click', e => {
+  items.forEach(item => {
+    item.addEventListener('click', e => {
       e.stopPropagation();
-      const a = tile.dataset.action;
-      if (a === 'music') showToast('进入：音乐');
-      else if (a === 'widgets') showToast('进入：小组件');
-      else showToast('专注：即将推出');
+      const a = item.dataset.action;
+      if (a === 'explorer') showToast('已打开资源管理器（此电脑）');
+      else if (a === 'browser') showToast('打开：浏览器');
+      else if (a === 'terminal') showToast('打开：终端');
+      else if (a === 'music') showToast('进入：音乐');
+      else if (a === 'settings') showToast('进入：设置');
+      else showToast('陪伴：回胶囊');
     });
   });
   folderCard.addEventListener('click', () => showToast('已打开资源管理器（此电脑）'));
-  document.querySelector('.clock-card').addEventListener('click', () => showToast('进入：时钟'));
 </script>
 </body>
 </html>
