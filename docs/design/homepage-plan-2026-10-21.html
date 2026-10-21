@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GlassDesk 首页 v0.7 · 便当格导航 + 文件夹 Dock</title>
+<title>GlassDesk 首页 v0.8 · 应用图标 + 右下角大导航卡 + 文件夹 Dock</title>
 <style>
   :root{
     --bg:#07090d;--ink:#f1f5f9;--ink-2:#a8b3c2;--ink-3:#6b7686;--line:rgba(255,255,255,.09);
-    --r-window:24px;--r-card:22px;--r-dock:20px;--r-pop:20px;--r-tile:12px;--r-big:14px;--r-ico:10px;--r-mini:5px;
+    --r-window:24px;--r-nav:26px;--r-dock:20px;--r-pop:20px;--r-app:14px;--r-popitem:12px;--r-mini:5px;
     --font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
     --mono:"Cascadia Code","Consolas",monospace;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6}
   a{color:#7dd3fc;text-decoration:none}a:hover{text-decoration:underline}
-  .wrap{max-width:1020px;margin:0 auto;padding:40px 30px 72px}
+  .wrap{max-width:1040px;margin:0 auto;padding:38px 30px 70px}
   .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
-  h1{font-size:28px;line-height:1.3;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
-  h2{font-size:18px;margin:36px 0 10px;font-weight:640}
+  h1{font-size:27px;line-height:1.3;margin:10px 0 8px;font-weight:650;letter-spacing:-.01em}
+  h2{font-size:18px;margin:34px 0 10px;font-weight:640}
   h2 .num{color:var(--ink-3);font-family:var(--mono);font-size:12px;margin-right:8px}
   p{margin:6px 0;color:var(--ink-2)}
   ul{padding-left:20px;color:var(--ink-2);margin:6px 0}
@@ -26,60 +26,70 @@
   .chip{font-size:11.5px;color:var(--ink-2);border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:999px;padding:3px 10px}
   .chip b{color:var(--ink);font-weight:600}
   .glass{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+  .brief{border-color:rgba(125,211,252,.22);background:linear-gradient(180deg,rgba(125,211,252,.07),rgba(255,255,255,.012))}
 
   /* device */
-  .stage{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;margin:22px 0 0}
+  .stage{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;margin:20px 0 0}
   .device{width:486px;height:691px;position:relative;flex:none}
-  .device::before{content:"";position:absolute;inset:-34px -80px;z-index:0;pointer-events:none;
-    background:radial-gradient(320px 260px at 24% 0%,rgba(150,180,210,.14),transparent 70%),
-               radial-gradient(300px 240px at 88% 34%,rgba(255,255,255,.05),transparent 72%),
-               radial-gradient(320px 260px at 46% 100%,rgba(120,145,175,.08),transparent 70%);filter:blur(15px)}
+  .device::before{content:"";position:absolute;inset:-32px -70px;z-index:0;pointer-events:none;
+    background:radial-gradient(300px 240px at 24% 0%,rgba(150,180,210,.13),transparent 70%),
+               radial-gradient(280px 220px at 88% 34%,rgba(255,255,255,.05),transparent 72%),
+               radial-gradient(300px 240px at 46% 100%,rgba(120,145,175,.08),transparent 70%);filter:blur(14px)}
   .screen{position:absolute;inset:0;width:360px;height:512px;transform:scale(1.35);transform-origin:top left;
     border-radius:var(--r-window);overflow:hidden;
     background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.18),transparent 55%),
                radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.05),transparent 52%),
                linear-gradient(168deg,#242b35 0%,#161b22 46%,#0b0f14 100%);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 36px 80px rgba(0,0,0,.55)}
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 34px 76px rgba(0,0,0,.55)}
   .screen::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 26%);pointer-events:none}
   .handle{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:58px;height:28px;border-radius:14px;background:#05070a;
     box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:7px;z-index:10}
   .eye{width:5px;height:8px;border-radius:3px;background:linear-gradient(180deg,#f8fafc,#aab4c2)}
+  .state-label{position:absolute;left:50%;transform:translateX(-50%);top:-24px;font-size:11px;color:var(--ink-3);white-space:nowrap}
 
-  /* ① 便当格导航页（按手绘布局：顶 4 个大小不一，左下 2×2，小格，右侧大格跨两行） */
-  .navcard{position:absolute;left:16px;top:56px;width:328px;height:292px;border-radius:var(--r-card);z-index:4;overflow:hidden;
+  /* 应用图标：无外框，统一 52×52 + 标签 */
+  .apps{position:absolute;left:22px;top:62px;display:grid;grid-template-columns:repeat(3,72px);gap:24px 18px;z-index:2}
+  .app{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer}
+  .app .ico{width:52px;height:52px;border-radius:var(--r-app);display:flex;align-items:center;justify-content:center;color:#fff;
+    font-size:23px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 6px 14px rgba(0,0,0,.22);
+    transition:transform .16s ease}
+  .app:hover .ico{transform:translateY(-2px) scale(1.04)}
+  .app .nm{font-size:9.5px;color:var(--ink-2)}
+
+  /* 右下角大卡片 = 导航页（massive-insect-5 缩小到 152×152） */
+  .navcard{position:absolute;left:186px;top:268px;width:152px;height:152px;border-radius:var(--r-nav);z-index:4;overflow:hidden;cursor:pointer;
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.20);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 16px 38px rgba(0,0,0,.36);
-    backdrop-filter:blur(18px) saturate(120%)}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 16px 34px rgba(0,0,0,.38);
+    backdrop-filter:blur(18px) saturate(120%);
+    transition:transform .5s cubic-bezier(.2,.7,.3,1),border-color .3s}
+  .navcard:hover,.navcard.expanded{transform:scale(1.06);border-color:rgba(255,255,255,.30)}
   .nav-bg{position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(130% 120% at 100% 110%,rgba(255,255,255,.60) 0%,rgba(222,234,246,.28) 34%,rgba(170,192,215,.14) 64%,rgba(110,132,160,.08) 100%),
-               linear-gradient(120deg,rgba(255,255,255,.13),rgba(255,255,255,.02) 62%)}
-  .nav-head{position:absolute;left:16px;top:12px;right:16px;display:flex;align-items:center;justify-content:space-between;z-index:3}
-  .nav-title{font-size:9.5px;letter-spacing:.16em;color:var(--ink-3)}
-  .nav-eyes{display:flex;gap:5px;transition:transform .12s ease-out}
+    background:radial-gradient(circle at 100% 107%,rgba(255,255,255,.70) 0%,rgba(224,236,248,.34) 30%,rgba(170,192,215,.18) 60%,rgba(110,132,160,.10) 100%),
+               linear-gradient(140deg,rgba(255,255,255,.18),rgba(255,255,255,.02) 58%)}
+  .nav-eyes{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;z-index:7;
+    transition:all .6s cubic-bezier(.4,0,.2,1)}
+  .nav-eyes .eye{width:6px;height:9px;border-radius:3px}
+  .navcard:hover .nav-eyes,.navcard.expanded .nav-eyes{left:auto;right:14px;top:auto;bottom:14px;transform:none}
+  .nb{position:absolute;padding:8px;text-align:right;
+    background:rgba(255,255,255,.32);border-top:2px solid rgba(255,255,255,.92);border-right:1px solid rgba(255,255,255,.62);
+    border-radius:10% 13% 42% 0%/10% 12% 75% 0%;
+    box-shadow:rgba(20,32,46,.30) -6px 6px 22px 0;transform-origin:bottom left;transition:all .9s ease-in-out}
+  .nb svg{width:18px;height:18px;fill:#fff;filter:drop-shadow(0 1px 2px rgba(20,40,70,.25))}
+  .nb1{width:70%;height:70%;bottom:-70%;left:-70%}
+  .nb2{width:50%;height:50%;bottom:-50%;left:-50%;transition-delay:.2s}
+  .nb3{width:30%;height:30%;bottom:-30%;left:-30%;transition-delay:.4s}
+  .nb4{width:10%;height:10%;bottom:-10%;left:-10%;transition-delay:.6s;background:rgba(255,255,255,.22)}
+  .navcard:hover .nb,.navcard.expanded .nb{bottom:-1px;left:-1px}
+  .nav-tip{position:absolute;left:10px;bottom:9px;font-size:8px;color:rgba(255,255,255,.55);z-index:6;opacity:0;transition:.3s}
+  .navcard:hover .nav-tip,.navcard.expanded .nav-tip{opacity:1}
 
-  .bento{position:absolute;left:14px;right:14px;top:36px;height:246px;display:grid;z-index:2;
-    grid-template-columns:.95fr .95fr 1.35fr .75fr;grid-template-rows:60px 60px 60px;gap:8px}
-  .btile{border-radius:var(--r-tile);background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.03));
-    border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    cursor:pointer;transition:background .18s,transform .18s,border-color .18s}
-  .btile:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22);transform:translateY(-1px)}
-  .btile .ico{width:28px;height:28px;border-radius:var(--r-ico);display:flex;align-items:center;justify-content:center;color:#fff;
-    font-size:14px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.28)}
-  .btile .nm{font-size:8px;color:var(--ink-2);max-width:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .btile.big{grid-column:3/5;grid-row:2/4;border-radius:var(--r-big);align-items:flex-start;justify-content:center;padding:16px;gap:2px;
-    background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.02));border-color:rgba(255,255,255,.18)}
-  .btile.big .cap{font-size:9px;letter-spacing:.14em;color:var(--ink-3)}
-  .btile.big .time{font-size:34px;line-height:1;font-weight:600;letter-spacing:-.03em;color:#f8fafc;font-variant-numeric:tabular-nums;margin-top:4px}
-  .btile.big .date{font-size:9px;color:var(--ink-2);margin-top:6px}
-  .btile.big .hint{font-size:8px;color:var(--ink-3);margin-top:10px}
-
-  /* ② Dock：只放文件夹，文件夹用 mighty-pig-13 的 3D 动画缩小 */
+  /* 底部 Dock：只放文件夹 */
   .dock{position:absolute;left:20px;top:440px;width:320px;height:56px;border-radius:var(--r-dock);z-index:8;
     display:flex;align-items:center;justify-content:center;gap:12px;
     background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.20);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 14px 32px rgba(0,0,0,.42);
     backdrop-filter:blur(18px) saturate(130%)}
-  .dock-folder{position:relative;width:44px;height:44px;border-radius:var(--r-tile);flex:none;cursor:pointer;
+  .dock-folder{position:relative;width:44px;height:44px;border-radius:12px;flex:none;cursor:pointer;
     display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
     transition:transform .12s cubic-bezier(.2,.7,.3,1),background .18s}
   .dock-folder:hover{transform:translateY(-3px) scale(1.08);background:rgba(255,255,255,.10)}
@@ -87,8 +97,6 @@
     background:rgba(10,14,20,.92);color:#e2e8f0;font-size:9px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px;
     white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:12}
   .dock-folder:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  /* 缩小版 3D 文件夹（mighty-pig-13 结构） */
   .mini-folder{position:relative;width:34px;height:24px;perspective:120px;pointer-events:none}
   .mini-folder .m5{position:absolute;inset:0;background:#d97706;border-radius:var(--r-mini);transform-origin:top;transition:all .3s ease}
   .mini-folder .m5::after{content:"";position:absolute;bottom:100%;left:0;width:14px;height:4px;background:#d97706;border-radius:4px 4px 0 0}
@@ -103,8 +111,8 @@
   .dock-folder:hover .m2,.dock-folder.demo-open .m2{transform:rotateX(-38deg)}
   .dock-folder:hover .m1,.dock-folder.demo-open .m1{transform:rotateX(-46deg) translateY(1px);box-shadow:inset 0 8px 14px #fbbf24,inset 0 -8px 14px #d97706}
 
-  /* ③ 文件夹内容气泡（图1效果） */
-  .popover{position:absolute;left:32px;top:262px;width:296px;height:166px;border-radius:var(--r-pop);z-index:14;
+  /* 文件夹内容气泡 */
+  .popover{position:absolute;left:32px;top:252px;width:296px;height:166px;border-radius:var(--r-pop);z-index:14;
     background:rgba(20,26,34,.94);border:1px solid rgba(255,255,255,.16);
     box-shadow:0 22px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
     backdrop-filter:blur(18px);
@@ -115,7 +123,7 @@
     border-right:1px solid rgba(255,255,255,.16);border-bottom:1px solid rgba(255,255,255,.16);transform:translateX(-50%) rotate(45deg)}
   .pop-title{position:absolute;left:0;right:0;top:9px;text-align:center;font-size:10.5px;color:var(--ink-2)}
   .pop-items{position:absolute;left:14px;right:14px;top:30px;display:flex;gap:10px;justify-content:space-between}
-  .pf{width:60px;height:86px;border-radius:var(--r-tile);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  .pf{width:60px;height:86px;border-radius:var(--r-popitem);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
     background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);cursor:pointer;transition:.18s}
   .pf:hover{background:rgba(255,255,255,.11);transform:translateY(-2px)}
   .pf .doc{width:24px;height:30px;border-radius:3px;background:#f8fafc;position:relative;box-shadow:0 2px 6px rgba(0,0,0,.25)}
@@ -128,7 +136,6 @@
   .toast{position:absolute;left:50%;bottom:492px;transform:translate(-50%,10px);background:rgba(8,11,16,.92);border:1px solid var(--line);
     color:#e2e8f0;font-size:9.5px;border-radius:999px;padding:5px 12px;opacity:0;transition:.24s;z-index:16;white-space:nowrap}
   .toast.on{opacity:1;transform:translate(-50%,0)}
-  .state-label{position:absolute;left:50%;transform:translateX(-50%);top:-24px;font-size:11px;color:var(--ink-3);white-space:nowrap}
   .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:26px}
   .replay{margin-left:10px;font:inherit;font-size:11px;color:#e2e8f0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);
     border-radius:999px;padding:2px 10px;cursor:pointer}
@@ -146,53 +153,45 @@
   .q li{counter-increment:q;position:relative;padding:7px 0 7px 30px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:13.5px;color:var(--ink-2)}
   .q li:last-child{border-bottom:none}
   .q li::before{content:"Q" counter(q);position:absolute;left:0;top:8px;font-family:var(--mono);font-size:10px;color:#cbd5e1;border:1px solid rgba(255,255,255,.25);border-radius:5px;padding:0 4px}
-  footer{margin-top:40px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
-  .warn{border-left:2px solid rgba(255,255,255,.35);padding:9px 14px;background:rgba(255,255,255,.04);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink-2)}
+  footer{margin-top:38px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">GlassDesk · Home v0.7 · 便当格导航 + 文件夹 Dock</div>
-  <h1>首页：大小不一的便当格导航，底部只放文件夹</h1>
-  <p>导航页按你的手绘布局：顶部 4 个大小不一的格子，左下 2×2 小格，右侧一个大格跨两行（大格当时钟）；不需要铺满。底部 Dock 只放文件夹，文件夹是 mighty-pig-13 的 5 层 3D 文件夹缩小版，hover 打开、点击弹出内容气泡，再点开资源管理器。圆角统一阶梯。</p>
+  <div class="eyebrow">GlassDesk · Home v0.8 · 修正版</div>
+  <h1>首页：少量应用图标 + 右下角大卡片是导航页 + 底部分文件夹 Dock</h1>
+  <p>右下角那张大的是<b>导航页</b>（massive-insect-5），不是时钟；应用图标统一大小、没有外框、可以留空；底部 Dock 只放文件夹。</p>
   <div class="meta">
-    <span class="chip">导航页 <b>便当格（大小不一）</b></span>
+    <span class="chip">右下角 <b>导航页（massive-insect-5）</b></span>
+    <span class="chip">应用图标 <b>统一大小 · 无外框</b></span>
+    <span class="chip">留白 <b>不占满</b></span>
     <span class="chip">Dock <b>只放文件夹</b></span>
-    <span class="chip">文件夹 <b>3D 动画缩到 Dock 大小</b></span>
-    <span class="chip">圆角 <b>统一阶梯</b></span>
   </div>
 
   <div class="stage">
-    <!-- 状态 A：默认 -->
+    <!-- 状态 A：导航卡 hover 展开 -->
     <div class="device">
-      <div class="state-label">状态 A · 便当格导航 + 文件夹 Dock</div>
+      <div class="state-label">状态 A · 导航卡 hover（4 个导航格展开）</div>
       <div class="screen">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
-        <div class="navcard">
+        <div class="apps">
+          <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
+          <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
+          <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
+          <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
+          <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
+          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
+        </div>
+
+        <div class="navcard expanded" id="navA">
           <div class="nav-bg"></div>
-          <div class="nav-head">
-            <span class="nav-title">导航</span>
-            <span class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></span>
-          </div>
-          <div class="bento">
-            <div class="btile" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
-            <div class="btile" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
-            <div class="btile" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
-            <div class="btile" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
-
-            <div class="btile" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-            <div class="btile" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
-            <div class="btile big" data-app="时钟">
-              <span class="cap">时钟</span>
-              <span class="time">09:41</span>
-              <span class="date">10月21日 星期三</span>
-              <span class="hint">时间与日期</span>
-            </div>
-
-            <div class="btile" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
-            <div class="btile" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-          </div>
+          <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
+          <div class="nb nb1" title="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
+          <div class="nb nb2" title="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
+          <div class="nb nb3" title="时钟"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="nb nb4"></div>
+          <div class="nav-tip">导航</div>
         </div>
 
         <div class="dock">
@@ -212,32 +211,26 @@
 
     <!-- 状态 B：文件夹 hover 打开 + 内容气泡 -->
     <div class="device">
-      <div class="state-label">状态 B · 文件夹打开 → 内容气泡</div>
+      <div class="state-label">状态 B · 文件夹 3D 打开 → 内容气泡</div>
       <div class="screen">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
-        <div class="navcard">
+        <div class="apps">
+          <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
+          <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
+          <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
+          <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
+          <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
+          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
+        </div>
+
+        <div class="navcard" id="navB">
           <div class="nav-bg"></div>
-          <div class="nav-head">
-            <span class="nav-title">导航</span>
-            <span class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></span>
-          </div>
-          <div class="bento">
-            <div class="btile" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
-            <div class="btile" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
-            <div class="btile" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
-            <div class="btile" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
-            <div class="btile" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-            <div class="btile" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
-            <div class="btile big" data-app="时钟">
-              <span class="cap">时钟</span>
-              <span class="time">09:41</span>
-              <span class="date">10月21日 星期三</span>
-              <span class="hint">时间与日期</span>
-            </div>
-            <div class="btile" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
-            <div class="btile" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-          </div>
+          <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
+          <div class="nb nb1"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
+          <div class="nb nb2"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
+          <div class="nb nb3"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="nb nb4"></div>
         </div>
 
         <div class="popover open" id="popB">
@@ -266,104 +259,100 @@
     </div>
   </div>
 
-  <div class="caption">状态 A：便当格导航 + Dock；状态 B：hover 文件夹（3D 打开）→ 内容气泡 → 点条目打开资源管理器。<button class="replay" id="replay">重播动效</button></div>
+  <div class="caption">状态 A：导航卡 hover 展开（音乐/小组件/时钟 + 1 个装饰格）；状态 B：Dock 文件夹 3D 打开 → 内容气泡 → 再点打开资源管理器。<button class="replay" id="replay">重播动效</button></div>
 
-  <h2><span class="num">01</span>布局（按你最后一张手绘图）</h2>
+  <h2><span class="num">00</span>给 GPT 的上下文（复制这段 + 截图一起发）</h2>
+  <div class="glass brief">
+    <p><b>项目：</b>GlassDesk，一个 Windows 桌面陪伴应用（WinUI 3 + 自绘 Composition UI，非网页/非 XAML）。</p>
+    <p><b>本次任务：</b>重做「首页」= 大展开后的第一页。</p>
+    <p><b>用户明确要求：</b></p>
+    <ul>
+      <li>右下角大卡片是<b>导航页</b>，用 massive-insect-5 那个组件（玻璃卡 + 眼睛 + hover 展开的 4 个格子）；不是时钟。</li>
+      <li>其余是常用应用图标：<b>统一大小、无外框、可以留空、不要求占满</b>。</li>
+      <li>底部 Dock <b>只放文件夹</b>；文件夹用之前给的 3D 文件夹动画缩小；点击展开文件夹内容气泡（如图 1），再点打开资源管理器。</li>
+      <li>动画要有；圆角要统一；不要一层又一层的框。</li>
+    </ul>
+    <p><b>请 GPT 重点审：</b>层级与比例是否清楚、留白是否舒服、应用图标与导航卡是否抢、Dock/气泡是否像 macOS、圆角/间距/字体是否统一，以及一张截图里最刺眼的一处。</p>
+  </div>
+
+  <h2><span class="num">01</span>布局</h2>
   <table>
-    <tr><th>区域</th><th>结构</th></tr>
-    <tr><td>导航页（上方玻璃卡）</td><td>顶部一行 4 个<b>大小不一</b>的格子；左下 2×2 小格；右侧一个大格<b>跨两行</b>（大格 = 时钟）。格子不必铺满整个区域，尺寸/间距按内容来。</td></tr>
-    <tr><td>应用位</td><td>小格：图标 28×28 + 名称 8px；大格：时钟 09:41 + 日期，占 2 列 × 2 行</td></tr>
-    <tr><td>Dock（底部）</td><td><b>只放文件夹</b>（当前示例 crucial / 项目 / 下载，路径在设置里指定）；文件夹图标是 3D 文件夹的缩小版</td></tr>
-    <tr><td>文件夹气泡</td><td>点击 Dock 文件夹 → 上方弹出内容（标题 + 3 个文件 + 在文件中打开）；点条目打开资源管理器；再次点击关闭</td></tr>
+    <tr><th>区域</th><th>说明</th></tr>
+    <tr><td>应用图标（左上区域）</td><td>6 个示例应用，图标统一 52×52、标签 9.5px、无外框；3 列 × 2 行，间距 18/24；右侧和下方留空（不占满）</td></tr>
+    <tr><td><b>导航页</b>（右下角大卡）</td><td>massive-insect-5 缩小到 152×152：收起只剩眼睛；hover 时 4 个格子（70/50/30/10%，延迟 0.2/0.4/0.6s）滑入左下角，眼睛移到右下角，卡片放大 1.06；3 个图标 = 音乐 / 小组件 / 时钟，第 4 个留空装饰</td></tr>
+    <tr><td>Dock（底部）</td><td>只放文件夹（示例 crucial / 项目 / 下载，路径在设置里指定）；文件夹是 34×24 的 5 层 3D 文件夹缩小版</td></tr>
+    <tr><td>文件夹气泡</td><td>点击 Dock 文件夹 → 上方弹出：标题 + 最多 3 个文件预览 + 「在文件中打开」；再点关闭；点条目打开资源管理器</td></tr>
   </table>
 
-  <h2><span class="num">02</span>文件夹动画（缩到 Dock 尺寸）</h2>
+  <h2><span class="num">02</span>格式统一</h2>
   <div class="cols">
     <div class="glass">
-      <p><b>用你给的 mighty-pig-13 结构缩小</b></p>
+      <p><b>只有三层容器有“框”</b></p>
       <ul>
-        <li>Dock 图标里是 34×24 的 5 层文件夹：后壳 + 3 张纸 + 前盖</li>
-        <li>hover：前盖 <code>rotateX(-46°)</code> 打开，纸片 -20/-30/-38° 依次升起，内阴影加深</li>
-        <li>点击：在 Dock 上方弹出内容气泡（图 1 效果）</li>
+        <li>导航卡（152×152，圆角 26）</li>
+        <li>Dock（320×56，圆角 20）</li>
+        <li>文件夹气泡（296×166，圆角 20）</li>
+        <li>其余（应用图标、气泡条目、导航格）都是无边框的填充面/图标，不再套框</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>气泡再点一次</b></p>
+      <p><b>统一规则</b></p>
       <ul>
-        <li>点文件条目 → 在资源管理器中定位该文件；点「在文件中打开」→ 打开该文件夹</li>
-        <li>气泡 0.26s：0.94 / +6 DIP / 透明 → 1；箭头指向 Dock 文件夹</li>
-        <li>Esc / 点击外部关闭；键盘 Tab 可顺序访问</li>
+        <li>图标 52×52，圆角 14；标签 9.5px、颜色 <code>#A8B3C2</code></li>
+        <li>应用网格：列 72、行间距 24、列间距 18；不强行铺满</li>
+        <li>圆角阶梯：24 / 26 / 20 / 14 / 12 / 5</li>
+        <li>间距只用 4 的倍数（8/12/16/18/24）</li>
       </ul>
     </div>
   </div>
 
-  <h2><span class="num">03</span>统一圆角</h2>
-  <table>
-    <tr><th>元素</th><th>圆角</th><th>说明</th></tr>
-    <tr><td>窗口</td><td><b>24</b></td><td>最外层</td></tr>
-    <tr><td>导航页卡</td><td><b>22</b></td><td>大卡片</td></tr>
-    <tr><td>Dock / 文件夹气泡</td><td><b>20</b></td><td>第二层</td></tr>
-    <tr><td>大格</td><td><b>14</b></td><td>便当格里的主格</td></tr>
-    <tr><td>小格 / Dock 文件夹按钮 / 气泡条目</td><td><b>12</b></td><td>内层</td></tr>
-    <tr><td>图标内圆角 / 小文件夹</td><td><b>10 / 5</b></td><td>递减</td></tr>
-  </table>
-  <p class="muted" style="font-size:12px">规则：24 → 22 → 20 → 14 → 12 → 10 → 5，内层 ≈ 外层 − 内边距。</p>
-
-  <h2><span class="num">04</span>动效 / 鼠标跟随</h2>
+  <h2><span class="num">03</span>动效</h2>
   <table>
     <tr><th>项</th><th>规则</th></tr>
-    <tr><td>导航格 hover</td><td>上移 1 DIP + 白底 10% + 边框变亮，0.18s</td></tr>
-    <tr><td>Dock 文件夹 hover</td><td>整块上移 3 DIP + 放大 1.08，同时 3D 文件夹打开，0.3s</td></tr>
-    <tr><td>文件夹气泡</td><td>0.26s 弹出（见 02）；关闭反向</td></tr>
-    <tr><td>眼睛</td><td>无瞳孔；两只眼睛整体跟随鼠标 ≤2 DIP</td></tr>
-    <tr><td>减少动态</td><td>旋转/位移直接完成，只保留透明度</td></tr>
+    <tr><td>导航卡 hover</td><td>4 个格子 0.9s 滑入（70/50/30/10%，延迟 0.2/0.4/0.6s）；眼睛移到右下；卡片 scale 1.06</td></tr>
+    <tr><td>应用图标 hover</td><td>上移 2 + 放大 1.04，0.16s</td></tr>
+    <tr><td>Dock 文件夹 hover</td><td>整块上移 3 + 放大 1.08，同时 3D 文件夹打开（前盖 -46°，纸片 -20/-30/-38°，0.3s）</td></tr>
+    <tr><td>文件夹气泡</td><td>0.26s：0.94 / +6 DIP / 透明 → 1；箭头指向文件夹；关闭反向</td></tr>
+    <tr><td>眼睛</td><td>无瞳孔，两只整体跟随鼠标 ≤2 DIP</td></tr>
+    <tr><td>减少动态</td><td>位移/缩放/旋转直接完成，只保留透明度</td></tr>
   </table>
 
-  <h2><span class="num">05</span>技术落地（不改 native）</h2>
+  <h2><span class="num">04</span>技术 / 实施</h2>
   <div class="cols">
     <div class="glass">
       <ul>
-        <li>便当格：Core 里定义 4 列不等宽轨道 + 大格跨 2 行/2 列的矩形表；App 侧按矩形绘制</li>
-        <li>Dock 文件夹：设置里存 3–4 个路径（settings.json 新字段），启动校验；点击时枚举目录（最多 4 项）</li>
-        <li>3D 文件夹：自绘管线用「前盖下移 + 纸片上升 + 顶部内阴影」近似 rotateX；尺寸 34×24</li>
-        <li>气泡 / 打开资源管理器：Platform 加 <code>OpenExplorer(path)</code>（ShellExecute <code>explorer.exe</code>），只读目录</li>
+        <li>应用网格：Core 定义 52×52 图标 + 72/18/24 间距常量，按实际数量排布（少了就留空）</li>
+        <li>导航卡：自绘 152×152 玻璃卡 + 4 个 70/50/30/10% 方块的 offset 动画；眼睛用现有 companion 指针位置</li>
+        <li>Dock 文件夹：设置里存 3 个路径（settings.json 新字段）；点击时枚举目录最多 3 项</li>
+        <li>打开资源管理器：Platform 新增 <code>OpenExplorer(path)</code>（ShellExecute explorer.exe）</li>
+        <li>不改 native；渐变/磨砂用预烘焙 PNG 或半透明叠加近似</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>需要真机确认</b></p>
+      <p><b>阶段</b></p>
       <ul>
-        <li>便当格不等宽在 360 DIP 下是否显得碎；大格 2×2 的比例</li>
-        <li>34×24 文件夹在 44 命中区内放大后的清晰度</li>
-        <li>文件夹枚举权限/路径不存在 → 当前页错误条</li>
-        <li>气泡与 Dock、导航卡底部的层叠关系</li>
+        <li>P1：首页 360×512，应用图标网格 + 右下导航卡 + 底部 Dock（占位路径）</li>
+        <li>P2：Dock 文件夹 3D 动画、设置路径、内容气泡、打开资源管理器</li>
+        <li>P3：眼睛跟随、hover 反馈、键盘/UIA、减少动态、截图与测试</li>
       </ul>
     </div>
   </div>
 
-  <h2><span class="num">06</span>实施</h2>
-  <table>
-    <tr><th>阶段</th><th>内容</th><th>验收</th><th>估时</th></tr>
-    <tr><td>P1 首页骨架</td><td>360×512 home：便当格导航（9 格，大格时钟）+ Dock 文件夹（占位路径）</td><td>0/0 构建；布局/圆角按本页；命中 ≥44</td><td>0.5 天</td></tr>
-    <tr><td>P2 文件夹交互</td><td>设置里配文件夹；Dock 文件夹 3D 打开；内容气泡；条目/「在文件中打开」→ Explorer</td><td>可配 3 个路径；动画/气泡正确；打开路径正确</td><td>0.5–1 天</td></tr>
-    <tr><td>P3 打磨</td><td>眼睛跟随、hover 反馈、键盘/UIA、减少动态、截图、测试</td><td>动效流畅；282+ checks</td><td>0.5 天</td></tr>
-  </table>
-  <div class="warn" style="margin-top:10px">范围：不改 native；导航页大小不一的格（9 格，含 1 个大格）；Dock 只放文件夹；文件夹路径“设置指定”。</div>
-
-  <h2><span class="num">07</span>请 GPT 审查</h2>
+  <h2><span class="num">05</span>请 GPT 审查</h2>
   <div class="review">
     <p>每项 1–5 分，标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
     <ol class="q">
-      <li>便当格布局（顶部 4 个不等宽、左下 2×2、右侧大格跨两行）像不像手绘图？比例舒服吗？</li>
-      <li>大格当时钟（09:41 + 日期）合适吗？还是应该放别的（音乐/文件夹预览）？</li>
-      <li>Dock 只放 3 个文件夹，用 3D 文件夹缩小版，视觉上够不够、会不会太小？</li>
-      <li>文件夹「hover 3D 打开 → 点击内容气泡 → 再点打开资源管理器」这个节奏顺吗？</li>
-      <li>统一圆角 24/22/20/14/12/10/5 的阶梯自然吗？</li>
+      <li>6 个应用图标（统一大小、无外框）+ 右下角导航卡，这个层级和留白舒服吗？</li>
+      <li>导航卡放右下角、152×152，比例和重量对吗？会不会太小/太抢？</li>
+      <li>应用图标没有外框，会不会太散？需要一点底色/分组吗？</li>
+      <li>Dock 只放 3 个文件夹（3D 图标），会不会太空？</li>
+      <li>统一圆角/间距/字号后，整体是否“统一”了？还有哪些地方不齐？</li>
       <li>最刺眼的一处是什么？给一个最小修改建议。</li>
     </ol>
   </div>
 
   <footer>
-    导航页沿用 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT）的玻璃卡/眼睛语言；文件夹动画来自 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT），缩放到 Dock 尺寸。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 05 节。仓库：<code>ui/final</code>。
+    导航卡参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT），缩放到 152×152；文件夹动画来自 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT），缩放到 34×24。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
   </footer>
 </div>
 
@@ -387,15 +376,16 @@
     document.querySelectorAll('[data-eyes]').forEach(eyes => eyes.style.transform = 'translate(0,0)');
   });
 
-  // 导航格点击
-  document.querySelectorAll('.btile').forEach(tile => {
-    tile.addEventListener('click', () => {
-      const name = tile.dataset.app || '';
-      showToast('进入：' + name);
+  document.querySelectorAll('.app').forEach(app => {
+    app.addEventListener('click', () => showToast('进入：' + (app.dataset.app || '')));
+  });
+  document.querySelectorAll('.navcard .nb').forEach(box => {
+    box.addEventListener('click', e => {
+      e.stopPropagation();
+      showToast('导航：' + (box.getAttribute('title') || ''));
     });
   });
 
-  // Dock 文件夹：点击展开/关闭气泡
   document.querySelectorAll('.dock-folder').forEach(folder => {
     folder.addEventListener('click', e => {
       e.stopPropagation();
@@ -412,9 +402,7 @@
     });
   });
   document.querySelectorAll('.pf').forEach(item => {
-    item.addEventListener('click', () => {
-      showToast('在资源管理器中打开：' + (item.dataset.open || ''));
-    });
+    item.addEventListener('click', () => showToast('在资源管理器中打开：' + (item.dataset.open || '')));
   });
 
   function showToast(text){
@@ -436,9 +424,7 @@
   if (!params.has('still')) setTimeout(playDemo, 700);
   document.getElementById('replay').addEventListener('click', playDemo);
 
-  if (params.get('still') === '2') {
-    document.getElementById('popB')?.classList.remove('open');
-  }
+  if (params.get('still') === '2') document.getElementById('popB')?.classList.remove('open');
 </script>
 </body>
 </html>
