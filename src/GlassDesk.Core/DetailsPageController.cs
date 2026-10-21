@@ -3,15 +3,15 @@ namespace GlassDesk.Core;
 /// <summary>The real page is independent of the five-slot visual preview selection.</summary>
 public sealed class DetailsPageController
 {
-    public const string Music="music", Widgets="widgets";
-    readonly Dictionary<string,float> _scroll=new(StringComparer.Ordinal) { [Music]=0,[Widgets]=0 };
+    public const string Home="home", Music="music", Widgets="widgets";
+    readonly Dictionary<string,float> _scroll=new(StringComparer.Ordinal) { [Home]=0,[Music]=0,[Widgets]=0 };
     public string CurrentPageId {get;private set;}
     public long Generation {get;private set;}
     public bool SavePending {get;private set;}
     public event Action<string>? PageChanged;
     public DetailsPageController(WidgetPreferences preferences)
         =>CurrentPageId=preferences.Version<4?Music:Normalize(preferences.LastDetailsPageId);
-    public static string Normalize(string? id)=>id is Widgets?Widgets:Music;
+    public static string Normalize(string? id)=>id is Home or Widgets? id! : Music;
     public bool Select(string? id)
     {
         string next=Normalize(id);

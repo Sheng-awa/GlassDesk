@@ -123,5 +123,6 @@ OutsidePointerChecks.Run(Check);
 ClockStructuredChecks.Run(Check);
 HiddenWidgetChecks.Run(Check);
 CompactLayoutChecks.Run(Check);
+HomeLayoutChecks.Run(Check);
 
 Console.WriteLine($"{checks} checks passed.");

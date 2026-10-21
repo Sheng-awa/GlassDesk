@@ -76,6 +76,9 @@ internal sealed class DetailsChromeVisual : IDisposable
     int _hoverIndex = -1;
     bool _hoverHome, _pressedHome, _active, _reducedMotion, _disposed;
     bool _lightInk;
+    // The home page owns the bottom strip with its folder dock, so the five-slot chrome
+    // dock is hidden (and removed from hit-testing/accessibility) while it is shown.
+    bool _dockVisible = true;
     uint _homeColor = 0xff202329;
     int _pressedIndex = -1;
     float _width = 360, _height = 476;
@@ -268,7 +271,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         _ = now;
         bool homeHover = DetailsChromeLayout.HomeHit(Size).Contains(x, y);
         int hover = -1;
-        if (!homeHover)
+        if (!homeHover && _dockVisible)
             for (int index = 0; index < DetailsDockItems.All.Count; index++)
                 if (DetailsChromeLayout.DockItem(Size, index).Contains(x, y)) { hover = index; break; }
         if (homeHover == _hoverHome && hover == _hoverIndex) return;
@@ -290,6 +293,7 @@ internal sealed class DetailsChromeVisual : IDisposable
     {
         if (_disposed || !_active) return -1;
         if (DetailsChromeLayout.HomeHit(Size).Contains(x, y)) return WidgetActions.Close;
+        if (!_dockVisible) return -1;
         for (int index = 0; index < DetailsDockItems.All.Count; index++)
             if (DetailsChromeLayout.DockItem(Size, index).Contains(x, y)) return WidgetActions.DockFirst + index;
         return -1;
@@ -302,6 +306,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         if (actionId == WidgetActions.Close) return false;
         int index = actionId - WidgetActions.DockFirst;
         if (index is < 0 or > 4) return false;
+        if (!_dockVisible) return false;
         _ = now;
         var entry = DetailsDockItems.All[index];
         if (entry.IsPage)
@@ -326,6 +331,24 @@ internal sealed class DetailsChromeVisual : IDisposable
         _selectedIndex = DetailsDockItems.IndexOf(normalized);
         _previewIndex = -1;
         PresentSelection();
+    }
+
+    /// <summary>Hides the five-slot chrome dock on the Home page without touching the handle.</summary>
+    public void SetDockVisible(bool visible)
+    {
+        if (_disposed || _dockVisible == visible) return;
+        _dockVisible = visible;
+        _dock.IsVisible = visible;
+        _dockIcons.IsVisible = visible;
+        _dockActive.IsVisible = visible;
+        _dockLabel.IsVisible = visible;
+        _press.IsVisible = visible;
+        if (visible) return;
+        _hoverIndex = -1;
+        _pressedIndex = -1;
+        _dockLabel.Opacity = 0;
+        _press.Opacity = 0;
+        Present();
     }
 
     public void Tick(double now)
@@ -372,6 +395,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         var controls = new List<AccessibleControl>(1 + DetailsDockItems.All.Count);
         FloatRect home = DetailsChromeLayout.HomeHit(Size);
         controls.Add(new(WidgetActions.Close, "回首页（陪伴）", home.X, home.Y, home.Width, home.Height));
+        if (!_dockVisible) return controls;
         for (int index = 0; index < DetailsDockItems.All.Count; index++)
         {
             var entry = DetailsDockItems.All[index];

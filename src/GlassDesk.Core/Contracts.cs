@@ -84,4 +84,10 @@ public static class WidgetActions
     public const int NavigationShell=99,NavigationFirst=100,CompanionReveal=110;
     // Details dock destinations (append only): 120..124 = music/widgets/clock/focus/notes.
     public const int DockFirst=120;
+    // Home page actions (append only): external shortcuts, navigation entries, folder dock.
+    public const int HomeAppFirst=300, HomeAppCount=6;
+    public const int HomeNavToggle=320, HomeNavFirst=321, HomeNavCount=3;
+    public const int HomeFolderFirst=330, HomeFolderCount=3;
+    public const int HomePreviewFirst=340, HomePreviewCount=3;
+    public const int HomeOpenFolder=350, HomeClosePopover=351;
 }

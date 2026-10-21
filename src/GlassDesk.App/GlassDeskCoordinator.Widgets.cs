@@ -1,3 +1,4 @@
+using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -22,6 +23,7 @@ internal sealed partial class GlassDeskCoordinator
     bool boardReady, boardAddMenu, widgetRefreshQueued;
     long boardRevision;
     int boardPressedAction = -1;
+    int homePressedAction = -1;
     string? boardDragInstance;
     WidgetInstance? boardUndoHidden;
     int boardUndoHiddenIndex = -1;
@@ -56,7 +58,10 @@ internal sealed partial class GlassDeskCoordinator
         float width=Math.Clamp(controller.Monitor.WorkArea.Width/controller.Monitor.Scale,64,360);
         var presented=WidgetBoardData.TimeOnlyForPresentation(state);
         // The widget page follows its content; the dock inset is included so cards stay clear.
-        float? height=pages.CurrentPageId==DetailsPageController.Widgets
+        // The Home page uses the reviewed 360x512 canvas; the music page follows media.
+        float? height=pages.CurrentPageId==DetailsPageController.Home
+            ?Math.Clamp(HomeLayout.Height,WidgetScene.MinimumBoardPageHeight,512)
+            :pages.CurrentPageId==DetailsPageController.Widgets
             ?Math.Clamp(WidgetBoardLayout.Pack(presented,width).ContentBottom + WidgetBoardLayout.BottomInset,
                 WidgetScene.MinimumBoardPageHeight,512):null;
         controller.SetDetailsPageHeight(height,Now);
@@ -120,7 +125,7 @@ internal sealed partial class GlassDeskCoordinator
         CommitBoardOnLeave();
         Preferences=pages.ApplyTo(Preferences);
         pageSaveTimer.Stop();pageSaveTimer.Start();
-        Render();WakeMotion();Changed?.Invoke();
+        Render();ScheduleTextTone();WakeMotion();Changed?.Invoke();
     }
     async void OnPageSaveTimer(DispatcherQueueTimer sender,object args)
     {
@@ -346,6 +351,118 @@ internal sealed partial class GlassDeskCoordinator
             UpdateOutsideGeometry();Render();return true;
         }
         return true;
+    }
+    bool RouteHomePointer(HostPointerEvent e,int id)
+    {
+        if(!scene.HomePage)return false;
+        var actions=scene.HomeActions;
+        bool known=actions.ContainsKey(id);
+        if(e.Kind==HostEventKind.Invoke)
+        {
+            if(known && scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==id) is not {Enabled:false})
+                ExecuteHomeAction(actions[id]);
+            return known;
+        }
+        if(e.Kind==HostEventKind.Down)
+        {
+            if(!known)
+            {
+                if(scene.HomePopoverOpen){scene.CloseHomePopover();Render();return true;}
+                homePressedAction=-1;return false;
+            }
+            if(scene.HomePopoverOpen && !IsHomePopoverAction(id))scene.CloseHomePopover();
+            homePressedAction=id;scene.SetHomePointerFeedback(id);Render();
+            return true;
+        }
+        if(homePressedAction<0)return known;
+        if(e.Kind==HostEventKind.Move){scene.SetHomePointerFeedback(homePressedAction);return true;}
+        if(e.Kind==HostEventKind.Up)
+        {
+            int pressed=homePressedAction;homePressedAction=-1;scene.SetHomePointerFeedback(-1);
+            if(pressed==id&&actions.TryGetValue(id,out var action))ExecuteHomeAction(action);
+            else Render();
+            return true;
+        }
+        if(e.Kind==HostEventKind.CaptureLost)
+        {
+            homePressedAction=-1;scene.SetHomePointerFeedback(-1);Render();return true;
+        }
+        return known;
+    }
+    static bool IsHomePopoverAction(int id)=>
+        id==WidgetActions.HomeClosePopover||id==WidgetActions.HomeOpenFolder||
+        (id>=WidgetActions.HomePreviewFirst&&id<WidgetActions.HomePreviewFirst+WidgetActions.HomePreviewCount);
+    void ExecuteHomeAction(HomeAction action)
+    {
+        notice=null;
+        switch(action.Kind)
+        {
+            case HomeActionKind.App: LaunchHomeApp(action.Index);return;
+            case HomeActionKind.ToggleNav: scene.SetHomeNavExpanded(!scene.HomeNavExpanded);break;
+            case HomeActionKind.NavEntry:
+                if(action.Index==0)SelectDetailsPage(DetailsPageController.Music);
+                else if(action.Index==1)SelectDetailsPage(DetailsPageController.Widgets);
+                else ShowSettings();
+                return;
+            case HomeActionKind.Folder: ShowHomeFolder(action.Index);return;
+            case HomeActionKind.Preview:
+            {
+                var entry=scene.HomeFolderPreview?.Entries.ElementAtOrDefault(action.Index);
+                if(entry is not HomeFolderEntry value)return;
+                if(system.OpenExplorer(value.Path,!value.IsFolder,out var error))scene.CloseHomePopover();
+                else notice=error;
+                break;
+            }
+            case HomeActionKind.OpenFolder:
+            {
+                var folder=scene.HomeFolderPreview;
+                if(folder is null)return;
+                if(system.OpenExplorer(folder.Path,false,out var error))scene.CloseHomePopover();
+                else notice=error;
+                break;
+            }
+            case HomeActionKind.ClosePopover: scene.CloseHomePopover();break;
+        }
+        Render();Changed?.Invoke();
+    }
+    void ShowHomeFolder(int index)
+    {
+        string path=HomeFolderPath(index);
+        var entries=new List<HomeFolderEntry>();
+        try
+        {
+            foreach(var item in Directory.EnumerateFileSystemEntries(path).Take(3))
+                entries.Add(new(Path.GetFileName(item),item,Directory.Exists(item)));
+        }
+        catch(Exception error){diagnostics.RecordError("home.folder",error);notice="无法读取文件夹。";}
+        scene.OpenHomePopover(index,new HomeFolderPreview(Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)),path,entries));
+        Render();Changed?.Invoke();
+    }
+    static string HomeFolderPath(int index)=>index switch
+    {
+        0=>Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+        1=>Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        _=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"Downloads"),
+    };
+    void LaunchHomeApp(int index)
+    {
+        switch(index)
+        {
+            case 0: OpenMusic();return;
+            case 1: LaunchExternal("msedge");return;
+            case 2: LaunchExternal("wt");return;
+            case 3:
+                if(system.OpenExplorer(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),false,out var error))notice=null;else notice=error;
+                break;
+            case 4: LaunchExternal("notepad");return;
+            default: LaunchExternal("calc");return;
+        }
+        Render();Changed?.Invoke();
+    }
+    void LaunchExternal(string target)
+    {
+        if(system.LaunchExternal(target,out var error))notice=null;else notice=error;
+        Render();Changed?.Invoke();
     }
     string? DropInstanceId(int? index)
     {

@@ -288,7 +288,7 @@ public sealed partial class WidgetScene : IDisposable
     Vector2 LayoutSize(WidgetForm form)
     {
         var metrics = WidgetLayoutMetrics.Resolve(form, ModeFor(form), CompanionVisible, _musicCapsuleWidth);
-        float natural = form==WidgetForm.Details ? (WidgetsPage ? BoardNaturalHeight : _media.Connected ? 476 : 300) : metrics.Height;
+        float natural = form==WidgetForm.Details ? (HomePage ? HomeLayout.Height : WidgetsPage ? BoardNaturalHeight : _media.Connected ? 476 : 300) : metrics.Height;
         return new(form==WidgetForm.Details ? _detailsWidth : metrics.Width, form==WidgetForm.Details?Math.Min(_detailsHeight,natural):natural);
     }
 
@@ -409,6 +409,7 @@ public sealed partial class WidgetScene : IDisposable
     {
         EnsureUiThread();
         if (_disposed || _form != WidgetForm.Details) return false;
+        if (HomePage) return false;
         if (WidgetsPage) return ScrollBoard(deltaDip);
         try
         {
@@ -505,7 +506,7 @@ public sealed partial class WidgetScene : IDisposable
                 case WidgetForm.Peek: ReplaceSurface(ref _peekSurface, _peekBrush, surface); break;
                 default: ReplaceSurface(ref _contentSurface, _contentBrush, surface); break;
             }
-            if (form == WidgetForm.Details)
+            if (form == WidgetForm.Details && !HomePage)
             {
                 var geometry = ResponsiveDetails();
                 var body = new List<SurfaceOp>();
@@ -733,6 +734,7 @@ public sealed partial class WidgetScene : IDisposable
         _timeline.Offset = new(
             timelineLayout?.Timeline.X ?? (pose.Width - 360) / 2 + 56,
             timelineLayout?.Timeline.Y ?? 300, 0);
+        _chrome.SetDockVisible(!HomePage);
         UpdateAuxiliaryPlacement();
         BuildControls();
         var feedbackControl = _controls.FirstOrDefault(control => control.Id == _feedbackId);
@@ -756,14 +758,15 @@ public sealed partial class WidgetScene : IDisposable
     {
         _capsuleContent.Opacity = weights.X;
         _peekContent.Opacity = weights.Y;
-        _content.Opacity = _detailsViewport.Opacity = weights.Z;
-        _timeline.Opacity = _media.Connected && _media.Timeline?.Valid == true ? weights.Z : 0;
+        _content.Opacity = weights.Z;
+        _detailsViewport.Opacity = HomePage ? 0 : weights.Z;
+        _timeline.Opacity = !HomePage && _media.Connected && _media.Timeline?.Valid == true ? weights.Z : 0;
         _peekButtons.Opacity = _media.Connected ? weights.Y : 0;
-        _detailsButtons.Opacity = _media.Connected ? weights.Z : 0;
+        _detailsButtons.Opacity = !HomePage && _media.Connected ? weights.Z : 0;
         // The protected 8-band spectrum belongs to the capsule/peek body; the redesigned
         // Details page uses the space below the artist for the fixed timeline and transport.
         _audioBars.Opacity = _preferences.AudioVisualizationEnabled ? Math.Clamp((MusicFor(WidgetForm.Capsule) ? weights.X : 0) + (_media.Connected ? weights.Y : 0), 0, 1) : 0;
-        _artworkViewport.Opacity = _media.Connected ? Math.Clamp((MusicFor(WidgetForm.Capsule) && !CompanionVisible ? weights.X : 0) + weights.Y + weights.Z, 0, 1) : 0;
+        _artworkViewport.Opacity = HomePage ? 0 : _media.Connected ? Math.Clamp((MusicFor(WidgetForm.Capsule) && !CompanionVisible ? weights.X : 0) + weights.Y + weights.Z, 0, 1) : 0;
         ApplyBoardVisibility(weights);
     }
 
@@ -1243,6 +1246,7 @@ public sealed partial class WidgetScene : IDisposable
 
     void DrawDetails(List<SurfaceOp> operations)
     {
+        if (HomePage) { DrawHome(operations); DrawPageNotice(operations); return; }
         if (WidgetsPage) { DrawBoard(operations); DrawPageNotice(operations); return; }
         var size = LayoutSize(WidgetForm.Details);
         float width = size.X, height = size.Y;
@@ -1319,7 +1323,7 @@ public sealed partial class WidgetScene : IDisposable
     void UpdateMetadata(WidgetForm form, bool trackChanged)
     {
         var layer = _metadata[form];
-        bool music = MusicFor(form) && !(form == WidgetForm.Details && WidgetsPage);
+        bool music = MusicFor(form) && !(form == WidgetForm.Details && (WidgetsPage || HomePage));
         layer.Visual.Opacity = music ? 1 : 0;
         if (_preferences.ReducedMotion) layer.Finish();
         if (!music) return;
@@ -1396,7 +1400,7 @@ public sealed partial class WidgetScene : IDisposable
     {
         var controls = new List<AccessibleControl>
         {
-            new(WidgetActions.Body, _form == WidgetForm.Details ? (WidgetsPage ? "小组件面板" : _media.Connected ? $"{Title}，{Artist}" : "音乐连接说明") : "展开音乐组件", 0, 0, _presentedSize.X, _presentedSize.Y)
+            new(WidgetActions.Body, _form == WidgetForm.Details ? (HomePage ? "首页" : WidgetsPage ? "小组件面板" : _media.Connected ? $"{Title}，{Artist}" : "音乐连接说明") : "展开音乐组件", 0, 0, _presentedSize.X, _presentedSize.Y)
         };
         var candidates = new Dictionary<int, (float Weight, WidgetForm Form, AccessibleControl Control)>();
         void Consider(AccessibleControl control, WidgetForm form, float weight)
@@ -1427,6 +1431,7 @@ public sealed partial class WidgetScene : IDisposable
                 continue;
             }
             var size = LayoutSize(form);
+            if (HomePage) continue;
             if (WidgetsPage) continue;
             if(_pluginPages.Count>0)Add(new(WidgetActions.PluginTools,"插件工具",16,size.Y-104,32,32));
             if (_media.Connected)
@@ -1463,7 +1468,8 @@ public sealed partial class WidgetScene : IDisposable
         }
         if(_form==WidgetForm.Details)
         {
-            if(WidgetsPage && _boardRender is not null)
+            if (HomePage) AddHomeControls(controls);
+            else if(WidgetsPage && _boardRender is not null)
                 foreach(var item in _boardRender.Controls)
                 {
                     float shift=(_presentedSize.X-_detailsWidth)/2;
@@ -1471,7 +1477,7 @@ public sealed partial class WidgetScene : IDisposable
                 }
             controls.AddRange(_chrome.GetAccessibleControls());
         }
-        string rootName = _form == WidgetForm.Details && WidgetsPage ? "GlassDesk，小组件" : MusicFor(_form) ? $"GlassDesk，{Title}，{Artist}，{PlaybackLabel}" : $"GlassDesk，本地时间 {_now:HH:mm}";
+        string rootName = _form == WidgetForm.Details && HomePage ? "GlassDesk，首页" : _form == WidgetForm.Details && WidgetsPage ? "GlassDesk，小组件" : MusicFor(_form) ? $"GlassDesk，{Title}，{Artist}，{PlaybackLabel}" : $"GlassDesk，本地时间 {_now:HH:mm}";
         if (_lastRootName != rootName || !_controls.SequenceEqual(controls))
         {
             _controls = controls;

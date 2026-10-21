@@ -120,6 +120,12 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
                     scene.ClockPlateUsesLargeClock?3:4.5,scene.ClockPlateHasRequiredSecondary)
                 :next;
             readability=next;lightText=next.LightInk;
+            // The Details canvas always sits on the app's own dark glass, while the probe
+            // samples the desktop outside the card. A bright wallpaper/window beside the
+            // card would therefore pick dark ink for text that is actually on dark glass;
+            // keep the Details pages on the light-ink hierarchy until the probe can sample
+            // the composed card surface itself.
+            if(controller.Form==WidgetForm.Details){lightText=true;readability=readability with {LightInk=true};}
             bool textChanged=ApplySceneInk();
             if(textChanged)Render();
         };
@@ -137,7 +143,17 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         controller.FormChanged+=form=>
         {
             if(form!=WidgetForm.Details)CommitBoardOnLeave();
+            // The new Home page is the landing page of an expanded session for now. Music /
+            // widget page memory stays within the session; a capsule collapse resets to Home
+            // until the home-entry contract is finalised.
+            else if(pages.CurrentPageId!=DetailsPageController.Home)
+            {
+                pages.Select(DetailsPageController.Home);
+                Preferences=pages.ApplyTo(Preferences);
+                pageSaveTimer?.Start();
+            }
             Render();
+            ScheduleTextTone();
             if(form==WidgetForm.Details)scene.BeginDetails(++openSequence,Now);else scene.EndDetails();
             UpdateOutsideGeometry();UpdatePlugins();WakeMotion();
         };
@@ -338,13 +354,32 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         else if(e.Kind==HostEventKind.Up)CompanionReact(CompanionInteraction.Release);
         else if(e.Kind==HostEventKind.CaptureLost)CompanionReact(CompanionInteraction.None);
         qa?.RecordPointer(e,id,host.Context);
+        bool homeHoverChanged=false;
+        if(scene.HomePage)
+        {
+            if(e.Kind is HostEventKind.Enter or HostEventKind.Move)homeHoverChanged=scene.UpdateHomePointer(e.X,e.Y);
+            else if(e.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)homeHoverChanged=scene.ClearHomeHover();
+        }
         if(scene.RouteSpecialPointer(e,id,Now)){UpdateOutsideGeometry();WakeMotion();return;}
+        // The chrome handle is still the only way back to the capsule on Home; it is not a
+        // dock action, so the controller must receive it before the home route consumes events.
+        if(scene.HomePage&&id==WidgetActions.Close)
+        {
+            controller.HandlePointer(e,id,Now);UpdateOutsideGeometry();WakeMotion();return;
+        }
+        if(RouteHomePointer(e,id))
+        {
+            if(homeHoverChanged)Render();
+            UpdateOutsideGeometry();WakeMotion();return;
+        }
+        if(scene.HomePage){if(homeHoverChanged)Render();UpdateOutsideGeometry();WakeMotion();return;}
         if(RouteBoardPointer(e,id))return;
         if(e.Kind==HostEventKind.Down)scene.SetCapture(id==WidgetActions.Seek?PointerCaptureOwner.Timeline:PointerCaptureOwner.WidgetDrag,Now);
         if(e.Kind is HostEventKind.Up or HostEventKind.CaptureLost)scene.SetCapture(PointerCaptureOwner.None,Now);
         UpdateOutsideGeometry();
         if(e.Kind==HostEventKind.Wheel)
         {
+            if(scene.HomePage)return;
             if(scene.BoardHiddenPanelOpen){ScrollHiddenPanel(-(float)e.Value*40);return;}
             TryScene(()=>scene.ScrollDetails(-(float)e.Value*40));pages.SetScrollOffset(scene.CurrentPageScroll);return;
         }
@@ -400,6 +435,12 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             // control is announced but can never execute its action.
             bool enabled=scene.BoardRender.Controls.FirstOrDefault(c=>c.Id==id) is {Enabled:true};
             if(enabled)ExecuteBoardAction(boardAction);
+            return;
+        }
+        if(scene.HomeActions.TryGetValue(id,out var homeAction))
+        {
+            bool enabled=scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==id) is not {Enabled:false};
+            if(enabled)ExecuteHomeAction(homeAction);
             return;
         }
         if(id==WidgetActions.OpenMusic){OpenMusic();return;}

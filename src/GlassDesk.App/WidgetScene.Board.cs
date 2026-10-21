@@ -25,6 +25,7 @@ public sealed partial class WidgetScene
     CompositionDrawingSurface? _boardSurface;
     WidgetBoardRenderResult? _boardRender;
     public bool WidgetsPage => _detailsPageId == DetailsPageController.Widgets;
+    public bool HomePage => _detailsPageId == DetailsPageController.Home;
     public float CurrentPageScroll => WidgetsPage ? _boardScroll : _detailsScroll;
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     internal WidgetBoardState SavedBoard => _savedBoard;
@@ -75,7 +76,10 @@ public sealed partial class WidgetScene
         long revision, bool editing, bool addMenuOpen, float scrollOffset)
     {
         bool changed = _detailsPageId != pageId || _boardRevision != revision || _boardEditing != editing || _boardAddMenu != addMenuOpen;
-        _detailsPageId = DetailsPageController.Normalize(pageId);
+        string normalizedPage = DetailsPageController.Normalize(pageId);
+        bool leavingHome = HomePage && normalizedPage != DetailsPageController.Home;
+        _detailsPageId = normalizedPage;
+        if (leavingHome) ResetHomeState();
         // Keep the complete saved board for capacity/hidden management; paint only the
         // current presentation subset.
         _savedBoard = WidgetBoardData.ValidateAndClone(board);

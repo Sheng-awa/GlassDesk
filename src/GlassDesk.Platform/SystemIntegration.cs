@@ -223,6 +223,42 @@ public sealed class SystemIntegration : IDisposable
         }
     }
 
+    /// <summary>Opens Explorer at a folder, or selects a file inside its parent folder.</summary>
+    public bool OpenExplorer(string path, bool selectFile, out string? error)
+    {
+        error = null;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path)) { error = "路径为空。"; return false; }
+            string target = selectFile ? $"/select,\"{path}\"" : $"\"{path}\"";
+            Process.Start(new ProcessStartInfo("explorer.exe", target) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception failure) when (failure is Win32Exception or InvalidOperationException or ArgumentException)
+        {
+            _diagnostics.RecordError("home.explorer", failure);
+            error = "无法打开资源管理器。";
+            return false;
+        }
+    }
+
+    /// <summary>Launches one of the fixed, user-visible external shortcuts.</summary>
+    public bool LaunchExternal(string target, out string? error)
+    {
+        error = null;
+        try
+        {
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception failure) when (failure is Win32Exception or InvalidOperationException or ArgumentException)
+        {
+            _diagnostics.RecordError("home.shortcut", failure);
+            error = "无法启动该应用。";
+            return false;
+        }
+    }
+
     public static MaterialEnvironment ReadMaterialEnvironment()
     {
         var contrast = new NativeMethods.HighContrast { Size = (uint)Marshal.SizeOf<NativeMethods.HighContrast>() };
