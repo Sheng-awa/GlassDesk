@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GlassDesk 首页 v0.8 · 应用图标 + 右下角大导航卡 + 文件夹 Dock</title>
+<title>GlassDesk 首页 v1.0 · 按 REVIEW 修订</title>
 <style>
   :root{
     --bg:#07090d;--ink:#f1f5f9;--ink-2:#a8b3c2;--ink-3:#6b7686;--line:rgba(255,255,255,.09);
@@ -28,7 +28,6 @@
   .glass{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:16px 18px}
   .brief{border-color:rgba(125,211,252,.22);background:linear-gradient(180deg,rgba(125,211,252,.07),rgba(255,255,255,.012))}
 
-  /* device */
   .stage{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;margin:20px 0 0}
   .device{width:486px;height:691px;position:relative;flex:none}
   .device::before{content:"";position:absolute;inset:-32px -70px;z-index:0;pointer-events:none;
@@ -37,66 +36,73 @@
                radial-gradient(300px 240px at 46% 100%,rgba(120,145,175,.08),transparent 70%);filter:blur(14px)}
   .screen{position:absolute;inset:0;width:360px;height:512px;transform:scale(1.35);transform-origin:top left;
     border-radius:var(--r-window);overflow:hidden;
-    background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.18),transparent 55%),
-               radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.05),transparent 52%),
+    background:radial-gradient(140% 90% at 20% -10%,rgba(120,150,185,.16),transparent 55%),
+               radial-gradient(140% 100% at 90% 0%,rgba(255,255,255,.04),transparent 52%),
                linear-gradient(168deg,#242b35 0%,#161b22 46%,#0b0f14 100%);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.10),0 34px 76px rgba(0,0,0,.55)}
-  .screen::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 26%);pointer-events:none}
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.08),0 34px 76px rgba(0,0,0,.55)}
+  .screen::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.04),transparent 24%);pointer-events:none}
   .handle{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:58px;height:28px;border-radius:14px;background:#05070a;
     box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:7px;z-index:10}
   .eye{width:5px;height:8px;border-radius:3px;background:linear-gradient(180deg,#f8fafc,#aab4c2)}
   .state-label{position:absolute;left:50%;transform:translateX(-50%);top:-24px;font-size:11px;color:var(--ink-3);white-space:nowrap}
 
-  /* 应用图标：无外框，统一 52×52 + 标签 */
+  /* 4×3 grid：4 个外部捷径 / 2 个外部捷径 / 右下 2×2 导航卡 / 左下两格留空 */
   .layout{position:absolute;left:18px;right:18px;top:64px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:96px 96px 96px;gap:14px 12px;z-index:2}
-  .app{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+  .app{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;background:none;border:none;padding:0;color:inherit;font:inherit}
   .app .ico{width:52px;height:52px;border-radius:var(--r-app);display:flex;align-items:center;justify-content:center;color:#fff;
-    font-size:23px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 6px 14px rgba(0,0,0,.22);
+    font-size:22px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 6px 14px rgba(0,0,0,.20);
     transition:transform .16s ease}
-  .app:hover .ico{transform:translateY(-2px) scale(1.04)}
-  .app .nm{font-size:9.5px;color:var(--ink-2)}
+  .app:hover .ico{transform:translateY(-2px) scale(1.03)}
+  .app:focus-visible{outline:2px solid #7dd3fc;outline-offset:4px;border-radius:10px}
+  .app .nm{font-size:12px;line-height:16px;color:var(--ink-2);max-width:72px;text-align:center;white-space:normal;word-break:break-all}
 
-  /* 右下角大卡片 = 导航页（massive-insect-5，占 4×3 网格的右下 2×2 格） */
+  /* 导航卡：静态减重，只在 hover/展开时增强 */
   .navcard{position:relative;grid-column:3/5;grid-row:2/4;border-radius:var(--r-nav);z-index:4;overflow:hidden;cursor:pointer;
-    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.20);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.30),0 16px 34px rgba(0,0,0,.38);
-    backdrop-filter:blur(18px) saturate(120%);
-    transition:transform .5s cubic-bezier(.2,.7,.3,1),border-color .3s}
-  .navcard:hover,.navcard.expanded{transform:scale(1.06);border-color:rgba(255,255,255,.30)}
+    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.14);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 10px 22px rgba(0,0,0,.26);
+    backdrop-filter:blur(14px);transition:transform .26s cubic-bezier(.22,1,.36,1),border-color .2s ease,background .2s ease}
+  .navcard:hover,.navcard:focus-visible{border-color:rgba(255,255,255,.22);transform:scale(1.02);outline:none}
+  .navcard:focus-visible{box-shadow:0 0 0 2px #7dd3fc}
   .nav-bg{position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(circle at 100% 107%,rgba(255,255,255,.70) 0%,rgba(224,236,248,.34) 30%,rgba(170,192,215,.18) 60%,rgba(110,132,160,.10) 100%),
-               linear-gradient(140deg,rgba(255,255,255,.18),rgba(255,255,255,.02) 58%)}
-  .nav-eyes{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;z-index:7;
-    transition:all .6s cubic-bezier(.4,0,.2,1)}
+    background:radial-gradient(circle at 100% 107%,rgba(255,255,255,.36) 0%,rgba(224,236,248,.16) 30%,rgba(170,192,215,.08) 60%,transparent 100%)}
+  .nav-eyes{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;z-index:7;transition:all .3s cubic-bezier(.22,1,.36,1)}
   .nav-eyes .eye{width:6px;height:9px;border-radius:3px}
-  .navcard:hover .nav-eyes,.navcard.expanded .nav-eyes{left:auto;right:14px;top:auto;bottom:14px;transform:none}
-  .nb{position:absolute;padding:8px;text-align:right;
-    background:rgba(255,255,255,.32);border-top:2px solid rgba(255,255,255,.92);border-right:1px solid rgba(255,255,255,.62);
+  .eye-gaze{display:flex;gap:6px;transition:transform .12s ease-out}
+  .navcard:hover .nav-eyes,.navcard.expanded .nav-eyes{left:auto;right:12px;top:auto;bottom:12px;transform:none}
+  .nb{position:absolute;padding:8px;text-align:right;border:none;cursor:pointer;
+    background:rgba(255,255,255,.10);border-top:1px solid rgba(255,255,255,.34);border-right:1px solid rgba(255,255,255,.22);
     border-radius:10% 13% 42% 0%/10% 12% 75% 0%;
-    box-shadow:rgba(20,32,46,.30) -6px 6px 22px 0;transform-origin:bottom left;transition:all .9s ease-in-out}
-  .nb svg{width:18px;height:18px;fill:#fff;filter:drop-shadow(0 1px 2px rgba(20,40,70,.25))}
+    box-shadow:rgba(20,32,46,.14) -2px 2px 8px 0;transform-origin:bottom left;
+    transition:all .26s ease-in-out}
+  .nb svg{width:18px;height:18px;fill:#fff;opacity:.92}
   .nb1{width:70%;height:70%;bottom:-70%;left:-70%}
-  .nb2{width:50%;height:50%;bottom:-50%;left:-50%;transition-delay:.2s}
-  .nb3{width:30%;height:30%;bottom:-30%;left:-30%;transition-delay:.4s}
-  .nb4{width:10%;height:10%;bottom:-10%;left:-10%;transition-delay:.6s;background:rgba(255,255,255,.22)}
+  .nb2{width:50%;height:50%;bottom:-50%;left:-50%;transition-delay:.03s}
+  .nb3{width:30%;height:30%;bottom:-30%;left:-30%;transition-delay:.06s}
+  .nb4{width:10%;height:10%;bottom:-10%;left:-10%;transition-delay:.09s;background:rgba(255,255,255,.08);border:none;pointer-events:none}
   .navcard:hover .nb,.navcard.expanded .nb{bottom:-1px;left:-1px}
-  .nav-tip{position:absolute;left:10px;bottom:9px;font-size:8px;color:rgba(255,255,255,.55);z-index:6;opacity:0;transition:.3s}
+  .navcard:hover .nb1,.navcard.expanded .nb1{background:rgba(255,255,255,.26)}
+  .navcard:hover .nb2,.navcard.expanded .nb2{background:rgba(255,255,255,.22)}
+  .navcard:hover .nb3,.navcard.expanded .nb3{background:rgba(255,255,255,.20)}
+  .navcard:hover .nb4,.navcard.expanded .nb4{background:rgba(255,255,255,.10)}
+  .nb:focus-visible{outline:2px solid #7dd3fc;outline-offset:-2px}
+  .nav-tip{position:absolute;left:10px;bottom:8px;font-size:9px;color:rgba(255,255,255,.55);z-index:6;opacity:0;transition:.2s}
   .navcard:hover .nav-tip,.navcard.expanded .nav-tip{opacity:1}
 
-  /* 底部 Dock：只放文件夹 */
+  /* Dock：只放文件夹；tile 透明，hover/focus 才出现状态面 */
   .dock{position:absolute;left:20px;top:440px;width:320px;height:56px;border-radius:var(--r-dock);z-index:8;
     display:flex;align-items:center;justify-content:center;gap:12px;
-    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.20);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 14px 32px rgba(0,0,0,.42);
-    backdrop-filter:blur(18px) saturate(130%)}
-  .dock-folder{position:relative;width:44px;height:44px;border-radius:12px;flex:none;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-    transition:transform .12s cubic-bezier(.2,.7,.3,1),background .18s}
-  .dock-folder:hover{transform:translateY(-3px) scale(1.08);background:rgba(255,255,255,.10)}
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 12px 28px rgba(0,0,0,.38);
+    backdrop-filter:blur(16px)}
+  .dock-folder{position:relative;width:44px;height:44px;border-radius:12px;flex:none;cursor:pointer;border:1px solid transparent;background:transparent;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    transition:transform .12s cubic-bezier(.22,1,.36,1),background .16s,border-color .16s}
+  .dock-folder:hover,.dock-folder:focus-visible,.dock-folder.demo-open{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.20);transform:translateY(-2px)}
+  .dock-folder:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px}
   .dock-folder::after{content:attr(data-label);position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(3px);
-    background:rgba(10,14,20,.92);color:#e2e8f0;font-size:9px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px;
+    background:rgba(10,14,20,.92);color:#e2e8f0;font-size:12px;line-height:16px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px;
     white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:12}
-  .dock-folder:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+  .dock-folder:hover::after,.dock-folder:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}
   .mini-folder{position:relative;width:34px;height:24px;perspective:120px;pointer-events:none}
   .mini-folder .m5{position:absolute;inset:0;background:#d97706;border-radius:var(--r-mini);transform-origin:top;transition:all .3s ease}
   .mini-folder .m5::after{content:"";position:absolute;bottom:100%;left:0;width:14px;height:4px;background:#d97706;border-radius:4px 4px 0 0}
@@ -106,35 +112,40 @@
     background:linear-gradient(to top,#f59e0b,#fbbf24);transform-origin:bottom;transition:all .3s ease}
   .mini-folder .m1::after{content:"";position:absolute;bottom:100%;right:0;width:22px;height:4px;background:#fbbf24;border-radius:4px 4px 0 0}
   .mini-folder .m1::before{content:"";position:absolute;top:-3px;right:20px;width:4px;height:4px;background:#fbbf24;clip-path:polygon(100% 14%,50% 100%,100% 100%)}
-  .dock-folder:hover .m4,.dock-folder.demo-open .m4{transform:rotateX(-20deg)}
-  .dock-folder:hover .m3,.dock-folder.demo-open .m3{transform:rotateX(-30deg)}
-  .dock-folder:hover .m2,.dock-folder.demo-open .m2{transform:rotateX(-38deg)}
-  .dock-folder:hover .m1,.dock-folder.demo-open .m1{transform:rotateX(-46deg) translateY(1px);box-shadow:inset 0 8px 14px #fbbf24,inset 0 -8px 14px #d97706}
+  .dock-folder:hover .m4,.dock-folder:focus-visible .m4,.dock-folder.demo-open .m4{transform:rotateX(-20deg)}
+  .dock-folder:hover .m3,.dock-folder:focus-visible .m3,.dock-folder.demo-open .m3{transform:rotateX(-30deg)}
+  .dock-folder:hover .m2,.dock-folder:focus-visible .m2,.dock-folder.demo-open .m2{transform:rotateX(-38deg)}
+  .dock-folder:hover .m1,.dock-folder:focus-visible .m1,.dock-folder.demo-open .m1{transform:rotateX(-46deg) translateY(1px);box-shadow:inset 0 8px 14px #fbbf24,inset 0 -8px 14px #d97706}
 
-  /* 文件夹内容气泡 */
-  .popover{position:absolute;left:32px;top:252px;width:296px;height:166px;border-radius:var(--r-pop);z-index:14;
+  /* 文件夹气泡：312×208，3 预览 + 底部打开按钮，箭头跟随当前文件夹 */
+  .popover{position:absolute;left:24px;top:220px;width:312px;height:208px;border-radius:var(--r-pop);z-index:14;
     background:rgba(20,26,34,.94);border:1px solid rgba(255,255,255,.16);
-    box-shadow:0 22px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
+    box-shadow:0 22px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.10);
     backdrop-filter:blur(18px);
-    opacity:0;transform:scale(.94) translateY(6px);transform-origin:50% 100%;pointer-events:none;
-    transition:opacity .26s ease,transform .26s cubic-bezier(.2,.8,.3,1)}
+    opacity:0;transform:scale(.96) translateY(4px);transform-origin:50% 100%;pointer-events:none;
+    transition:opacity .22s ease,transform .22s cubic-bezier(.22,1,.36,1)}
   .popover.open{opacity:1;transform:none;pointer-events:auto}
-  .popover::after{content:"";position:absolute;left:50%;bottom:-7px;width:14px;height:14px;background:rgba(20,26,34,.94);
+  .popover::after{content:"";position:absolute;left:var(--arrow-x,50%);bottom:-7px;width:14px;height:14px;background:rgba(20,26,34,.94);
     border-right:1px solid rgba(255,255,255,.16);border-bottom:1px solid rgba(255,255,255,.16);transform:translateX(-50%) rotate(45deg)}
-  .pop-title{position:absolute;left:0;right:0;top:9px;text-align:center;font-size:10.5px;color:var(--ink-2)}
-  .pop-items{position:absolute;left:14px;right:14px;top:30px;display:flex;gap:10px;justify-content:space-between}
-  .pf{width:60px;height:86px;border-radius:var(--r-popitem);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);cursor:pointer;transition:.18s}
-  .pf:hover{background:rgba(255,255,255,.11);transform:translateY(-2px)}
-  .pf .doc{width:24px;height:30px;border-radius:3px;background:#f8fafc;position:relative;box-shadow:0 2px 6px rgba(0,0,0,.25)}
-  .pf .doc::after{content:"PDF";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);font-size:6px;font-weight:700;color:#fff;
+  .pop-title{position:absolute;left:12px;right:12px;top:12px;height:20px;font-size:14px;line-height:20px;color:var(--ink-2);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pop-items{position:absolute;left:12px;right:12px;top:40px;height:100px;display:flex;gap:8px}
+  .pf{width:90px;height:100px;border-radius:var(--r-popitem);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:.16s;padding:6px}
+  .pf:hover,.pf:focus-visible{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18)}
+  .pf:focus-visible{outline:2px solid #7dd3fc;outline-offset:1px}
+  .pf .doc{width:24px;height:30px;border-radius:3px;background:#f8fafc;position:relative;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+  .pf .doc::after{content:"PDF";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);font-size:7px;font-weight:700;color:#fff;
     background:#ef4444;border-radius:2px;padding:1px 2px}
-  .pf .nm{font-size:8px;color:var(--ink-2);max-width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pf.action{background:transparent;border-color:transparent}
-  .pf.action .circ{width:28px;height:28px;border-radius:50%;border:1.5px solid #e2e8f0;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:13px}
+  .pf .nm{font-size:12px;line-height:16px;color:var(--ink-2);max-width:78px;max-height:32px;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;text-align:center}
+  .pop-open{position:absolute;left:12px;right:12px;bottom:16px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.08);color:var(--ink);font:500 14px/20px var(--font);cursor:pointer;transition:.16s}
+  .pop-open:hover,.pop-open:focus-visible{background:rgba(255,255,255,.14)}
+  .pop-open:focus-visible{outline:2px solid #7dd3fc;outline-offset:1px}
 
   .toast{position:absolute;left:50%;bottom:492px;transform:translate(-50%,10px);background:rgba(8,11,16,.92);border:1px solid var(--line);
-    color:#e2e8f0;font-size:9.5px;border-radius:999px;padding:5px 12px;opacity:0;transition:.24s;z-index:16;white-space:nowrap}
+    color:#e2e8f0;font-size:12px;border-radius:999px;padding:5px 12px;opacity:0;transition:.24s;z-index:16;white-space:nowrap}
   .toast.on{opacity:1;transform:translate(-50%,0)}
   .caption{text-align:center;font-size:12px;color:var(--ink-3);margin-top:26px}
   .replay{margin-left:10px;font:inherit;font-size:11px;color:#e2e8f0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);
@@ -154,283 +165,318 @@
   .q li:last-child{border-bottom:none}
   .q li::before{content:"Q" counter(q);position:absolute;left:0;top:8px;font-family:var(--mono);font-size:10px;color:#cbd5e1;border:1px solid rgba(255,255,255,.25);border-radius:5px;padding:0 4px}
   footer{margin-top:38px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);font-size:11.5px;color:var(--ink-3)}
+  .warn{border-left:2px solid rgba(255,255,255,.35);padding:9px 14px;background:rgba(255,255,255,.04);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink-2)}
+
+  /* 静态展开样张（非交互） */
+  .sample-stage{display:flex;align-items:center;gap:24px;margin-top:12px}
+  .sample-stage .navcard{position:relative;grid-column:auto;grid-row:auto;width:156px;height:206px;flex:none}
+  .sample-note{font-size:12px;color:var(--ink-3);max-width:260px}
+  .sample-note b{color:var(--ink-2)}
+
+  /* reduced motion：几何直接到位 */
+  body.reduce *{transition:none !important;animation:none !important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">GlassDesk · Home v0.8 · 修正版</div>
-  <h1>首页：少量应用图标 + 右下角大卡片是导航页 + 底部分文件夹 Dock</h1>
-  <p>右下角那张大的是<b>导航页</b>（massive-insect-5），不是时钟；应用图标统一大小、没有外框、可以留空；底部 Dock 只放文件夹。</p>
+  <div class="eyebrow">GlassDesk · Home v1.0 · 依据 REVIEW 修订</div>
+  <h1>首页：4×3 稀疏网格、右下弧片导航、文件夹 Dock</h1>
+  <p>已按 <b>REVIEW v2</b> 修订：降低导航卡静息视觉重量、区分“外部应用捷径 / 内部页面导航”、字号回到 Caption/Label 角色、文件气泡改为 3 预览 + 独立“打开文件夹”、动效加快到约 400ms 内完成、圆角与间距统一。</p>
   <div class="meta">
-    <span class="chip">右下角 <b>导航页（massive-insect-5）</b></span>
-    <span class="chip">应用图标 <b>统一大小 · 无外框</b></span>
-    <span class="chip">留白 <b>不占满</b></span>
-    <span class="chip">Dock <b>只放文件夹</b></span>
+    <span class="chip">布局 <b>4×3，右下 2×2 导航卡</b></span>
+    <span class="chip">外部捷径 <b>6 个 + 2 空位</b></span>
+    <span class="chip">文案 <b>Caption 12 / Label 14</b></span>
+    <span class="chip">动效 <b>≤400ms 完成揭示</b></span>
   </div>
 
   <div class="stage">
-    <!-- 状态 A：导航卡 hover 展开 -->
     <div class="device">
-      <div class="state-label">状态 A · 导航卡 hover（4 个导航格展开）</div>
-      <div class="screen">
+      <div class="state-label">状态 A · idle（导航卡收起）</div>
+      <div class="screen" data-root="a">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
         <div class="layout">
-          <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
-          <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
-          <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
-          <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
-          <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-          <div class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
+          <button class="app" data-app="网易云音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">网易云音乐</span></button>
+          <button class="app" data-app="Edge"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">Edge</span></button>
+          <button class="app" data-app="Windows Terminal"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">Terminal</span></button>
+          <button class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></button>
+          <button class="app" data-app="记事本"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">记事本</span></button>
+          <button class="app" data-app="计算器"><span class="ico" style="background:linear-gradient(160deg,#818cf8,#4338ca)">±</span><span class="nm">计算器</span></button>
 
-          <div class="navcard expanded" id="navA">
+          <div class="navcard" id="navA" role="group" aria-label="内部页面导航">
             <div class="nav-bg"></div>
-            <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
-            <div class="nb nb1" title="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
-            <div class="nb nb2" title="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
-            <div class="nb nb3" title="时钟"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-            <div class="nb nb4"></div>
-            <div class="nav-tip">导航</div>
-          </div>
-
-          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-          <div class="app" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
-        </div>
-
-        <div class="dock">
-          <div class="dock-folder" data-label="crucial" data-folder="crucial">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
-          </div>
-          <div class="dock-folder" data-label="项目" data-folder="项目">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
-          </div>
-          <div class="dock-folder" data-label="下载" data-folder="下载">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
+            <div class="nav-eyes" data-eyes><div class="eye-gaze"><span class="eye"></span><span class="eye"></span></div></div>
+            <button class="nb nb1" data-page="music" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></button>
+            <button class="nb nb2" data-page="widgets" aria-label="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></button>
+            <button class="nb nb3" data-page="settings" aria-label="设置"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.2 3.8c0 .55-.06 1.09-.16 1.6l2 1.55-1.9 3.3-2.36-.95c-.84.7-1.8 1.25-2.87 1.6L14.6 21h-5.2l-.35-2.5a8.1 8.1 0 0 1-2.87-1.6l-2.36.95-1.9-3.3 2-1.55a7.6 7.6 0 0 1 0-3.2l-2-1.55 1.9-3.3 2.36.95c.84-.7 1.8-1.25 2.87-1.6L9.4 3h5.2l.35 2.5c1.07.35 2.03.9 2.87 1.6l2.36-.95 1.9 3.3-2 1.55c.1.51.16 1.05.16 1.6Z"/></svg></button>
+            <div class="nb nb4" aria-hidden="true"></div>
           </div>
         </div>
-        <div class="toast" id="toastA">已打开资源管理器</div>
+
+        <div class="dock" role="group" aria-label="文件夹">
+          <button class="dock-folder" data-label="crucial" data-folder="crucial" aria-label="crucial 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+          <button class="dock-folder" data-label="项目" data-folder="项目" aria-label="项目 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+          <button class="dock-folder" data-label="下载" data-folder="下载" aria-label="下载 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+        </div>
+
+        <div class="popover" role="dialog" aria-label="文件夹内容" style="--arrow-x:100px">
+          <div class="pop-title">crucial</div>
+          <div class="pop-items">
+            <button class="pf" data-file="物理小试卷01-答案.pdf"><span class="doc"></span><span class="nm">物理小试卷01-答案.pdf</span></button>
+            <button class="pf" data-file="物理小试卷02-答案.pdf"><span class="doc"></span><span class="nm">物理小试卷02-答案.pdf</span></button>
+            <button class="pf" data-file="物理基础100-答案.pdf"><span class="doc"></span><span class="nm">物理基础100-答案.pdf</span></button>
+          </div>
+          <button class="pop-open">打开文件夹</button>
+        </div>
+
+        <div class="toast">已打开资源管理器</div>
       </div>
     </div>
 
-    <!-- 状态 B：文件夹 hover 打开 + 内容气泡 -->
     <div class="device">
-      <div class="state-label">状态 B · 文件夹 3D 打开 → 内容气泡</div>
-      <div class="screen">
+      <div class="state-label">状态 B · 文件夹气泡（箭头对应当前文件夹）</div>
+      <div class="screen" data-root="b">
         <div class="handle"><span class="eye"></span><span class="eye"></span></div>
 
         <div class="layout">
-          <div class="app" data-app="音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">音乐</span></div>
-          <div class="app" data-app="小组件"><span class="ico" style="background:linear-gradient(160deg,#a78bfa,#7c3aed)">▦</span><span class="nm">小组件</span></div>
-          <div class="app" data-app="文件"><span class="ico" style="background:linear-gradient(160deg,#fbbf24,#d97706)">▤</span><span class="nm">文件</span></div>
-          <div class="app" data-app="浏览器"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">浏览器</span></div>
-          <div class="app" data-app="终端"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">终端</span></div>
-          <div class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></div>
+          <button class="app" data-app="网易云音乐"><span class="ico" style="background:linear-gradient(160deg,#fb7185,#e11d48)">♪</span><span class="nm">网易云音乐</span></button>
+          <button class="app" data-app="Edge"><span class="ico" style="background:linear-gradient(160deg,#38bdf8,#0284c7)">◉</span><span class="nm">Edge</span></button>
+          <button class="app" data-app="Windows Terminal"><span class="ico" style="background:linear-gradient(160deg,#475569,#0f172a)">&gt;_</span><span class="nm">Terminal</span></button>
+          <button class="app" data-app="照片"><span class="ico" style="background:linear-gradient(160deg,#2dd4bf,#0d9488)">▧</span><span class="nm">照片</span></button>
+          <button class="app" data-app="记事本"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">记事本</span></button>
+          <button class="app" data-app="计算器"><span class="ico" style="background:linear-gradient(160deg,#818cf8,#4338ca)">±</span><span class="nm">计算器</span></button>
 
-          <div class="navcard" id="navB">
+          <div class="navcard" id="navB" role="group" aria-label="内部页面导航">
             <div class="nav-bg"></div>
-            <div class="nav-eyes" data-eyes><span class="eye"></span><span class="eye"></span></div>
-            <div class="nb nb1"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></div>
-            <div class="nb nb2"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></div>
-            <div class="nb nb3"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M12 7.4v5l3.2 1.9" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-            <div class="nb nb4"></div>
+            <div class="nav-eyes" data-eyes><div class="eye-gaze"><span class="eye"></span><span class="eye"></span></div></div>
+            <button class="nb nb1" data-page="music" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></button>
+            <button class="nb nb2" data-page="widgets" aria-label="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></button>
+            <button class="nb nb3" data-page="settings" aria-label="设置"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.2 3.8c0 .55-.06 1.09-.16 1.6l2 1.55-1.9 3.3-2.36-.95c-.84.7-1.8 1.25-2.87 1.6L14.6 21h-5.2l-.35-2.5a8.1 8.1 0 0 1-2.87-1.6l-2.36.95-1.9-3.3 2-1.55a7.6 7.6 0 0 1 0-3.2l-2-1.55 1.9-3.3 2.36.95c.84-.7 1.8-1.25 2.87-1.6L9.4 3h5.2l.35 2.5c1.07.35 2.03.9 2.87 1.6l2.36-.95 1.9 3.3-2 1.55c.1.51.16 1.05.16 1.6Z"/></svg></button>
+            <div class="nb nb4" aria-hidden="true"></div>
           </div>
-
-          <div class="app" data-app="笔记"><span class="ico" style="background:linear-gradient(160deg,#34d399,#059669)">✎</span><span class="nm">笔记</span></div>
-          <div class="app" data-app="设置"><span class="ico" style="background:linear-gradient(160deg,#94a3b8,#475569)">⚙</span><span class="nm">设置</span></div>
         </div>
 
-        <div class="popover open" id="popB">
+        <div class="dock" role="group" aria-label="文件夹">
+          <button class="dock-folder demo-open" data-label="crucial" data-folder="crucial" aria-label="crucial 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+          <button class="dock-folder" data-label="项目" data-folder="项目" aria-label="项目 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+          <button class="dock-folder" data-label="下载" data-folder="下载" aria-label="下载 文件夹">
+            <span class="mini-folder" aria-hidden="true"><span class="m5"></span><span class="m4"></span><span class="m3"></span><span class="m2"></span><span class="m1"></span></span>
+          </button>
+        </div>
+
+        <div class="popover open" role="dialog" aria-label="文件夹内容" style="--arrow-x:100px">
           <div class="pop-title">crucial</div>
           <div class="pop-items">
-            <div class="pf" data-open="物理基础100.pdf"><span class="doc"></span><span class="nm">物理基础100…</span></div>
-            <div class="pf" data-open="物理小试卷04.pdf"><span class="doc"></span><span class="nm">物理小试卷04…</span></div>
-            <div class="pf" data-open="物理小试卷05.pdf"><span class="doc"></span><span class="nm">物理小试卷05…</span></div>
-            <div class="pf action" data-open="crucial"><span class="circ">→</span><span class="nm">在文件中打开</span></div>
+            <button class="pf" data-file="物理小试卷01-答案.pdf"><span class="doc"></span><span class="nm">物理小试卷01-答案.pdf</span></button>
+            <button class="pf" data-file="物理小试卷02-答案.pdf"><span class="doc"></span><span class="nm">物理小试卷02-答案.pdf</span></button>
+            <button class="pf" data-file="物理基础100-答案.pdf"><span class="doc"></span><span class="nm">物理基础100-答案.pdf</span></button>
           </div>
+          <button class="pop-open">打开文件夹</button>
         </div>
 
-        <div class="dock">
-          <div class="dock-folder open demo-open" data-label="crucial" data-folder="crucial">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
-          </div>
-          <div class="dock-folder" data-label="项目" data-folder="项目">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
-          </div>
-          <div class="dock-folder" data-label="下载" data-folder="下载">
-            <div class="mini-folder"><div class="m5"></div><div class="m4"></div><div class="m3"></div><div class="m2"></div><div class="m1"></div></div>
-          </div>
-        </div>
-        <div class="toast" id="toastB">在资源管理器中打开</div>
+        <div class="toast">已打开资源管理器</div>
       </div>
     </div>
   </div>
 
-  <div class="caption">状态 A：导航卡 hover 展开（音乐/小组件/时钟 + 1 个装饰格）；状态 B：Dock 文件夹 3D 打开 → 内容气泡 → 再点打开资源管理器。<button class="replay" id="replay">重播动效</button></div>
+  <div class="caption">状态 A：idle（导航卡收起，眼睛安静）／状态 B：文件夹气泡，箭头跟随当前文件夹，底部独立「打开文件夹」。<button class="replay" id="replay">重播文件夹展开</button></div>
 
-  <h2><span class="num">00</span>给 GPT 的上下文（复制这段 + 截图一起发）</h2>
+  <h2><span class="num">00</span>REVIEW 响应摘要</h2>
   <div class="glass brief">
-    <p><b>项目：</b>GlassDesk，一个 Windows 桌面陪伴应用（WinUI 3 + 自绘 Composition UI，非网页/非 XAML）。</p>
-    <p><b>本次任务：</b>重做「首页」= 大展开后的第一页。</p>
-    <p><b>用户明确要求：</b></p>
+    <p><b>保留：</b>陪伴与弧片导航的个性、4×3 稀疏网格、右下 2×2 导航卡、底部 3 个文件夹。没有因为审查改掉布局。</p>
+    <p><b>本版修正：</b></p>
     <ul>
-      <li>右下角大卡片是<b>导航页</b>，用 massive-insect-5 那个组件（玻璃卡 + 眼睛 + hover 展开的 4 个格子）；不是时钟。</li>
-      <li>其余是常用应用图标：<b>统一大小、无外框、可以留空、不要求占满</b>；按 <b>4 列 × 3 行</b>排列。</li>
-      <li>底部 Dock <b>只放文件夹</b>；文件夹用之前给的 3D 文件夹动画缩小；点击展开文件夹内容气泡（如图 1），再点打开资源管理器。</li>
-      <li>动画要有；圆角要统一；不要一层又一层的框。</li>
+      <li><b>V1 权重：</b>导航卡静息填充降到 3.5%，内片从 32% 降到 10%，rim 从 2px/92% 降到 1px/34%，阴影变浅；只有 hover/展开才增强。卡整体不超过 1.02 缩放。</li>
+      <li><b>V2 语义去重：</b>网格 = 6 个外部应用快捷方式（网易云音乐、Edge、Terminal、照片、记事本、计算器）；导航卡 = 3 个内部页面（音乐、小组件、设置）+ 1 个装饰片（无 action）。不再出现两个同名“音乐”。</li>
+      <li><b>V3 字号：</b>应用名/文件名用 Caption 12/16；文件夹标题与“打开文件夹”用 Label 14/20；去掉 8/9/10.5px 魔数。</li>
+      <li><b>V6 气泡：</b>312×208；3 个文件预览 + 独立底部“打开文件夹”；箭头由当前文件夹矩形计算，不再固定居中；切换文件夹时更新内容与箭头，不是关掉重开。</li>
+      <li><b>V7 动效：</b>弧片展开 260ms、stagger 40ms，三项入口约 380ms 内完成；气泡 220ms；可用立即、可中断；文件气泡不阻塞操作。</li>
+      <li><b>V8 容器：</b>Dock 文件夹 tile 静息透明，只有 hover/focus/打开时出现状态面；文件夹本体保留颜色和翻盖。</li>
+      <li><b>H1–H12 原型：</b>每个屏幕独立的 state（不再跨屏引用）；同项开/异项换；眼睛定位层/视线层分开；空导航片无 action；支持 Esc/外点关闭、键盘焦点；reduced motion 真正生效；重播只有一个可取消序列；toast 按屏幕归属。</li>
     </ul>
-    <p><b>请 GPT 重点审：</b>层级与比例是否清楚、留白是否舒服、应用图标与导航卡是否抢、Dock/气泡是否像 macOS、圆角/间距/字体是否统一，以及一张截图里最刺眼的一处。</p>
+    <p><b>仍待你确认（REVIEW §13）：</b>① 首页是否正式进入下一轮（还是只先统一音乐/小组件）；② 接受“外部捷径 vs 内部页面”的去重语义；③ 文件项首版是否用“资源管理器选中文件”（当前气泡按这个）；④ 键盘承载路线是否允许改 native；⑤ 1:1 样张需要你先看再拍板。</p>
   </div>
 
   <h2><span class="num">01</span>布局</h2>
   <table>
     <tr><th>区域</th><th>说明</th></tr>
-    <tr><td>应用图标（左上区域）</td><td>8 个示例应用，<b>4 列 × 3 行</b>网格；图标统一 52×52、标签 9.5px、无外框；行高 96、列距 12、行距 14；空位可以留空（不要求占满）</td></tr>
-    <tr><td><b>导航页</b>（右下角大卡）</td><td>占网格右下 <b>2×2 格</b>（约 156×206）：massive-insect-5 收起只剩眼睛；hover 时 4 个格子（70/50/30/10%，延迟 0.2/0.4/0.6s）滑入左下角，眼睛移到右下角，卡片放大 1.06；3 个图标 = 音乐 / 小组件 / 时钟，第 4 个留空装饰</td></tr>
-    <tr><td>Dock（底部）</td><td>只放文件夹（示例 crucial / 项目 / 下载，路径在设置里指定）；文件夹是 34×24 的 5 层 3D 文件夹缩小版</td></tr>
-    <tr><td>文件夹气泡</td><td>点击 Dock 文件夹 → 上方弹出：标题 + 最多 3 个文件预览 + 「在文件中打开」；再点关闭；点条目打开资源管理器</td></tr>
+    <tr><td>4×3 网格</td><td>左上 6 个外部应用快捷方式（统一 52×52、12/16 标签、无外框）；左下两格留空（不要求占满）</td></tr>
+    <tr><td>右下 2×2</td><td>弧片导航卡（massive-insect-5）：内部 3 个入口（音乐 / 小组件 / 设置）+ 1 个装饰片；装饰片无 action、无 UIA、无焦点</td></tr>
+    <tr><td>底部 Dock</td><td>只放文件夹（3 个，路径设置指定）；44×44 命中不变小；文件夹 3D 翻盖缩小版</td></tr>
+    <tr><td>文件夹气泡</td><td>312×208；标题 14/20；3 个文件预览 12/16（两行）；底部独立「打开文件夹」44 高；箭头跟随当前文件夹</td></tr>
   </table>
 
-  <h2><span class="num">02</span>格式统一</h2>
+  <h2><span class="num">02</span>导航卡展开样张（静态，非交互）</h2>
+  <div class="sample-stage">
+    <div class="navcard expanded sample" role="group" aria-label="导航卡展开样张">
+      <div class="nav-bg"></div>
+      <div class="nav-eyes"><div class="eye-gaze"><span class="eye"></span><span class="eye"></span></div></div>
+      <button class="nb nb1" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M19 4.2v9.1a3.6 3.6 0 1 1-1.6-3V8.1l-7.2 1.6v8a3.6 3.6 0 1 1-1.6-3V7.3a1 1 0 0 1 .77-.97l8.8-1.9a1 1 0 0 1 1.23.97Z"/></svg></button>
+      <button class="nb nb2" aria-label="小组件"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/></svg></button>
+      <button class="nb nb3" aria-label="设置"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.2 3.8c0 .55-.06 1.09-.16 1.6l2 1.55-1.9 3.3-2.36-.95c-.84.7-1.8 1.25-2.87 1.6L14.6 21h-5.2l-.35-2.5a8.1 8.1 0 0 1-2.87-1.6l-2.36.95-1.9-3.3 2-1.55a7.6 7.6 0 0 1 0-3.2l-2-1.55 1.9-3.3 2.36.95c.84-.7 1.8-1.25 2.87-1.6L9.4 3h5.2l.35 2.5c1.07.35 2.03.9 2.87 1.6l2.36-.95 1.9 3.3-2 1.55c.1.51.16 1.05.16 1.6Z"/></svg></button>
+      <div class="nb nb4" aria-hidden="true"></div>
+    </div>
+    <div>
+      <p class="sample-note"><b>静态样张</b>：仅用于检查展开时的弧片重量和眼睛位置；真正交互的 hover/点击由下一轮可操作原型验证。内片填充 10–26%，不再每层强白边。</p>
+    </div>
+  </div>
+
+  <h2><span class="num">03</span>字号 / 材质 / 圆角（按 REVIEW 校准）</h2>
   <div class="cols">
     <div class="glass">
-      <p><b>只有三层容器有“框”</b></p>
+      <p><b>字号（复用现有角色）</b></p>
       <ul>
-        <li>导航卡（约 156×206，占右下 2×2 格，圆角 26）</li>
-        <li>Dock（320×56，圆角 20）</li>
-        <li>文件夹气泡（296×166，圆角 20）</li>
-        <li>其余（应用图标、气泡条目、导航格）都是无边框的填充面/图标，不再套框</li>
+        <li>应用名、文件名：Caption 12/16</li>
+        <li>文件夹标题、“打开文件夹”：Label 14/20</li>
+        <li>不在首页新增 8/9.5/10.5px 档位</li>
       </ul>
     </div>
     <div class="glass">
-      <p><b>统一规则</b></p>
+      <p><b>材质与圆角</b></p>
       <ul>
-        <li>图标 52×52，圆角 14；标签 9.5px、颜色 <code>#A8B3C2</code></li>
-        <li>应用网格：4 列 × 3 行，行高 96、列距 12、行距 14；不强行铺满</li>
-        <li>圆角阶梯：24 / 26 / 20 / 14 / 12 / 5</li>
-        <li>间距只用 4 的倍数（8/12/16/18/24）</li>
+        <li>内片静息 10% 白、hover/展开 20–26%；rim 1px / 34%</li>
+        <li>主光左上，右下只做弱反射；不叠加每层大阴影</li>
+        <li>圆角：窗口 24 / 导航卡 26 / Dock 与气泡 20 / 图标 14 / 预览框 12</li>
+        <li>间距：4/8/12/16/24/32；行高 96、列隙 12、行隙 14 为命名例外</li>
       </ul>
     </div>
   </div>
 
-  <h2><span class="num">03</span>动效</h2>
+  <h2><span class="num">04</span>下一步（不在本页实现）</h2>
   <table>
-    <tr><th>项</th><th>规则</th></tr>
-    <tr><td>导航卡 hover</td><td>4 个格子 0.9s 滑入（70/50/30/10%，延迟 0.2/0.4/0.6s）；眼睛移到右下；卡片 scale 1.06</td></tr>
-    <tr><td>应用图标 hover</td><td>上移 2 + 放大 1.04，0.16s</td></tr>
-    <tr><td>Dock 文件夹 hover</td><td>整块上移 3 + 放大 1.08，同时 3D 文件夹打开（前盖 -46°，纸片 -20/-30/-38°，0.3s）</td></tr>
-    <tr><td>文件夹气泡</td><td>0.26s：0.94 / +6 DIP / 透明 → 1；箭头指向文件夹；关闭反向</td></tr>
-    <tr><td>眼睛</td><td>无瞳孔，两只整体跟随鼠标 ≤2 DIP</td></tr>
-    <tr><td>减少动态</td><td>位移/缩放/旋转直接完成，只保留透明度</td></tr>
+    <tr><th>批次</th><th>内容</th><th>前置</th></tr>
+    <tr><td>A0 基线</td><td>核对源码 hash、构建/测试、截当前版代表状态</td><td>无</td></tr>
+    <tr><td>A1 边界修复</td><td>REVIEW C1（300–320 高正文被压成 1 DIP）、C2（320 宽视觉/命中/UIA 坐标不同源）</td><td>可先做，独立于首页视觉</td></tr>
+    <tr><td>A2 契约</td><td>action/page 记忆/关闭优先级/本地目录边界</td><td>需你确认上方 5 个决定</td></tr>
+    <tr><td>B1 样张</td><td>与本文同构的 1:1 视觉样张，保留冻结项</td><td>A1/A2 后可扩展</td></tr>
+    <tr><td>B2 原型</td><td>H1–H12 的可操作原型（真实输入/取消/降级）</td><td>先有契约</td></tr>
   </table>
-
-  <h2><span class="num">04</span>技术 / 实施</h2>
-  <div class="cols">
-    <div class="glass">
-      <ul>
-        <li>应用网格：Core 定义 4 列 × 3 行（行高 96、列距 12、行距 14），图标 52×52 + 标签；按实际数量排布，空位留空</li>
-        <li>导航卡：Core 里占右下 2×2 格（约 156×206），自绘玻璃卡 + 4 个 70/50/30/10% 方块的 offset 动画；眼睛用现有 companion 指针位置</li>
-        <li>Dock 文件夹：设置里存 3 个路径（settings.json 新字段）；点击时枚举目录最多 3 项</li>
-        <li>打开资源管理器：Platform 新增 <code>OpenExplorer(path)</code>（ShellExecute explorer.exe）</li>
-        <li>不改 native；渐变/磨砂用预烘焙 PNG 或半透明叠加近似</li>
-      </ul>
-    </div>
-    <div class="glass">
-      <p><b>阶段</b></p>
-      <ul>
-        <li>P1：首页 360×512，应用图标网格 + 右下导航卡 + 底部 Dock（占位路径）</li>
-        <li>P2：Dock 文件夹 3D 动画、设置路径、内容气泡、打开资源管理器</li>
-        <li>P3：眼睛跟随、hover 反馈、键盘/UIA、减少动态、截图与测试</li>
-      </ul>
-    </div>
-  </div>
-
-  <h2><span class="num">05</span>请 GPT 审查</h2>
-  <div class="review">
-    <p>每项 1–5 分，标「保留 / 调整 / 否决」，最后给一处最关键修改。</p>
-    <ol class="q">
-      <li>8 个应用图标（4×3 网格、统一大小、无外框）+ 右下角 2×2 格的导航卡，这个层级和留白舒服吗？</li>
-      <li>导航卡占右下 2×2 格（约 156×206），比例和重量对吗？会不会太小/太抢？</li>
-      <li>应用图标没有外框，会不会太散？需要一点底色/分组吗？</li>
-      <li>Dock 只放 3 个文件夹（3D 图标），会不会太空？</li>
-      <li>统一圆角/间距/字号后，整体是否“统一”了？还有哪些地方不齐？</li>
-      <li>最刺眼的一处是什么？给一个最小修改建议。</li>
-    </ol>
-  </div>
+  <div class="warn" style="margin-top:10px">首页提案目前仍不是生产完成项；本页只做设计/原型修订。A1 的 C1/C2 是已有代码缺陷，可以先修。</div>
 
   <footer>
-    导航卡参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT），放在 4×3 网格的右下 2×2 格；文件夹动画来自 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT），缩放到 34×24。本页为 HTML 概念稿；实际 WinUI3/Composition 渲染见第 04 节。仓库：<code>ui/final</code>。
+    导航卡参考 <a href="https://uiverse.io/Smit-Prajapati/massive-insect-5">Smit-Prajapati / massive-insect-5</a>（MIT）；文件夹动画参考 <a href="https://uiverse.io/Cobp/mighty-pig-13">Cobp / mighty-pig-13</a>（MIT）。依据 <a href="file:///D:/Believe_in_yourself/about AI/work about agents/codeX/codeX work/GlassDesk-design-review-2026-10-22/REVIEW.md">REVIEW.md</a> 修订。仓库：<code>ui/final</code>。
   </footer>
 </div>
 
 <script>
   const params = new URLSearchParams(location.hash.slice(1));
-  const toastA = document.getElementById('toastA');
-  const toastB = document.getElementById('toastB');
-  let demoTimer = null;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) document.body.classList.add('reduce');
+  const roots = [...document.querySelectorAll('.screen[data-root]')];
+  const timers = [];
 
-  // 眼睛：无瞳孔，整体跟随（≤2px）
-  window.addEventListener('mousemove', e => {
-    document.querySelectorAll('[data-eyes]').forEach(eyes => {
-      const r = eyes.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const len = Math.hypot(dx, dy) || 1;
-      eyes.style.transform = `translate(${dx / len * 2}px, ${dy / len * 2}px)`;
+  function clearTimers(){ timers.splice(0).forEach(clearTimeout); }
+
+  // 每屏独立 state：同项开关、异项切换、箭头跟随、Esc/外点关闭
+  roots.forEach(root => {
+    const pop = root.querySelector('.popover');
+    const title = root.querySelector('.pop-title');
+    const folders = [...root.querySelectorAll('.dock-folder')];
+    const toast = root.querySelector('.toast');
+    let activeFolder = root.dataset.root === 'b' ? folders[0] : null;
+
+    const showToast = text => {
+      toast.textContent = text; toast.classList.add('on');
+      clearTimeout(showToast._t); showToast._t = setTimeout(() => toast.classList.remove('on'), 1600);
+    };
+
+    const positionArrow = folder => {
+      const pr = pop.getBoundingClientRect();
+      const fr = folder.getBoundingClientRect();
+      const center = fr.left + fr.width / 2 - pr.left;
+      const x = Math.min(Math.max(center, 22), pr.width - 22);
+      pop.style.setProperty('--arrow-x', `${x}px`);
+    };
+
+    const close = () => {
+      activeFolder = null;
+      pop.classList.remove('open');
+      folders.forEach(f => f.classList.remove('demo-open'));
+    };
+
+    const open = folder => {
+      activeFolder = folder;
+      title.textContent = folder.dataset.folder || '文件夹';
+      pop.classList.add('open');
+      positionArrow(folder);
+      folders.forEach(f => f.classList.toggle('demo-open', f === folder));
+    };
+
+    folders.forEach(folder => {
+      folder.addEventListener('click', e => {
+        e.stopPropagation();
+        if (activeFolder === folder) close(); else open(folder);
+      });
+      folder.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); folder.click(); }
+      });
     });
-  });
-  document.addEventListener('mouseleave', () => {
-    document.querySelectorAll('[data-eyes]').forEach(eyes => eyes.style.transform = 'translate(0,0)');
-  });
 
-  document.querySelectorAll('.app').forEach(app => {
-    app.addEventListener('click', () => showToast('进入：' + (app.dataset.app || '')));
-  });
-  document.querySelectorAll('.navcard .nb').forEach(box => {
-    box.addEventListener('click', e => {
-      e.stopPropagation();
-      showToast('导航：' + (box.getAttribute('title') || ''));
+    root.addEventListener('click', e => {
+      if (!e.target.closest('.dock-folder') && !e.target.closest('.popover')) close();
     });
-  });
 
-  document.querySelectorAll('.dock-folder').forEach(folder => {
-    folder.addEventListener('click', e => {
-      e.stopPropagation();
-      const screen = folder.closest('.screen');
-      const pop = screen.querySelector('.popover');
-      const isOpen = pop?.classList.contains('open');
-      document.querySelectorAll('.popover').forEach(p => p.classList.remove('open'));
-      if (pop && !isOpen) {
-        pop.classList.add('open');
-        const title = folder.dataset.folder || '文件夹';
-        const t = pop.querySelector('.pop-title');
-        if (t) t.textContent = title;
-      }
+    root.querySelectorAll('.app').forEach(app => {
+      app.addEventListener('click', () => showToast('启动外部应用：' + (app.dataset.app || '')));
     });
-  });
-  document.querySelectorAll('.pf').forEach(item => {
-    item.addEventListener('click', () => showToast('在资源管理器中打开：' + (item.dataset.open || '')));
+
+    root.querySelectorAll('.nb[data-page]').forEach(box => {
+      box.addEventListener('click', () => showToast('进入内部页面：' + (box.dataset.page || '')));
+    });
+
+    root.querySelectorAll('.pf').forEach(item => {
+      item.addEventListener('click', () => showToast('在资源管理器中选中：' + (item.dataset.file || '')));
+    });
+
+    root.querySelector('.pop-open')?.addEventListener('click', () => showToast('打开文件夹：' + (activeFolder?.dataset.folder || '')));
+
+    // 初始 B 屏展示：箭头与标题已经按第一项设置
+    if (activeFolder) open(activeFolder);
   });
 
-  function showToast(text){
-    const t = document.querySelectorAll('.popover.open').length ? toastB : toastA;
-    t.textContent = text; t.classList.add('on');
-    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('on'), 1600);
+  // 眼睛：定位层（.nav-eyes）与视线层（.eye-gaze）分开，避免覆盖定位 transform
+  if (!reduce) {
+    window.addEventListener('mousemove', e => {
+      document.querySelectorAll('[data-eyes]').forEach(eyes => {
+        const gaze = eyes.querySelector('.eye-gaze');
+        if (!gaze) return;
+        const r = eyes.getBoundingClientRect();
+        const dx = e.clientX - (r.left + r.width / 2);
+        const dy = e.clientY - (r.top + r.height / 2);
+        const len = Math.hypot(dx, dy) || 1;
+        gaze.style.transform = `translate(${dx / len * 2}px, ${dy / len * 2}px)`;
+      });
+    });
+    document.addEventListener('mouseleave', () => {
+      document.querySelectorAll('.eye-gaze').forEach(g => g.style.transform = 'translate(0,0)');
+    });
   }
 
-  // 自动演示：Dock 文件夹 3D 打开 → 气泡弹出 → 收起
-  function playDemo(){
-    const bars = document.querySelectorAll('.dock-folder');
-    const pop = document.getElementById('popB');
-    bars.forEach(b => b.classList.remove('demo-open'));
-    if (pop) pop.classList.remove('open');
-    demoTimer = setTimeout(() => { if (bars[0]) bars[0].classList.add('demo-open'); }, 400);
-    demoTimer = setTimeout(() => { if (pop) pop.classList.add('open'); }, 1400);
-    demoTimer = setTimeout(() => { if (pop) pop.classList.remove('open'); if (bars[0]) bars[0].classList.remove('demo-open'); }, 3200);
+  // 单序列演示：只操作 B 屏；结束/重播前先清旧 timer
+  function demo(){
+    clearTimers();
+    const rootB = roots.find(r => r.dataset.root === 'b');
+    if (!rootB) return;
+    const folders = [...rootB.querySelectorAll('.dock-folder')];
+    const first = folders[0];
+    if (!first) return;
+    // 收起 → 0.35s 后打开第一个文件夹
+    rootB.querySelector('.popover').classList.remove('open');
+    timers.push(setTimeout(() => first.click(), 350));
+    timers.push(setTimeout(() => { if (rootB.querySelector('.popover').classList.contains('open')) first.click(); }, 2600));
   }
-  if (!params.has('still')) setTimeout(playDemo, 700);
-  document.getElementById('replay').addEventListener('click', playDemo);
-
-  if (params.get('still') === '2') document.getElementById('popB')?.classList.remove('open');
+  if (!params.has('still') && !reduce) setTimeout(demo, 700);
+  document.getElementById('replay').addEventListener('click', () => { demo(); });
 </script>
 </body>
 </html>
