@@ -2,7 +2,12 @@
 
 `LegacySdk/Archived` contains byte-identical copies of the three contract files from
 `artifacts/release/0.2.0/GlassDesk-0.2.0-source.zip`. `source-origin.json` records
-the protected archive and per-entry SHA-256 values. The original ZIP is read only.
+the protected archive and per-entry SHA-256 values. The original ZIP is read only
+when available locally; it is private historical build evidence, not required for
+a fresh public checkout. Every tracked SDK source file must still match its
+recorded SHA-256. If the full ZIP is available, its hash and original entries are
+checked as additional provenance evidence. A CI run without that ZIP verifies
+the tracked snapshot fingerprints, not the identity of an unavailable archive.
 
 `LegacySdk` builds an independent assembly named `GlassDesk.Core`, version
 `0.2.0.0`, with the old contract and without `CompanionVisualState.AppearanceId`.
@@ -42,3 +47,7 @@ dotnet run --project .\tests\GlassDesk.PluginChecks\GlassDesk.PluginChecks.cspro
 These commands write only test `bin/obj` outputs and isolated
 `artifacts/plugin-checks-legacy/<guid>` data. They do not publish, install, launch a
 GUI, alter the running candidate or modify the protected release directory.
+
+The Windows workflow explicitly builds `LegacyPlugin` before running plugin
+checks. The old SDK assembly and plugin IL, actual import, lifecycle, retained
+constructors and unload behavior are verified on CI as well as local checkouts.

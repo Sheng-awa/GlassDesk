@@ -3,8 +3,34 @@ name: Windows build and checks
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'samples/**'
+      - 'scripts/**'
+      - '**/*.csproj'
+      - '**/packages.lock.json'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - 'NuGet.Config'
+      - 'nuget.config'
+      - '.github/workflows/windows.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'samples/**'
+      - 'scripts/**'
+      - '**/*.csproj'
+      - '**/packages.lock.json'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - 'NuGet.Config'
+      - 'nuget.config'
+      - '.github/workflows/windows.yml'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +63,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet publish src/GlassDesk.App/GlassDesk.App.csproj -c Release -r win-x64 --self-contained true --no-restore -p:GlassDeskUiPreview=false -p:PublishSingleFile=false -p:PublishTrimmed=false -o artifacts/ci/publish
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build archived SDK compatibility fixture
+        run: |
+          dotnet restore tests/Fixtures/LegacyPlugin/GlassDesk.LegacyPlugin.csproj --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build tests/Fixtures/LegacyPlugin/GlassDesk.LegacyPlugin.csproj -c Release --no-restore -m:1 -p:BuildInParallel=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run isolated console checks
         run: |
           $projects = @('GlassDesk.Core.Tests', 'GlassDesk.PlatformChecks', 'GlassDesk.PluginChecks')
@@ -47,3 +79,5 @@ jobs:
             dotnet run --project $projectPath -c Release --no-restore -- --no-stress
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+
+
