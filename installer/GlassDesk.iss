@@ -10,6 +10,9 @@ AppId={{85C98BA3-7C50-4C1A-8627-E611BC6251AF}
 AppName=GlassDesk
 AppVersion={#AppVersion}
 AppPublisher=GlassDesk
+AppPublisherURL=https://github.com/Sheng-awa/GlassDesk
+AppSupportURL=https://github.com/Sheng-awa/GlassDesk/issues
+AppUpdatesURL=https://github.com/Sheng-awa/GlassDesk/releases
 DefaultDirName={localappdata}\Programs\GlassDesk
 DefaultGroupName=GlassDesk
 PrivilegesRequired=lowest
@@ -36,7 +39,7 @@ Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式："; Flags: unchecked
 
 [Files]
-Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "qa-*.log,qa-*.txt"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "qa-*.log,qa-*.txt,*.pdb,preview-data\*,smoke-data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\GlassDesk"; Filename: "{app}\GlassDesk.exe"
