@@ -1,0 +1,30 @@
+name: 问题反馈
+description: 报告可以复现的功能或界面问题
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: GlassDesk 版本
+      placeholder: 例如 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows 版本、显示缩放与显示器情况
+      placeholder: 例如 Windows 11 24H2，150%，双显示器
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请同时说明预期行为和实际行为。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图或诊断（可选）
+      description: 请先检查是否含有个人信息，不要公开上传令牌、账号或敏感文件。

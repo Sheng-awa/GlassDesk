@@ -1,4 +1,4 @@
-# GlassDesk 0.2.0 本地插件开发
+# GlassDesk 0.1 本地插件开发
 
 插件为可信 C# 进程内扩展，目标 `net10.0`，API 版本为 1。每个外部插件使用可回收 AssemblyLoadContext；`GlassDesk.Core` 契约、框架与 WinUI 程序集由宿主共享。它不是安全沙箱，无法隔离原生崩溃。没有在线市场、后台下载或上传。
 
@@ -54,4 +54,5 @@ dotnet build tests\GlassDesk.PluginChecks -c Release -m:1 -p:BuildInParallel=fal
 dotnet run --project tests\GlassDesk.PluginChecks -c Release --no-build
 ```
 
-资源说明必须描述实际任务与已测成本，不承诺未经测量的 CPU/GPU 数字。参见 `docs/audio-0.2.0.md` 和 `docs/native-material-0.2.0.md`。
+资源说明必须描述实际任务与已测成本，不承诺未经测量的 CPU/GPU 数字。内置采集的隐私边界见 [隐私说明](privacy.md)。
+

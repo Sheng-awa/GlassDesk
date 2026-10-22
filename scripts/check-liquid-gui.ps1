@@ -1,9 +1,11 @@
 param([Parameter(Mandatory)][int]$TargetProcessId,
       [Parameter(Mandatory)][long]$SettingsWindowId,
       [Parameter(Mandatory)][string]$OutputPath,
-      [int]$Cycles=100)
+      [int]$Cycles=100,
+      [string]$CuaDriverPath=$env:GLASSDESK_CUA_DRIVER)
 $ErrorActionPreference='Stop'
-$taskCua='C:/Users/Sheng/AppData/Local/Programs/Cua/cua-driver/bin/cua-driver.exe'
+$taskCua=if($CuaDriverPath){$CuaDriverPath}else{Join-Path $env:LOCALAPPDATA 'Programs/Cua/cua-driver/bin/cua-driver.exe'}
+if(-not (Test-Path -LiteralPath $taskCua -PathType Leaf)){throw 'Set -CuaDriverPath or GLASSDESK_CUA_DRIVER to an installed cua-driver.exe.'}
 $taskTarget=@{pid=$TargetProcessId;window_id=$SettingsWindowId}
 $taskResults=[Collections.Generic.List[object]]::new()
 function Get-TestState {

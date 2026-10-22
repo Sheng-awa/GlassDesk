@@ -1,5 +1,6 @@
 """Persistent stdio MCP client for verified P0 GUI work. No permission overrides."""
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -7,8 +8,17 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+cua_driver = os.environ.get("GLASSDESK_CUA_DRIVER")
+if not cua_driver:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        raise RuntimeError("Set GLASSDESK_CUA_DRIVER to the installed cua-driver.exe.")
+    cua_driver = str(Path(local_app_data) / "Programs/Cua/cua-driver/bin/cua-driver.exe")
+if not Path(cua_driver).is_file():
+    raise RuntimeError("The configured cua-driver.exe does not exist.")
+
 proc = subprocess.Popen(
-    [r"C:\Users\Sheng\AppData\Local\Programs\Cua\cua-driver\bin\cua-driver.exe", "mcp"] + (['--socket', r'\\.\pipe\cua-driver'] if '--shared' in sys.argv else ['--direct']),
+    [cua_driver, "mcp"] + (['--socket', r'\\.\pipe\cua-driver'] if '--shared' in sys.argv else ['--direct']),
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     text=True, encoding="utf-8", creationflags=subprocess.CREATE_NO_WINDOW)
 responses = queue.Queue()

@@ -1,0 +1,31 @@
+{
+  "SchemaVersion": 2,
+  "Version": "0.1.0",
+  "DisplayVersion": "0.1",
+  "SourceTag": "v0.1.0",
+  "SourceCommit": "5a15b4b92c73d7ddf8c043b46aa396059d345ac4",
+  "Installer": "GlassDesk-0.1.0-win-x64-setup.exe",
+  "InstallerBytes": 66973929,
+  "SHA256": "d5d7bf2d0949d34a396efb37eae84de3a3e861fb72e52a5ef635b6b30b728e0e",
+  "Signature": "NotSigned",
+  "InstallerCreated": true,
+  "InstallerExecuted": false,
+  "CleanWindows11VmVerified": false,
+  "RemoteDigestVerified": true,
+  "HtmlIncluded": true,
+  "PublishedInstallerReplaced": false,
+  "PublishedInstallerNoticeHeaderCorrected": false,
+  "Release": "https://github.com/Sheng-awa/GlassDesk/releases/tag/v0.1.0",
+  "Website": "https://sheng-awa.github.io/GlassDesk/",
+  "VerificationScope": [
+    "Installer compilation completed",
+    "Published asset digest and size matched local installer",
+    "Showcase checked at 1280/390/320 widths and with reduced motion"
+  ],
+  "NotPerformed": [
+    "Clean Windows 11 VM install/start/uninstall",
+    "Installer execution on the user system"
+  ],
+  "DocumentErrata": "Published installer notice heading says 0.2.0; actual application and license manifest are 0.1.0. Current branch corrects the heading without replacing the published installer.",
+  "VerifiedAt": "2026-10-22T21:03:22.0698060+00:00"
+}

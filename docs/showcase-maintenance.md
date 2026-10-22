@@ -8,6 +8,7 @@
 | --- | --- |
 | `docs/index.html` | 完整网页：白底布局、音乐小展开、鼠标跟随、眨眼和演示播放控件。CSS / JavaScript 都在同一个文件中，不依赖在线字体或前端框架。 |
 | `docs/images/logo.png` | 品牌标志，同时用作网页演示封面。 |
+| `docs/images/favicon.png` | 32 × 32 网页图标；与 256 × 256 的网页标志均提取自已有应用 ICO，不重新设计品牌。高分辨率原稿仍在应用 Assets 中。 |
 | `docs/images/peek.gif` | README 使用的白底动图，560 × 320，48 帧、约 12 fps、循环播放。 |
 | `docs/images/peek.png` | 静态备用图，用于减少动态偏好。 |
 | `README.md` | GitHub 应用介绍，引用上述图片并链接到展示页与安装包。 |

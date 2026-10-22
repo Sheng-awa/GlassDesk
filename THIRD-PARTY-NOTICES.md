@@ -1,6 +1,6 @@
-# Third-party components for GlassDesk 0.2.0
+# Third-party components for GlassDesk 0.1.0
 
-This inventory was captured on 2026-10-12 from the restored official NuGet packages, the installed Windows SDK, the Inno Setup distribution and the actual x64 build dependency manifest. Version 0.2.0 retains these locked runtime and installer dependencies. Original license and notice files are preserved under [licenses](licenses/manifest.json), with source identifiers and SHA-256 hashes for the collected texts and package metadata. The license texts govern their respective components; GlassDesk's original source is separately covered by LICENSE.
+This inventory was captured on 2026-10-12 from the restored official NuGet packages, the installed Windows SDK, the Inno Setup distribution and the actual x64 build dependency manifest. Version 0.1.0 retains these locked runtime and installer dependencies. Original license and notice files are preserved under [licenses](licenses/manifest.json), with source identifiers and SHA-256 hashes for the collected texts and package metadata. The license texts govern their respective components; GlassDesk's original source is separately covered by LICENSE.
 
 GlassDesk's layout, icons and placeholder artwork were created for this project. Other workspace projects, MyDockFinder binaries, fonts, pictures, themes and song artwork are not part of the distributable.
 

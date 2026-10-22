@@ -37,6 +37,15 @@ try {
     & dotnet publish '.\src\GlassDesk.App\GlassDesk.App.csproj' -c Release -r win-x64 --self-contained true --no-restore -o '.\artifacts\publish' -p:PublishSingleFile=false -p:PublishTrimmed=false -m:1 -p:BuildInParallel=false
     if ($LASTEXITCODE -ne 0) {throw 'Self-contained publish failed.'}
     Copy-Item -LiteralPath '.\docs\user-guide.md' -Destination '.\artifacts\publish\UserGuide.md'
+    $taskPublicDocs=Join-Path $taskPublishPath 'docs'
+    New-Item -ItemType Directory -Path $taskPublicDocs -Force | Out-Null
+    foreach($taskDocument in @('index.html','showcase-maintenance.md','user-guide.md','privacy.md','known-issues.md')) {
+        Copy-Item -LiteralPath (Join-Path $taskRoot "docs/$taskDocument") -Destination $taskPublicDocs -Force
+    }
+    Copy-Item -LiteralPath (Join-Path $taskRoot 'docs/images') -Destination $taskPublicDocs -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $taskRoot 'README.md') -Destination $taskPublishPath -Force
+    $taskRootGuide=Get-Content -LiteralPath (Join-Path $taskPublishPath 'UserGuide.md') -Raw
+    $taskRootGuide.Replace('(privacy.md)','(docs/privacy.md)').Replace('(known-issues.md)','(docs/known-issues.md)') | Set-Content -LiteralPath (Join-Path $taskPublishPath 'UserGuide.md') -Encoding utf8
     Copy-Item -LiteralPath '.\THIRD-PARTY-NOTICES.md' -Destination '.\artifacts\publish\THIRD-PARTY-NOTICES.md'
     Copy-Item -LiteralPath '.\LICENSE' -Destination '.\artifacts\publish\LICENSE'
     $taskLicenseDestination=Join-Path $taskRoot 'artifacts\publish\licenses'
