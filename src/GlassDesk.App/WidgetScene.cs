@@ -40,6 +40,7 @@ public sealed partial class WidgetScene : IDisposable
     readonly CompanionVisual _companion;
     readonly CompanionPlacementController _placement = new();
     readonly DetailsChromeVisual _chrome;
+    readonly PeekCompanionVisual _peekCompanion;
     double _motionNow;
     long _openSequence;
     bool _sceneVisible = true;
@@ -48,8 +49,8 @@ public sealed partial class WidgetScene : IDisposable
     // -1 = no dock press, -2 = cancelled (slid off the destination), otherwise the
     // pressed destination action. Release only activates when the action still matches.
     int _dockPressedAction = -1;
-    public double? NextCompanionWake => _form == WidgetForm.Details ? null : _placement.NextWakeTime;
-    public bool SceneMotionActive => _chrome.NeedsTick || CompanionMotionActive || _homeAnimating;
+    public double? NextCompanionWake => _form == WidgetForm.Capsule ? _placement.NextWakeTime : null;
+    public bool SceneMotionActive => _chrome.NeedsTick || CompanionMotionActive;
     public PointerCaptureOwner CaptureOwner => _captureOwner;
     readonly ContainerVisual _peekButtons;
     readonly ContainerVisual _detailsButtons;
@@ -93,7 +94,7 @@ public sealed partial class WidgetScene : IDisposable
     float _companionX=18, _companionY=10, _companionSize=32;
     Vector2 _gazePointer;
     bool _gazeInside;
-    public bool CompanionMotionActive => _form != WidgetForm.Details && CompanionVisible && (_placement.NeedsTick || _placement.LiquidMotionActive);
+    public bool CompanionMotionActive => _form == WidgetForm.Capsule && CompanionVisible && (_placement.NeedsTick || _placement.LiquidMotionActive);
     IReadOnlyList<PluginContentPage> _pluginPages = Array.Empty<PluginContentPage>();
     IReadOnlyDictionary<string, IReadOnlyList<PluginDrawOp>> _pluginVisuals = new Dictionary<string, IReadOnlyList<PluginDrawOp>>();
     string? _widthTitle, _widthArtist;
@@ -141,8 +142,9 @@ public sealed partial class WidgetScene : IDisposable
         ? ResponsiveDetails() is { } details
             ? Math.Clamp(details.Artist.Bottom + 4 - _detailsScroll, 64, Math.Max(64, _detailsHeight - 72))
             : Math.Clamp(304 - _detailsScroll, 88, _detailsHeight - 72)
-        : _form == WidgetForm.Peek ? _media.Connected ? 76 : 117 : 26;
-    public float ClockPlateBackgroundY => _media.Connected ? 31 : 60;
+        : _form == WidgetForm.Peek ? _media.Connected ? 84 : 76 : 26;
+    public float ClockPlateBackgroundY => _media.Connected ? 28 : 76;
+    public bool ClockHasWhiteplate => !_media.Connected;
     public bool BodyUsesLargeClock => _form == WidgetForm.Capsule && !MusicFor(_form) && _preferences.ClockShowTime;
     public bool BodyHasRequiredSecondary => !BodyUsesLargeClock || ClockSecondary.Length > 0;
     public bool ClockPlateUsesLargeClock => !_media.Connected && _preferences.ClockShowTime;
@@ -201,6 +203,7 @@ public sealed partial class WidgetScene : IDisposable
         _timeline.Children.InsertAtBottom(_timelineTrack.Visual);
         _timeline.Children.InsertAtTop(_timelineThumb.Visual);
         _chrome = new DetailsChromeVisual(host);
+        _peekCompanion = new PeekCompanionVisual(host.Compositor);
         for (int index = 0; index < _bands.Length; index++)
         {
             var bar = host.Compositor.CreateSpriteVisual();
@@ -261,6 +264,7 @@ public sealed partial class WidgetScene : IDisposable
         _bodyRoot.Children.InsertAtTop(_feedback);
         _bodyRoot.Children.InsertAtTop(_audioBars);
         _root.Children.InsertAtTop(_chrome.Visual);
+        _root.Children.InsertAtTop(_peekCompanion.Visual);
         _root.Children.InsertAtTop(_companion.Visual);
         foreach (var form in Enum.GetValues<WidgetForm>())
         {
@@ -270,6 +274,7 @@ public sealed partial class WidgetScene : IDisposable
         }
         host.ContentRoot.Children.InsertAtTop(_root);
         InitializeBoardVisuals();
+        InitializeHomeVisual();
         host.WindowContextChanged += OnWindowContextChanged;
         host.GraphicsDeviceRestored += OnGraphicsDeviceRestored;
         _lastContentDpi = host.Context.Dpi;
@@ -449,6 +454,7 @@ public sealed partial class WidgetScene : IDisposable
         MeasureMusicCapsuleWidth(media, preferences);
         _notice = notice ?? media.Notice;
         SetPalette();
+        UpdateHomeVisual();
         ApplyCompanionState(preferences.ReducedMotion || !_uiSettings.AnimationsEnabled);
         if (enteringForm || connectionChanged) _placementKey=null;
         _chrome.SetReducedMotion(preferences.ReducedMotion,_motionNow);
@@ -456,7 +462,7 @@ public sealed partial class WidgetScene : IDisposable
         var size = CurrentSize;
         ActiveContent.Size = size;
         if (!preferences.CompanionFollowMouse || preferences.ReducedMotion || enteringForm) ClearCompanionPointerGaze();
-        var clockKey = form == WidgetForm.Details || MusicFor(form) && form == WidgetForm.Capsule ? string.Empty : now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture) + $"/{preferences.ClockShowTime}/{preferences.ClockShowDate}/{preferences.ClockShowWeekday}";
+        var clockKey = form == WidgetForm.Details || MusicFor(form) && form == WidgetForm.Capsule ? string.Empty : now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture) + $"/{preferences.ClockShowTime}/{preferences.ClockShowDate}/{preferences.ClockShowWeekday}/{preferences.ClockFontId}";
         var key = new ContentKey(form, media.SessionToken, media.ContentVersion, media.Connected,
             media.Title, media.Artist, media.Album, media.Cover, media.State, media.Capabilities,
             media.Timeline?.Valid == true, _notice, clockKey, _text, _secondary, _accent, preferences.TintOpacity, preferences.ReducedMotion,
@@ -691,7 +697,11 @@ public sealed partial class WidgetScene : IDisposable
         {
             var control = _controls[i];
             if (x >= control.X && y >= control.Y && x < control.X + control.Width && y < control.Y + control.Height)
+            {
+                if (control.Id == WidgetActions.HomeClosePopover && HomePopoverOpen && HomeGeometry.Popover.Contains(x, y))
+                    return WidgetActions.HomePopupBody;
                 return control.Id;
+            }
         }
         return WidgetActions.Body;
     }
@@ -765,13 +775,19 @@ public sealed partial class WidgetScene : IDisposable
         _peekContent.Opacity = weights.Y;
         _content.Opacity = weights.Z;
         _detailsViewport.Opacity = HomePage ? 0 : weights.Z;
-        _timeline.Opacity = !HomePage && _media.Connected && _media.Timeline?.Valid == true ? weights.Z : 0;
+        if (_homeVisual is not null) _homeVisual.Visual.Opacity = HomePage ? weights.Z : 0;
+        bool detailsMusic = !HomePage && !WidgetsPage;
+        _timeline.Opacity = detailsMusic && _media.Connected && _media.Timeline?.Valid == true ? weights.Z : 0;
         _peekButtons.Opacity = _media.Connected ? weights.Y : 0;
-        _detailsButtons.Opacity = !HomePage && _media.Connected ? weights.Z : 0;
+        _detailsButtons.Opacity = detailsMusic && _media.Connected ? weights.Z : 0;
         // The protected 8-band spectrum belongs to the capsule/peek body; the redesigned
         // Details page uses the space below the artist for the fixed timeline and transport.
         _audioBars.Opacity = _preferences.AudioVisualizationEnabled ? Math.Clamp((MusicFor(WidgetForm.Capsule) ? weights.X : 0) + (_media.Connected ? weights.Y : 0), 0, 1) : 0;
-        _artworkViewport.Opacity = HomePage ? 0 : _media.Connected ? Math.Clamp((MusicFor(WidgetForm.Capsule) && !CompanionVisible ? weights.X : 0) + weights.Y + weights.Z, 0, 1) : 0;
+        // The remembered Details page must not hide Capsule/Peek artwork. Only its
+        // own Details weight is suppressed on Home and Widgets.
+        _artworkViewport.Opacity = _media.Connected ? Math.Clamp(
+            (MusicFor(WidgetForm.Capsule) && !CompanionVisible ? weights.X : 0) + weights.Y
+            + (detailsMusic ? weights.Z : 0), 0, 1) : 0;
         ApplyBoardVisibility(weights);
     }
 
@@ -796,7 +812,7 @@ public sealed partial class WidgetScene : IDisposable
     WidgetPose ArtworkPoseFor(WidgetForm form) => form switch
     {
         WidgetForm.Capsule => new(18, 14, 24, 24, 12),
-        WidgetForm.Peek => new(24, 56, 56, 56, 20),
+        WidgetForm.Peek => new(24, 64, 48, 48, 14),
         _ => ResponsiveDetails() is { } details
             ? new(details.Cover.X, details.Cover.Y, details.Cover.Width, details.Cover.Height, details.CoverRadius)
             : new(96, 70, 168, 168, 16)
@@ -821,7 +837,7 @@ public sealed partial class WidgetScene : IDisposable
         float capsuleWidth=LayoutSize(WidgetForm.Capsule).X;
         float audioX=(((_presentedSize.X-capsuleWidth)/2+capsuleWidth-50)*_contentWeights.X+
             ((_presentedSize.X-320)/2+266)*_contentWeights.Y+((_presentedSize.X-360)/2+136)*_contentWeights.Z)/weight;
-        float audioY=(14*_contentWeights.X+66*_contentWeights.Y+(350-_detailsScroll)*_contentWeights.Z)/weight;
+        float audioY=(14*_contentWeights.X+72*_contentWeights.Y+(350-_detailsScroll)*_contentWeights.Z)/weight;
         _audioBars.Offset=new(audioX,audioY,0);
         _audioBars.Scale=new(1+1.2f*_contentWeights.Z,1,1);
         float detailsWeight = _contentWeights.Z/weight;
@@ -831,7 +847,14 @@ public sealed partial class WidgetScene : IDisposable
         _audioClip.BottomInset = Math.Max(0,audioY+24-clipBottom);
         _chrome.SetLayout(_presentedSize.X, _presentedSize.Y);
         _chrome.Visual.Opacity=_contentWeights.Z;
-        if(!CompanionVisible || _form==WidgetForm.Details){_companion.Visual.Opacity=0;return;}
+        bool reduced = _preferences.ReducedMotion || !_uiSettings.AnimationsEnabled;
+        uint face = _accessibility.HighContrast ? _button : _companionState?.Color ?? _preferences.CompanionColor;
+        uint eyes = _accessibility.HighContrast ? _text : FaceInk(face);
+        _peekCompanion.Present((_presentedSize.X - (_media.Connected ? 320 : 240)) / 2 + (_media.Connected ? PeekClockX - 66 : 91),
+            _media.Connected && ClockSecondary.Length > 0 ? 16 : 14, CompanionVisible ? _contentWeights.Y : 0, face, eyes, reduced);
+        _peekCompanion.Gaze(_gazePointer.X, _gazePointer.Y, _gazeInside && _preferences.CompanionFollowMouse);
+        _chrome.SetHomeGaze(_gazePointer.X, _gazePointer.Y, _gazeInside && _preferences.CompanionFollowMouse);
+        if(!CompanionVisible || _form!=WidgetForm.Capsule){_companion.Visual.Opacity=0;return;}
         var pose=_placement.Pose;
         if(_form==WidgetForm.Details&&pose.PlacementMode==CompanionPlacementMode.NavigationIntro)
             pose=pose with {BodyAnchor=pose.BodyAnchor+new Vector2((_presentedSize.X-LayoutSize(_form).X)/2,0)};
@@ -850,23 +873,21 @@ public sealed partial class WidgetScene : IDisposable
 
     void ConfigurePlacement()
     {
+        if (_form == WidgetForm.Peek)
+        {
+            // The new top strip has no wandering or artwork-hide anchors.
+            _placement.SetAvailability(false, _sceneVisible, _preferences.ReducedMotion, _motionNow);
+            return;
+        }
         var size=LayoutSize(_form);float body=PlacementBodySize;
         string key=$"{_form}/{size}/{_media.Connected}/{_media.ContentVersion}/{_media.SessionToken}/{_preferences.CompanionAppearanceId}";
         _placement.SetAppearance(_preferences.CompanionAppearanceId,_motionNow);
         if(key!=_placementKey)
         {
-            bool openingPeek = _form == WidgetForm.Peek && (_placementKey is null || !_placementKey.StartsWith("Peek/", StringComparison.Ordinal));
             _placementKey=key;
             var protectedRegions=new List<FloatRect>();var covers=new List<HideAnchor>();
             Vector2 preferred=new(40,26);
-            if(_form==WidgetForm.Peek)
-            {
-                preferred=_media.Connected ? new(52,150.4f) : new(21.5f,80);
-                if(_media.Connected){protectedRegions.AddRange(new FloatRect[]{new(24,18,272,32),new(96,56,164,50),new(86,124,148,44),new(266,66,40,24)});
-                    var art=new FloatRect(24,56,56,56);protectedRegions.Add(art);}
-                else protectedRegions.AddRange(new FloatRect[]{new(48,30,144,60),new(54,100,132,32)});
-            }
-            else if(_form==WidgetForm.Details)
+            if(_form==WidgetForm.Details)
             {
                 preferred=new(32,130);
                 // The home handle replaces the old navigation strip; the dock keeps its own
@@ -915,9 +936,8 @@ public sealed partial class WidgetScene : IDisposable
                 }
             }
             _placement.UpdateLayout(new(_form,new(0,0,size.X,size.Y),24,body,preferred,protectedRegions,covers),_motionNow);
-            if (openingPeek) { _placement.SetAvailability(CompanionVisible, _sceneVisible, _preferences.ReducedMotion, _motionNow); _placement.MoveOnOpen(_motionNow); }
         }
-        _placement.SetAvailability(CompanionVisible && _form!=WidgetForm.Details,_sceneVisible,_preferences.ReducedMotion,_motionNow);
+        _placement.SetAvailability(CompanionVisible && _form==WidgetForm.Capsule,_sceneVisible,_preferences.ReducedMotion,_motionNow);
     }
     public void BeginDetails(long sequence,double now)
     {
@@ -929,7 +949,12 @@ public sealed partial class WidgetScene : IDisposable
         UpdateAuxiliaryPlacement();BuildControls();
     }
     public void EndDetails(){_chrome.Close();SetCapture(PointerCaptureOwner.None,_motionNow);}
-    public void SetSceneVisible(bool visible,double now){_motionNow=now;_sceneVisible=visible;ConfigurePlacement();}
+    public void SetSceneVisible(bool visible,double now)
+    {
+        _motionNow=now;_sceneVisible=visible;
+        if (!visible) ClearCompanionPointerGaze();
+        ConfigurePlacement();
+    }
     public void SetCapture(PointerCaptureOwner owner,double now)
     {_motionNow=now;_captureOwner=owner;_placement.SetCapture(owner,now);}
     public bool RouteSpecialPointer(HostPointerEvent pointer,int action,double now)
@@ -1010,6 +1035,7 @@ public sealed partial class WidgetScene : IDisposable
     public void ClearCompanionPointerGaze()
     {
         _gazeInside = false; _companion.ClearPointerGaze();
+        _peekCompanion.Gaze(0, 0, false); _chrome.SetHomeGaze(0, 0, false);
     }
 
     void AdjustArtworkScroll(float delta)
@@ -1230,28 +1256,41 @@ public sealed partial class WidgetScene : IDisposable
     {
         if (_media.Connected)
         {
-            ClockWhiteplate(operations,68,14,184,ClockSecondary.Length > 0 ? 40 : 32,16);
-            Text(operations, ClockPrimary, 24, 18, 272, 26, TextRole.ClockWhiteplate, InkRole.Primary, center: true,
+            // Face + clock share only the shell material: no nested header or clock plate.
+            float clockX = PeekClockX, clockWidth = PeekClockWidth;
+            bool secondary = ClockSecondary.Length > 0;
+            Text(operations, ClockPrimary, clockX, secondary ? 10 : 15, clockWidth, 26, TextRole.ClockWhiteplate, InkRole.Primary, center: true,
                 flags: _preferences.ClockShowTime ? TextFlags.TabularNumbers : TextFlags.TabularDigitsOnly, clockPlate: true);
-            if (ClockSecondary.Length > 0) Text(operations, ClockSecondary, 24, 42, 272, 12, TextRole.ClockLegacyAux, InkRole.Secondary, center: true, clockPlate: true);
-            Transport(86, 124, 44, WidgetActions.Previous, _media.Capabilities.Previous);
-            Transport(138, 124, 44, WidgetActions.Toggle, _media.Capabilities.Toggle);
-            Transport(190, 124, 44, WidgetActions.Next, _media.Capabilities.Next);
+            if (secondary) Text(operations, ClockSecondary, clockX, 36, clockWidth, 12, TextRole.ClockLegacyAux, InkRole.Secondary, center: true, clockPlate: true);
+            Transport(86, PeekTransportY, 44, WidgetActions.Previous, _media.Capabilities.Previous);
+            Transport(138, PeekTransportY, 44, WidgetActions.Toggle, _media.Capabilities.Toggle);
+            Transport(190, PeekTransportY, 44, WidgetActions.Next, _media.Capabilities.Next);
         }
         else
         {
-            ClockWhiteplate(operations,20,26,200,68,18);
-            Text(operations, ClockPrimary, 24, ClockSecondary.Length > 0 ? 30 : 44, 192, 44,
+            ClockWhiteplate(operations,20,52,200,ClockSecondary.Length > 0 ? 58 : 44,18);
+            Text(operations, ClockPrimary, 24, 54, 192, 40,
                 _preferences.ClockShowTime ? TextRole.ClockPeekHero : TextRole.PageTitle, InkRole.Primary, center: true,
                 flags: _preferences.ClockShowTime ? TextFlags.TabularNumbers : TextFlags.TabularDigitsOnly, clockPlate: true);
-            if (ClockSecondary.Length > 0) Text(operations, ClockSecondary, 24, 77, 192, 21, TextRole.Caption, InkRole.Secondary, center: true, clockPlate: true);
-            Text(operations, "打开网易云音乐", 62, 105, 116, 24, TextRole.Caption, InkRole.Secondary, center: true);
+            if (ClockSecondary.Length > 0) Text(operations, ClockSecondary, 24, 91, 192, 18, TextRole.Caption, InkRole.Secondary, center: true, clockPlate: true);
+            Text(operations, "打开网易云音乐", 62, 115, 116, 20, TextRole.Caption, InkRole.Secondary, center: true);
         }
+    }
+
+    float PeekClockWidth => ClockSecondary.Length > 0 ? 128 : 96;
+    float PeekClockX => (320 - PeekClockWidth + (CompanionVisible ? 66 : 0)) / 2;
+    const float PeekTransportY = 124;
+    static uint FaceInk(uint body)
+    {
+        double r = ((body >> 16) & 255) / 255d, g = ((body >> 8) & 255) / 255d, b = (body & 255) / 255d;
+        return .2126 * r * r + .7152 * g * g + .0722 * b * b > .55 ? 0xFF20252Cu : 0xFFFAFBFCu;
     }
 
     void DrawDetails(List<SurfaceOp> operations)
     {
-        if (HomePage) { DrawHome(operations); DrawPageNotice(operations); return; }
+        if (HomePage) { DrawHome(operations); return; }
+        Icon(operations, "\uE72B", 24, 20, 18,
+            _accessibility.HighContrast ? _text : TypographyCatalog.Ink(InkRole.Primary, _lightText));
         if (WidgetsPage) { DrawBoard(operations); DrawPageNotice(operations); return; }
         var size = LayoutSize(WidgetForm.Details);
         float width = size.X, height = size.Y;
@@ -1334,10 +1373,10 @@ public sealed partial class WidgetScene : IDisposable
         if (!music) return;
         var details = form == WidgetForm.Details ? ResponsiveDetails() : null;
         float width = form == WidgetForm.Capsule ? LayoutSize(form).X - 60 - (_preferences.AudioVisualizationEnabled ? 52 : 12)
-            : form == WidgetForm.Peek ? (CompanionVisible || _preferences.AudioVisualizationEnabled ? 164 : 200)
+            : form == WidgetForm.Peek ? (_preferences.AudioVisualizationEnabled ? 170 : 208)
             : details?.Title.Width ?? 312;
-        float offsetX = form == WidgetForm.Capsule ? 60 : form == WidgetForm.Peek ? 96 : details?.Title.X ?? 24;
-        float offsetY = form == WidgetForm.Capsule ? 9 : form == WidgetForm.Peek ? 56
+        float offsetX = form == WidgetForm.Capsule ? 60 : form == WidgetForm.Peek ? 88 : details?.Title.X ?? 24;
+        float offsetY = form == WidgetForm.Capsule ? 9 : form == WidgetForm.Peek ? 64
             : details is not null ? details.Title.Y - details.BodyViewport.Y : 166;
         float artistOffset = form == WidgetForm.Capsule ? 20 : form == WidgetForm.Peek ? 30
             : details is not null ? details.Artist.Y - details.Title.Y : 28;
@@ -1428,11 +1467,11 @@ public sealed partial class WidgetScene : IDisposable
             {
                 if (_media.Connected)
                 {
-                    Add(new(WidgetActions.Previous, "上一首", 86, 124, 44, 44, _media.Capabilities.Previous));
-                    Add(new(WidgetActions.Toggle, _media.State == PlaybackState.Playing ? "暂停" : "播放", 138, 124, 44, 44, _media.Capabilities.Toggle));
-                    Add(new(WidgetActions.Next, "下一首", 190, 124, 44, 44, _media.Capabilities.Next));
+                    Add(new(WidgetActions.Previous, "上一首", 86, PeekTransportY, 44, 44, _media.Capabilities.Previous));
+                    Add(new(WidgetActions.Toggle, _media.State == PlaybackState.Playing ? "暂停" : "播放", 138, PeekTransportY, 44, 44, _media.Capabilities.Toggle));
+                    Add(new(WidgetActions.Next, "下一首", 190, PeekTransportY, 44, 44, _media.Capabilities.Next));
                 }
-                else Add(new(WidgetActions.OpenMusic, "打开网易云音乐", 54, 96, 132, 40));
+                else Add(new(WidgetActions.OpenMusic, "打开网易云音乐", 54, 108, 132, 36));
                 continue;
             }
             var size = LayoutSize(form);
@@ -1480,6 +1519,7 @@ public sealed partial class WidgetScene : IDisposable
                     float shift=(_presentedSize.X-_detailsWidth)/2;
                     controls.Add(item with {X=item.X+shift});_controlForms[item.Id]=WidgetForm.Details;
                 }
+            if (!HomePage) controls.Add(new AccessibleControl(WidgetActions.HomeBack, "返回首页", 12, 6, 44, 44));
             controls.AddRange(_chrome.GetAccessibleControls());
         }
         string rootName = _form == WidgetForm.Details && HomePage ? "GlassDesk，首页" : _form == WidgetForm.Details && WidgetsPage ? "GlassDesk，小组件" : MusicFor(_form) ? $"GlassDesk，{Title}，{Artist}，{PlaybackLabel}" : $"GlassDesk，本地时间 {_now:HH:mm}";
@@ -1533,12 +1573,6 @@ public sealed partial class WidgetScene : IDisposable
         var operations = new List<SurfaceOp>();
 
         float iconSize = toggle ? (size >= 56 ? 24 : 20) : 20;
-        string glyph = action switch
-        {
-            WidgetActions.Previous => "\uE892",
-            WidgetActions.Next => "\uE893",
-            _ => _media.State == PlaybackState.Playing ? "\uE769" : "\uE768"
-        };
         // Material, hover feedback and glyph share the same press scale.
         operations = operations.Select(op => op with { X = op.X - x, Y = op.Y - y }).ToList();
         var key = (_form, action);
@@ -1550,22 +1584,14 @@ public sealed partial class WidgetScene : IDisposable
         }
         button.Visual.Offset = new(x, y, 0);
         button.SetSize(size);
-        button.SetAppearance(_accessibility.HighContrast?_button:toggle?0xD0FFFFFF:0xB0FFFFFF,color,_accessibility.HighContrast);
+        button.SetAppearance(_accessibility.HighContrast ? _button : toggle ? 0xD0FFFFFFu : 0xB0FFFFFFu, color, _accessibility.HighContrast);
         button.Replace(_host.RenderSurface(size, size, operations));
         if (toggle)
         {
             button.UpdatePlaybackGlyph(_media.State == PlaybackState.Playing, color, size, iconSize, _preferences.ReducedMotion);
             return;
         }
-        var glyphKey = (glyph, color, size);
-        if (button.GlyphKey != glyphKey || _drawingInvalidated)
-        {
-            var ink = new List<SurfaceOp>();
-            Icon(ink, glyph, (size - iconSize) / 2, (size - iconSize) / 2, iconSize, color);
-            button.ReplaceGlyph(_host.RenderSurface(size, size, ink), new(size, size), false);
-            button.GlyphKey = glyphKey;
-        }
-        else if (_preferences.ReducedMotion) button.FinishGlyph();
+        button.UpdateSkipGlyph(action == WidgetActions.Next, color, size, iconSize);
     }
 
     void ClockIcon(List<SurfaceOp> operations, float x, float y, float size)
@@ -1592,8 +1618,7 @@ public sealed partial class WidgetScene : IDisposable
         foreach (var depth in _waveDepth)depth.SetAppearance(_text,_button,true);
     }
 
-    // The clock in Peek is the only rectangular content plate. Metadata and
-    // Details text are drawn directly on the shared shell material.
+    // Only disconnected Peek uses this plate; connected Peek text sits on the shell.
     void ClockWhiteplate(List<SurfaceOp> operations, float x, float y, float width, float height, float radius)
     {
         if (_accessibility.HighContrast) return;
@@ -1616,7 +1641,10 @@ public sealed partial class WidgetScene : IDisposable
         bool promote = clockPlate ? _clockPlatePromoteSecondary : _promoteSecondary;
         if (promote && ink == InkRole.Secondary) ink = InkRole.Primary;
         uint color = _accessibility.HighContrast ? _text : TypographyCatalog.Ink(ink, clockPlate ? _clockPlateLightText : _lightText);
-        ops.Add(SurfaceOp.Typography(value, role, x, y, width, height, color, center, flags, CurrentTypography.Locale));
+        var operation=SurfaceOp.Typography(value, role, x, y, width, height, color, center, flags, CurrentTypography.Locale);
+        if (_preferences.ClockShowTime && ClockFontCatalog.IsClockRole(role))
+            operation=operation with { TextFlags=operation.TextFlags | ClockFontCatalog.Get(_preferences.ClockFontId).Flag };
+        ops.Add(operation);
     }
 
     CompositionDrawingSurface RenderTextLayer(string layer, float width, float height, IReadOnlyList<SurfaceOp> operations)
@@ -1684,6 +1712,7 @@ public sealed partial class WidgetScene : IDisposable
         _drawingInvalidated = true;
         _lastTimeline = null;
         _lastRootName = null;
+        _homeVisual?.Invalidate();
         _feedbackDirty = true;
         _artworkDirty = true;
         _chrome.Invalidate();
@@ -1714,6 +1743,7 @@ public sealed partial class WidgetScene : IDisposable
         if (_disposed) return;
         _disposed = true;
         DisposeBoardVisuals();
+        _homeVisual?.Dispose();
         _artworkTimer.Stop();
         _artworkTimer.Tick -= OnArtworkTransitionCompleted;
         RenderingFailed = null;
@@ -1744,7 +1774,7 @@ public sealed partial class WidgetScene : IDisposable
         _audioBars.Children.RemoveAll();
         foreach(var depth in _waveDepth)depth.Dispose();
         foreach (var band in _bands) { band.Children.RemoveAll();band.Brush?.Dispose(); band.Dispose(); }
-        _audioClip.Dispose(); _audioBars.Dispose(); _companion.Dispose(); _chrome.Dispose();
+        _audioClip.Dispose(); _audioBars.Dispose(); _companion.Dispose(); _peekCompanion.Dispose(); _chrome.Dispose();
         _contentBrush.Dispose(); _capsuleBrush.Dispose(); _peekBrush.Dispose(); _artworkBrush.Dispose(); _previousArtworkBrush.Dispose();
         _timelineBrush.Dispose(); _feedbackBrush.Dispose(); _detailsBrush.Dispose();
         _bodyRoot.Clip?.Dispose(); _bodyClip.Dispose(); _bodyRoot.Dispose(); _root.Dispose();
@@ -1763,14 +1793,13 @@ public sealed partial class WidgetScene : IDisposable
         readonly Compositor _compositor;
         readonly CompositionSurfaceBrush _brush;
         readonly ControlDepthVisual _plate;
-        readonly CrossfadeSurfaceVisual? _glyph;
+        readonly SkipGlyphVisual? _skipGlyph;
         readonly PlaybackGlyphVisual? _playbackGlyph;
         readonly ShapeVisual _hover;
         readonly CompositionEllipseGeometry _hoverGeometry;
         readonly CompositionSpriteShape _hoverShape;
         readonly CompositionColorBrush _hoverInk;
         CompositionDrawingSurface? _surface;
-        public (string Glyph, uint Color, float Size)? GlyphKey { get; set; }
         bool _pressed, _hovered;
         byte _shade;
         double _pressedAt, _releasedAt;
@@ -1793,7 +1822,7 @@ public sealed partial class WidgetScene : IDisposable
             }
             else
             {
-                _glyph = new CrossfadeSurfaceVisual(_compositor); Visual.Children.InsertAtTop(_glyph.Visual);
+                _skipGlyph = new SkipGlyphVisual(host); Visual.Children.InsertAtTop(_skipGlyph.Visual);
             }
         }
         public void SetSize(float size)
@@ -1804,8 +1833,8 @@ public sealed partial class WidgetScene : IDisposable
         }
         public void SetAppearance(uint fill,uint ink,bool highContrast)=>_plate.SetAppearance(fill,ink,highContrast);
         public void Replace(CompositionDrawingSurface replacement) => ReplaceSurface(ref _surface, _brush, replacement);
-        public void ReplaceGlyph(CompositionDrawingSurface replacement, Vector2 size, bool animate) => _glyph!.Show(replacement, size, animate);
-        public void FinishGlyph() => _glyph?.Finish();
+        public void UpdateSkipGlyph(bool next, uint color, float buttonSize, float iconSize)
+            => _skipGlyph!.Update(next, color, buttonSize, iconSize);
         public void UpdatePlaybackGlyph(bool playing, uint color, float buttonSize, float iconSize, bool reducedMotion)
             => _playbackGlyph!.Update(playing, color, buttonSize, iconSize, reducedMotion);
         public void SetFeedback(bool hovered, bool pressed, bool reducedMotion)
@@ -1868,7 +1897,7 @@ public sealed partial class WidgetScene : IDisposable
             _brush.Surface = null;
             _surface?.Dispose();
             Visual.StopAnimation("Scale"); _hoverInk.StopAnimation("Color");
-            Visual.Children.RemoveAll(); _plate.Dispose(); _glyph?.Dispose(); _playbackGlyph?.Dispose();
+            Visual.Children.RemoveAll(); _plate.Dispose(); _skipGlyph?.Dispose(); _playbackGlyph?.Dispose();
             _hover.Shapes.Clear(); _hoverShape.Dispose(); _hoverGeometry.Dispose(); _hoverInk.Dispose(); _hover.Dispose();
             Visual.Dispose();
             _brush.Dispose();

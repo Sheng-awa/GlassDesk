@@ -30,6 +30,8 @@ internal sealed class DetailsChromeVisual : IDisposable
 
     readonly ContainerVisual _visual;
     readonly ContainerVisual _homeGroup;
+    readonly ContainerVisual _homeGaze;
+    Vector3 _homeGazeTarget;
     readonly ShapeVisual _homeBody;
     readonly CompositionRoundedRectangleGeometry _homeBodyGeometry;
     readonly CompositionColorBrush _homeBodyInk;
@@ -116,6 +118,9 @@ internal sealed class DetailsChromeVisual : IDisposable
         _homeBodyInk = _compositor.CreateColorBrush(Color.FromArgb(255, 32, 35, 40));
         AppendShape(_homeBody, _homeBodyGeometry, _homeBodyInk);
         _homeGroup.Children.InsertAtTop(_homeBody);
+        _homeGaze = _compositor.CreateContainerVisual();
+        _homeGaze.Size = _homeGroup.Size;
+        _homeGroup.Children.InsertAtTop(_homeGaze);
         _homeEyeInk = _compositor.CreateColorBrush(Color.FromArgb(255, 250, 251, 252));
         for (int index = 0; index < _homeEyes.Length; index++)
         {
@@ -129,7 +134,7 @@ internal sealed class DetailsChromeVisual : IDisposable
                 ? DetailsChromeLayout.HomeWidth / 2 - HomeEyeGap / 2 - HomeEyeWidth
                 : DetailsChromeLayout.HomeWidth / 2 + HomeEyeGap / 2,
                 (DetailsChromeLayout.HomeHeight - HomeEyeHeight) / 2, 0);
-            _homeGroup.Children.InsertAtTop(eye);
+            _homeGaze.Children.InsertAtTop(eye);
             _homeEyes[index] = eye;
         }
         _visual.Children.InsertAtTop(_homeGroup);
@@ -212,6 +217,7 @@ internal sealed class DetailsChromeVisual : IDisposable
     {
         if (_disposed) return;
         _active = false; _hoverHome = false; _hoverIndex = -1; _previewIndex = -1;
+        SetHomeGaze(0, 0, false);
         _pressedHome = false; _pressedIndex = -1;
         _homeLabel.StopAnimation("Opacity"); _homeLabel.Opacity = 0; _homeLabelShown = null;
         _dockLabel.StopAnimation("Opacity"); _dockLabel.Opacity = 0; _dockLabelShown = null;
@@ -230,12 +236,33 @@ internal sealed class DetailsChromeVisual : IDisposable
         _reducedMotion = reduced;
         if (reduced)
         {
+            SetHomeGaze(0, 0, false);
             _dockActive.StopAnimation("Offset.X");
             _dockActive.StopAnimation("Scale");
             _dockActive.Scale = Vector3.One;
             _dockActiveTargetX = null;
         }
         Present();
+    }
+
+    /// <summary>The two eyes move together; the capsule and its hit target stay still.</summary>
+    public void SetHomeGaze(float x, float y, bool enabled)
+    {
+        if (_disposed) return;
+        var home = HomeBounds;
+        var target = enabled && !Reduced
+            ? new Vector3(Math.Clamp((x - home.X - home.Width / 2) / 65, -2.5f, 2.5f),
+                Math.Clamp((y - home.Y - home.Height / 2) / 80, -2, 2), 0)
+            : Vector3.Zero;
+        if (Reduced) { _homeGaze.StopAnimation("Offset"); _homeGaze.Offset = target; _homeGazeTarget = target; return; }
+        if (Vector3.DistanceSquared(target, _homeGazeTarget) < .0025f) return;
+        _homeGazeTarget = target;
+        using var easing = _compositor.CreateCubicBezierEasingFunction(new(.22f, 1), new(.36f, 1));
+        using var motion = _compositor.CreateVector3KeyFrameAnimation();
+        motion.InsertExpressionKeyFrame(0, "this.StartingValue");
+        motion.InsertKeyFrame(1, target, easing);
+        motion.Duration = TimeSpan.FromMilliseconds(200);
+        _homeGaze.StartAnimation("Offset", motion);
     }
 
     /// <summary>Follows the material: light ink means the glass is dark and the dock uses a light film.</summary>
@@ -394,7 +421,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         if (_disposed || !_active) return Array.Empty<AccessibleControl>();
         var controls = new List<AccessibleControl>(1 + DetailsDockItems.All.Count);
         FloatRect home = DetailsChromeLayout.HomeHit(Size);
-        controls.Add(new(WidgetActions.Close, "回首页（陪伴）", home.X, home.Y, home.Width, home.Height));
+        controls.Add(new(WidgetActions.Close, "收起为胶囊（陪伴）", home.X, home.Y, home.Width, home.Height));
         if (!_dockVisible) return controls;
         for (int index = 0; index < DetailsDockItems.All.Count; index++)
         {
@@ -741,6 +768,7 @@ internal sealed class DetailsChromeVisual : IDisposable
         foreach (var shape in _homeBody.Shapes) shape.Dispose();
         _homeBody.Shapes.Clear();
         _homeBody.Dispose(); _homeBodyGeometry.Dispose(); _homeBodyInk.Dispose(); _homeEyeInk.Dispose();
+        _homeGaze.StopAnimation("Offset"); _homeGaze.Children.RemoveAll(); _homeGaze.Dispose();
         _homeGroup.Dispose();
         _visual.Dispose();
     }

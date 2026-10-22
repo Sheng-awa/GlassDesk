@@ -29,6 +29,7 @@ public sealed class SystemIntegration : IDisposable
     private uint _hotkeyModifiers;
     private uint _hotkeyKey;
     private bool _trayAdded;
+    private readonly nint _trayIcon;
     private bool _disposed;
     public bool WidgetVisible { get; set; } = true;
     public event Action? ShowHideRequested;
@@ -58,6 +59,9 @@ public sealed class SystemIntegration : IDisposable
             NativeMethods.RemoveWindowSubclass(_window, _subclass, SubclassId);
             throw new Win32Exception(error);
         }
+        string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "GlassDesk.ico");
+        // LR_LOADFROMFILE returns an owned icon. Keep it until the tray is removed.
+        _trayIcon = NativeMethods.LoadImageW(0, iconPath, 1, 32, 32, 0x10);
         AddTray();
     }
 
@@ -108,7 +112,8 @@ public sealed class SystemIntegration : IDisposable
     {
         Size = (uint)Marshal.SizeOf<NativeMethods.NotifyIconData>(), Window = _window, Id = 1,
         Flags = 1 | 2 | 4 | 0x80, CallbackMessage = TrayMessage,
-        Icon = NativeMethods.LoadIconW(0, (nint)32512), Tip = _identity.IsPreview?"GlassDesk UI Preview · 0.3.0-preview.1":"GlassDesk · 音乐与时钟", Info = "", InfoTitle = "", Version = 4
+        Icon = _trayIcon != 0 ? _trayIcon : NativeMethods.LoadIconW(0, (nint)32512),
+        Tip = _identity.IsPreview ? "GlassDesk UI Preview" : "GlassDesk · 桌面陪伴", Info = "", InfoTitle = "", Version = 4
     };
 
     private void AddTray()
@@ -278,6 +283,7 @@ public sealed class SystemIntegration : IDisposable
         _disposed = true;
         if (_hotkeyId != 0) NativeMethods.UnregisterHotKey(_window, _hotkeyId);
         if (_trayAdded) { var icon = TrayData(); NativeMethods.Shell_NotifyIconW(2, ref icon); _trayAdded = false; }
+        if (_trayIcon != 0) NativeMethods.DestroyIcon(_trayIcon);
         NativeMethods.RemovePropW(_window, _identity.WindowMarker);
         NativeMethods.RemoveWindowSubclass(_window, _subclass, SubclassId);
         ShowHideRequested = SettingsRequested = OpenMusicRequested = ResetPositionRequested = QuitRequested = null;

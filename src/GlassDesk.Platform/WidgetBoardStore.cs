@@ -8,6 +8,8 @@ public sealed class WidgetBoardStore : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _loadNotice;
+    private volatile bool _canSave = true;
+    public bool CanSave => _canSave;
     public string DirectoryPath { get; }
     public string SettingsPath => Path.Combine(DirectoryPath, "widgets.json");
 
@@ -25,7 +27,7 @@ public sealed class WidgetBoardStore : IDisposable
         try
         {
             _loadNotice = null;
-            if (!File.Exists(SettingsPath)) return await DefaultsAsync(false, cancellationToken).ConfigureAwait(false);
+            _canSave = true;
             try { return Parse(await ReadBoundedAsync(cancellationToken).ConfigureAwait(false)); }
             catch (Exception error) when (error is JsonException or InvalidDataException)
             {
@@ -40,14 +42,17 @@ public sealed class WidgetBoardStore : IDisposable
                 catch (Exception backupError) when (backupError is IOException or UnauthorizedAccessException)
                 {
                     // Never overwrite a bad original if its backup could not be preserved.
-                    _loadNotice = "小组件配置无法读取，已使用默认组件；原文件仍保留。";
+                    _canSave = false;
+                    _loadNotice = "原组件配置未能备份，当前为临时展示；本次不保存，请恢复访问后重启。";
                     return WidgetBoardData.CreateDefault();
                 }
             }
             catch (FileNotFoundException) { return await DefaultsAsync(false, cancellationToken).ConfigureAwait(false); }
+            catch (DirectoryNotFoundException) { return await DefaultsAsync(false, cancellationToken).ConfigureAwait(false); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
-                _loadNotice = "小组件配置暂时无法访问，已使用默认组件；原文件未修改。";
+                _canSave = false;
+                _loadNotice = "原组件配置暂时无法读取，当前为临时展示；本次不保存，请恢复访问后重启。";
                 return WidgetBoardData.CreateDefault();
             }
         }
@@ -60,7 +65,11 @@ public sealed class WidgetBoardStore : IDisposable
         var copy = WidgetBoardData.ValidateAndClone(state);
         var bytes = Serialize(copy);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try { await SaveBytesAsync(bytes, cancellationToken).ConfigureAwait(false); }
+        try
+        {
+            if (!_canSave) throw new IOException("原组件配置尚未成功读取，为保护原文件已阻止保存。请恢复访问后重新加载。");
+            await SaveBytesAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
         finally { _gate.Release(); }
     }
 
@@ -70,6 +79,7 @@ public sealed class WidgetBoardStore : IDisposable
         try { await SaveBytesAsync(Serialize(defaults), cancellationToken).ConfigureAwait(false); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
+            _canSave = false;
             _loadNotice = corruptionBackedUp ? "已保留损坏配置备份，默认组件暂未保存。" : "已使用默认组件，配置暂未保存。";
         }
         return defaults;

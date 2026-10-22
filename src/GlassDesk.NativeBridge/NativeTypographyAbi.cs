@@ -33,7 +33,7 @@ public static class NativeTypographyAbi
         try {Marshal.ThrowExceptionForHR(NativeMethods.GDGetNativeAbiInfo(ref info));}
         catch(EntryPointNotFoundException error)
         {throw new InvalidOperationException("GlassDesk.Native.dll requires typography ABI V2; use the DLL from this preview batch.",error);}
-        if(info.Size!=24||info.Version!=2||info.V1Size!=64||info.V2Size!=96||(info.Capabilities&15)!=15)
+        if(info.Size!=24||info.Version!=2||info.V1Size!=64||info.V2Size!=96||(info.Capabilities&31)!=31)
             throw new InvalidOperationException("GlassDesk.Native.dll reports an incompatible typography ABI.");
         return new(info.Version,info.V1Size,info.V2Size,info.Capabilities);
     }

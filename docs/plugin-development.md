@@ -8,6 +8,8 @@
 
 实现 `IGlassDeskPlugin.Initialize`、`RegisterContributions`、`StartAsync`、`PauseAsync`、`StopAsync` 和 `DisposeAsync`。初始化保存上下文；注册返回内容页、命令、设置、角色或材质。运行与暂停可以重复，隐藏会暂停但不改变 Enabled。暂停应停止计时器、采集和后台工作；停止与释放必须取消任务、撤销事件、释放资源。
 
+第三方插件的构造、初始化、生命周期、命令和场景回调可能在工作线程执行，不提供 UI 线程亲和保证；界面贡献通过 `IPluginContext` 提交，由宿主调度显示。同步入口应快速返回，异步方法尊重取消。超时任务会被撤销贡献并标记需要重启，仍在执行的代码不会被强制卸载。进程内插件仍只适用于可信代码，这不是安全沙箱。启用中插件更新失败时，宿主会在安全卸载后恢复旧包；无法安全卸载时保留旧包备份并明确提示重启恢复。
+
 `IPluginContext.Scene` 与 `SceneChanged` 提供真实媒体、当前形态、可见性、减少动画和单调时间戳。`SaveConfigurationAsync` 保存最多 64 KiB UTF-8 JSON；配置位于 `plugin-config/<id>.json`，与二进制分离，同一标识更新及移除默认保留配置。设置贡献由宿主编辑并写入该 JSON。
 
 UI 请求通过宿主队列处理；隐藏或停止后旧队列请求被撤销。`SubmitVisual` 必须对应已注册内容页，每次最多 128 个有限坐标绘制操作；宿主负责布局、输入与窗口。`SubmitCompanion` 和 `SetMaterial` 同样需要对应注册贡献。不要自行抢焦点或接管主组件窗口。

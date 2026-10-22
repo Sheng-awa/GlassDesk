@@ -24,6 +24,9 @@ internal sealed partial class GlassDeskCoordinator
     long boardRevision;
     int boardPressedAction = -1;
     int homePressedAction = -1;
+    readonly HomeDirectoryService homeDirectories = new();
+    CancellationTokenSource? homeFolderRead;
+    bool homeConsumeRelease, homeBackPressed;
     string? boardDragInstance;
     WidgetInstance? boardUndoHidden;
     int boardUndoHiddenIndex = -1;
@@ -42,6 +45,19 @@ internal sealed partial class GlassDeskCoordinator
         scene.DetailsPageRequested+=SelectDetailsPage;
         scene.BoardViewportChanged+=OnBoardViewportChanged;
         widgetScheduler.Updated+=OnWidgetUpdated;
+        _=LoadHomeIconsAsync();
+    }
+
+    async Task LoadHomeIconsAsync()
+    {
+        for(int i=0;i<WidgetActions.HomeAppCount;i++)
+        {
+            if(disposed||quitting)return;
+            int index=i;
+            var bytes=await HomeIconLoader.ReadAsync(index).ConfigureAwait(false);
+            if(bytes is null)continue;
+            queue.TryEnqueue(()=>{if(!disposed&&!quitting)TryScene(()=>scene.SetHomeAppIcon(index,bytes));});
+        }
     }
 
     async Task LoadWidgetBoardAsync()
@@ -120,6 +136,7 @@ internal sealed partial class GlassDeskCoordinator
     void SelectDetailsPage(string id)
     {
         if(disposed||quitting)return;
+        if(id!=DetailsPageController.Home)CancelHomeFolderRead();
         pages.SetScrollOffset(scene.CurrentPageScroll);
         if(!pages.Select(id))return;
         CommitBoardOnLeave();
@@ -150,6 +167,11 @@ internal sealed partial class GlassDeskCoordinator
     void ExecuteBoardAction(WidgetBoardUiAction action)
     {
         if(disposed||quitting||!boardReady||controller.Form!=WidgetForm.Details||pages.CurrentPageId!=DetailsPageController.Widgets)return;
+        if(!widgetStore.CanSave)
+        {
+            notice="原组件配置未能读取，当前只读展示；请恢复数据目录访问后重启。";
+            Render();Changed?.Invoke();return;
+        }
         try
         {
             var item=boardEditor.State.Instances.FirstOrDefault(i=>i.InstanceId==action.InstanceId);
@@ -266,7 +288,10 @@ internal sealed partial class GlassDeskCoordinator
         if(scene.CaptureOwner==PointerCaptureOwner.WidgetBoard)scene.SetCapture(PointerCaptureOwner.None,Now);
         if(pages.SavePending&&pageSaveTimer is not null){pageSaveTimer.Stop();if(!quitting)pageSaveTimer.Start();}
     }
-    void QueueWidgetSave(WidgetBoardState state) => widgetSaveTail=SaveWidgetAfterAsync(widgetSaveTail,state);
+    void QueueWidgetSave(WidgetBoardState state)
+    {
+        if(widgetStore.CanSave)widgetSaveTail=SaveWidgetAfterAsync(widgetSaveTail,state);
+    }
     async Task SaveWidgetAfterAsync(Task preceding,WidgetBoardState state)
     {
         await preceding;
@@ -355,6 +380,13 @@ internal sealed partial class GlassDeskCoordinator
     bool RouteHomePointer(HostPointerEvent e,int id)
     {
         if(!scene.HomePage||controller.Form!=WidgetForm.Details)return false;
+        if(homeConsumeRelease&&e.Kind is HostEventKind.Up or HostEventKind.CaptureLost)
+        {homeConsumeRelease=false;homePressedAction=-1;scene.SetHomePointerFeedback(-1);return true;}
+        if(id==WidgetActions.HomePopupBody)
+        {
+            if(e.Kind is HostEventKind.Up or HostEventKind.CaptureLost){homePressedAction=-1;scene.SetHomePointerFeedback(-1);}
+            return true;
+        }
         var actions=scene.HomeActions;
         bool known=actions.ContainsKey(id);
         if(e.Kind==HostEventKind.Invoke)
@@ -367,10 +399,10 @@ internal sealed partial class GlassDeskCoordinator
         {
             if(!known)
             {
-                if(scene.HomePopoverOpen){scene.CloseHomePopover();Render();return true;}
+                if(scene.HomePopoverOpen){CancelHomeFolderRead();scene.CloseHomePopover();homeConsumeRelease=true;Render();return true;}
                 homePressedAction=-1;return false;
             }
-            if(scene.HomePopoverOpen && !IsHomePopoverAction(id))scene.CloseHomePopover();
+            if(scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==id) is {Enabled:false})return true;
             homePressedAction=id;scene.SetHomePointerFeedback(id);Render();
             return true;
         }
@@ -379,7 +411,7 @@ internal sealed partial class GlassDeskCoordinator
         if(e.Kind==HostEventKind.Up)
         {
             int pressed=homePressedAction;homePressedAction=-1;scene.SetHomePointerFeedback(-1);
-            if(pressed==id&&actions.TryGetValue(id,out var action))ExecuteHomeAction(action);
+            if(pressed==id&&actions.TryGetValue(id,out var action)&&scene.GetAccessibleControls().FirstOrDefault(c=>c.Id==id) is not {Enabled:false})ExecuteHomeAction(action);
             else Render();
             return true;
         }
@@ -389,9 +421,6 @@ internal sealed partial class GlassDeskCoordinator
         }
         return known;
     }
-    static bool IsHomePopoverAction(int id)=>
-        id==WidgetActions.HomeClosePopover||id==WidgetActions.HomeOpenFolder||
-        (id>=WidgetActions.HomePreviewFirst&&id<WidgetActions.HomePreviewFirst+WidgetActions.HomePreviewCount);
     void ExecuteHomeAction(HomeAction action)
     {
         notice=null;
@@ -421,29 +450,50 @@ internal sealed partial class GlassDeskCoordinator
                 else notice=error;
                 break;
             }
-            case HomeActionKind.ClosePopover: scene.CloseHomePopover();break;
+            case HomeActionKind.ClosePopover: CancelHomeFolderRead();scene.CloseHomePopover();break;
         }
         Render();WakeMotion();Changed?.Invoke();
     }
-    void ShowHomeFolder(int index)
+    void CancelHomeFolderRead()
     {
-        string path=HomeFolderPath(index);
-        var entries=new List<HomeFolderEntry>();
+        var pending=homeFolderRead;homeFolderRead=null;
+        pending?.Cancel();pending?.Dispose();
+    }
+    async void ShowHomeFolder(int index)
+    {
+        if(scene.HomePopoverOpen&&scene.HomePopoverFolder==index)
+        {CancelHomeFolderRead();scene.CloseHomePopover();Render();return;}
+        CancelHomeFolderRead();
+        var pending=homeFolderRead=new CancellationTokenSource();
+        var token=pending.Token;
+        string name=index==0?"桌面":index==1?"文档":"下载";
+        scene.OpenHomePopover(index,new HomeFolderPreview(name,"",[],HomeFolderStatus.Loading));
+        Render();
+        bool Current()=>!disposed&&!quitting&&!token.IsCancellationRequested&&ReferenceEquals(homeFolderRead,pending)
+            &&scene.HomePage&&controller.Form==WidgetForm.Details&&controller.Visible&&scene.HomePopoverFolder==index;
         try
         {
-            foreach(var item in Directory.EnumerateFileSystemEntries(path).Take(3))
-                entries.Add(new(Path.GetFileName(item),item,Directory.Exists(item)));
+            var result=await homeDirectories.ReadAsync(index,token);
+            if(!Current())return;
+            var entries=result.Entries.Select(e=>new HomeFolderEntry(e.Name,e.Path,e.IsFolder)).ToArray();
+            scene.OpenHomePopover(index,new HomeFolderPreview(result.Name,result.Path,entries,
+                entries.Length==0?HomeFolderStatus.Empty:HomeFolderStatus.Ready));
         }
-        catch(Exception error){diagnostics.RecordError("home.folder",error);notice="无法读取文件夹。";}
-        scene.OpenHomePopover(index,new HomeFolderPreview(Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)),path,entries));
-        Render();Changed?.Invoke();
+        catch(OperationCanceledException)when(token.IsCancellationRequested){return;}
+        catch(Exception error)
+        {
+            if(!Current())return;
+            if(error is TimeoutException)pending.Cancel();
+            diagnostics.RecordError("home.folder",error);
+            scene.OpenHomePopover(index,new HomeFolderPreview(name,"",[],HomeFolderStatus.Error,
+                error is TimeoutException?"读取超时，请关闭后重试":"无法读取这个文件夹，请检查位置或权限"));
+        }
+        finally
+        {
+            if(ReferenceEquals(homeFolderRead,pending)){homeFolderRead=null;pending.Dispose();}
+        }
+        if(!disposed&&!quitting){Render();Changed?.Invoke();}
     }
-    static string HomeFolderPath(int index)=>index switch
-    {
-        0=>Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-        1=>Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-        _=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"Downloads"),
-    };
     void LaunchHomeApp(int index)
     {
         switch(index)
@@ -452,12 +502,10 @@ internal sealed partial class GlassDeskCoordinator
             case 1: LaunchExternal("msedge");return;
             case 2: LaunchExternal("wt");return;
             case 3:
-                if(system.OpenExplorer(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),false,out var error))notice=null;else notice=error;
-                break;
+                LaunchExternal("ms-photos:");return;
             case 4: LaunchExternal("notepad");return;
             default: LaunchExternal("calc");return;
         }
-        Render();Changed?.Invoke();
     }
     void LaunchExternal(string target)
     {
@@ -538,6 +586,7 @@ internal sealed partial class GlassDeskCoordinator
     }
     void DisposeWidgetBoard()
     {
+        CancelHomeFolderRead();
         widgetTimer.Stop();pageSaveTimer.Stop();CloseWidgetConfiguration();
         foreach(var app in widgetOwnedWindows.Values)app.Changed-=OnWidgetOwnedChanged;
         widgetOwnedWindows.Clear();widgetScheduler.Updated-=OnWidgetUpdated;widgetScheduler.Dispose();

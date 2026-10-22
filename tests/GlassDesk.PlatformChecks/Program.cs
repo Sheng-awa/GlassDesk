@@ -81,6 +81,17 @@ using (var document = JsonDocument.Parse(text))
 }
 
 UiPreviewChecks.Run(Check,root);
+using(var protectedStore=new PreferenceStore(Path.Combine(root,"read-failure")))
+{
+    await protectedStore.SaveAsync(new WidgetPreferences {HoverDelayMs=850});
+    byte[] original=await File.ReadAllBytesAsync(protectedStore.SettingsPath);
+    using(var locked=new FileStream(protectedStore.SettingsPath,FileMode.Open,FileAccess.Read,FileShare.None))protectedStore.Load();
+    bool rejected=false;try{await protectedStore.SaveAsync(new());}catch(IOException){rejected=true;}
+    Check(rejected&&!protectedStore.CanSave&&(await File.ReadAllBytesAsync(protectedStore.SettingsPath)).SequenceEqual(original),
+        "temporary preferences cannot overwrite unreadable/unbacked original settings after unlock");
+    Check(protectedStore.Load().HoverDelayMs==850&&protectedStore.CanSave,"successful reload restores original preferences and writable state");
+}
+await HomeDirectoryChecks.RunAsync(Check);
 await WidgetStoreChecks.RunAsync(Check);
 Check(WidgetTextToneProbe.TryChooseLight([0u,0u,0u,0u],false,out var darkBackground)&&darkBackground,
     "solid light text is selected for a dark background without metadata panels");

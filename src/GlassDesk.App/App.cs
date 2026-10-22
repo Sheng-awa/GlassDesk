@@ -17,7 +17,7 @@ public sealed partial class ResidentApplication : Application
         {
             e.Handled=true;
             WriteStartupFailure(e.Exception);
-            coordinator?.Quit();
+            if(coordinator is not null)coordinator.Quit();else Exit();
         };
     }
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -38,12 +38,7 @@ public sealed partial class ResidentApplication : Application
     }
     void WriteStartupFailure(Exception error)
     {
-        try
-        {
-            string directory=options.ErrorDirectory;
-            Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory,"startup-error.txt"),$"{DateTimeOffset.UtcNow:O}\n{error.GetType().FullName}\nHRESULT=0x{error.HResult:X8}\n{error.StackTrace}");
-        }
-        catch(IOException) { }
+        string? path=FailureReporter.Write(options.ErrorDirectory,"startup-error.txt",error,options.UiPreview);
+        if(options.QaReport is null&&!options.QuitExisting)FailureReporter.NotifyOnce("GlassDesk 发生错误，无法继续运行。请保留诊断文件以便排查。",path);
     }
 }

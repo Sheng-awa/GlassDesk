@@ -12,10 +12,27 @@ public enum TextRole : uint
     Body=13, Label=14, Caption=15, CaptionSettings=16, NavigationSettings=17,
     NavigationSemantic=18, WidgetClock=19, WidgetDateValue=20, WidgetValue=21, WidgetLabel=22
 }
-[Flags] public enum TextFlags : uint { None=0, TabularNumbers=1, TabularDigitsOnly=2 }
+[Flags] public enum TextFlags : uint { None=0, TabularNumbers=1, TabularDigitsOnly=2,
+    ClockSerif=0x100, ClockGeometric=0x200, ClockMono=0x300 }
 public enum OpticalRole { Small, Text, Display }
 public enum FontProfile { SystemA=0, Baseline=1, NotoQa=2 }
 public enum InkRole { Primary=1, Secondary=2, Caption=3, Disabled=4 }
+
+// Installed Windows faces only; the stable IDs are persisted, not arbitrary family names.
+public sealed record ClockFontChoice(string Id, string Name, string Family, TextFlags Flag);
+public static class ClockFontCatalog
+{
+    public const string System="system";
+    public static IReadOnlyList<ClockFontChoice> All {get;}=Array.AsReadOnly(new[] {
+        new ClockFontChoice(System,"默认", "Segoe UI Variable Display",TextFlags.None),
+        new ClockFontChoice("serif","书卷", "Cambria",TextFlags.ClockSerif),
+        new ClockFontChoice("geometric","几何", "Bahnschrift",TextFlags.ClockGeometric),
+        new ClockFontChoice("mono","等宽", "Consolas",TextFlags.ClockMono)
+    });
+    public static string Normalize(string? id)=>All.FirstOrDefault(x=>x.Id==id)?.Id??System;
+    public static ClockFontChoice Get(string? id)=>All.First(x=>x.Id==Normalize(id));
+    public static bool IsClockRole(TextRole role)=>role is TextRole.ClockCapsule or TextRole.ClockWhiteplate or TextRole.ClockPeekHero;
+}
 
 public sealed record TypographyToken(TextRole Role,string Key,float FontSizeDip,float LineHeightDip,
     int LatinWeight,int CjkWeight,float TrackingEm,OpticalRole Optical,TextFlags Flags=TextFlags.None);

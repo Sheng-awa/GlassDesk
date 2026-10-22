@@ -119,9 +119,9 @@ public sealed class NetEaseMediaAdapter : IMediaAdapter
             {
                 if (binding != _generation || _session is null) return;
                 if (_session.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Closed) Rebind();
-                else RequestRefresh(metadata: false);
+                else RefreshPlaybackCore(timelineChanged: false);
             });
-            _timelineChangedHandler = (_, _) => Enqueue(() => { if (binding == _generation) RequestRefresh(metadata: false); });
+            _timelineChangedHandler = (_, _) => Enqueue(() => { if (binding == _generation) RefreshPlaybackCore(timelineChanged: true); });
             selected.MediaPropertiesChanged += _mediaChangedHandler;
             selected.PlaybackInfoChanged += _playbackChangedHandler;
             selected.TimelinePropertiesChanged += _timelineChangedHandler;
@@ -181,6 +181,8 @@ public sealed class NetEaseMediaAdapter : IMediaAdapter
                 {
                     if (metadata)
                     {
+                        // Playback events must not wait behind metadata or artwork IO.
+                        RefreshPlaybackCore(timelineChanged: false);
                         var properties = await session.TryGetMediaPropertiesAsync().AsTask(refreshToken).WaitAsync(OperationTimeout, refreshToken);
                         EnsureOwner();
                         if (!IsCurrent(session, generation, version)) continue;
@@ -188,7 +190,7 @@ public sealed class NetEaseMediaAdapter : IMediaAdapter
                         var artist = properties.Artist ?? "";
                         var album = properties.AlbumTitle ?? "";
                         // Clear previous art immediately; a late art result cannot be published for another track.
-                        snapshot = snapshot with { ContentVersion = version, Title = title, Artist = artist, Album = album, Cover = null, Notice = null };
+                        snapshot = Current with { ContentVersion = version, Title = title, Artist = artist, Album = album, Cover = null, Notice = null };
                         snapshot = ReadPlayback(session, snapshot);
                         Publish(snapshot);
                         if (properties.Thumbnail is not null)
@@ -216,6 +218,25 @@ public sealed class NetEaseMediaAdapter : IMediaAdapter
 
     private bool IsCurrent(GlobalSystemMediaTransportControlsSession session, long generation, long version)
         => !_disposed && ReferenceEquals(session, _session) && generation == _generation && version == _contentVersion;
+
+    /// <summary>Cheap state reconciliation; never waits for metadata or decodes artwork.
+    /// The host calls this only while visible and connected, to cover late/missed provider events.</summary>
+    public void RefreshPlaybackState() => Enqueue(() => RefreshPlaybackCore(timelineChanged: false));
+
+    private void RefreshPlaybackCore(bool timelineChanged)
+    {
+        EnsureOwner();
+        if (_disposed || _session is null) return;
+        var before = Current;
+        var next = ReadPlayback(_session, before);
+        if (next.State == PlaybackState.Closed) { Rebind(); return; }
+        // Normal timeline projection is owned by the UI. A periodic status read must
+        // not repaint the whole widget just because its monotonic timestamp advanced.
+        if (!timelineChanged && next.State == before.State && next.Rate == before.Rate
+            && next.Capabilities == before.Capabilities && next.Timeline?.Valid == before.Timeline?.Valid) return;
+        _diagnostics.RecordEvent("media.playback", timelineChanged ? "timeline-event" : $"{before.State}->{next.State}");
+        Publish(next);
+    }
 
     private static MediaSnapshot ReadPlayback(GlobalSystemMediaTransportControlsSession session, MediaSnapshot snapshot)
     {
@@ -360,13 +381,14 @@ public sealed class NetEaseMediaAdapter : IMediaAdapter
             accepted = await operation.AsTask(linked.Token).WaitAsync(OperationTimeout, linked.Token);
             EnsureOwner();
             if (!accepted) return new(false, false, "网易云未接受操作。");
-            // This bounded readback runs only after a user command; there is no background media polling loop.
+            // Command verification is separate from the host's visible-only status reconciliation.
             for (var i = 0; i < 12; i++)
             {
                 await Task.Delay(250, linked.Token);
                 EnsureOwner();
                 if (_disposed || generation != _generation || !ReferenceEquals(session, _session)) return new(true, false, "操作后音乐会话已改变。");
                 var after = ReadPlayback(session, Current);
+                Publish(after);
                 var verified = command == MediaCommand.TogglePlayPause ? after.State == expectedState :
                     command == MediaCommand.Seek && after.Timeline is { } actual && requested is { } desired && Math.Abs((actual.Position - desired).TotalSeconds) <= 3;
                 if (command is MediaCommand.Previous or MediaCommand.Next)

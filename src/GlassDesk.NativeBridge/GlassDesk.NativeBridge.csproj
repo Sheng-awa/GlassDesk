@@ -8,7 +8,10 @@
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="..\GlassDesk.Core\GlassDesk.Core.csproj" /></ItemGroup>
   <ItemGroup>
-    <Content Include="$(GlassDeskNativeDirectory)\GlassDesk.Native.dll" Link="GlassDesk.Native.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="$(GlassDeskNativeDirectory)\GlassDesk.CaptureWorker.exe" Link="GlassDesk.CaptureWorker.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(GlassDeskNativeDirectory)\GlassDesk.Native.dll" Link="GlassDesk.Native.dll" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <Content Include="$(GlassDeskNativeDirectory)\GlassDesk.CaptureWorker.exe" Link="GlassDesk.CaptureWorker.exe" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
+  <Target Name="VerifyGlassDeskNativeInputs" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\verify-native.ps1&quot; -NativeDirectory &quot;$(GlassDeskNativeDirectory)&quot;" />
+  </Target>
 </Project>

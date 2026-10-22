@@ -22,6 +22,15 @@ internal static class SettingsTypography
     static readonly UISettings SystemColors = new();
     static readonly ConditionalWeakTable<TextBlock, TextState> TextStates = new();
 
+    // Persist the override in TextState too: changing Text must not restore the
+    // system face after a minute rollover in the settings clock preview.
+    public static void SetClockFamily(TextBlock text, string? id)
+    {
+        var state = TextStates.GetValue(text, static element => new TextState(element));
+        state.FamilyOverride = id is null ? null : ClockFontCatalog.Get(id).Family;
+        state.Present(text);
+    }
+
     public static TextBlock Apply(TextBlock text, TextRole role, InkRole ink, TextFlags? numericFlags = null)
     {
         if (numericFlags is not (null or TextFlags.None or TextFlags.TabularNumbers or TextFlags.TabularDigitsOnly))
@@ -46,6 +55,15 @@ internal static class SettingsTypography
         control.CharacterSpacing = 0;
         control.Foreground = Ink(ink);
         return control;
+    }
+
+    // Settings-local metrics never alter the shared/native typography catalog.
+    public static TextBlock ApplySettingsTitle(TextBlock text)
+    {
+        Apply(text, TextRole.PageTitle, InkRole.Primary);
+        var state = TextStates.GetValue(text, static element => new TextState(element));
+        state.FontSizeOverride = 24; state.LineHeightOverride = 32;
+        state.Present(text); return text;
     }
 
     public static void ApplyNavigation(Button button, bool selected)
@@ -140,6 +158,8 @@ internal static class SettingsTypography
         public InkRole Ink;
         public bool Selected;
         public TextFlags? NumericFlags;
+        public double? FontSizeOverride, LineHeightOverride;
+        public string? FamilyOverride;
         string _source;
         bool _presenting;
 
@@ -165,11 +185,11 @@ internal static class SettingsTypography
                 TextFlags flags = NumericFlags ?? token.Flags;
                 string locale = Locale(_source);
                 int latinWeight = Role == TextRole.NavigationSettings && Selected ? 600 : token.LatinWeight;
-                var family = Family(token.Optical, locale);
+                var family = FamilyOverride is null ? Family(token.Optical, locale) : new FontFamily(FamilyOverride);
                 block.FontFamily = family;
-                block.FontSize = token.FontSizeDip;
+                block.FontSize = FontSizeOverride ?? token.FontSizeDip;
                 block.FontWeight = Weight(400);
-                block.LineHeight = token.LineHeightDip;
+                block.LineHeight = LineHeightOverride ?? token.LineHeightDip;
                 block.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
                 block.Language = locale;
                 block.Foreground = SettingsTypography.Ink(Ink);

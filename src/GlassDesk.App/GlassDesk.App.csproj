@@ -13,6 +13,7 @@
     <PublishTrimmed>false</PublishTrimmed>
     <PublishSingleFile>false</PublishSingleFile>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\GlassDesk.ico</ApplicationIcon>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <DefineConstants Condition="'$(GlassDeskUiPreview)'=='true'">$(DefineConstants);GLASSDESK_UI_PREVIEW</DefineConstants>
   </PropertyGroup>
@@ -22,6 +23,10 @@
     <ProjectReference Include="..\GlassDesk.NativeBridge\GlassDesk.NativeBridge.csproj" />
     <ProjectReference Include="..\GlassDesk.Platform\GlassDesk.Platform.csproj" />
     <ProjectReference Include="..\GlassDesk.Plugins\GlassDesk.Plugins.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\GlassDesk-logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\GlassDesk.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- Unpackaged MRT Core generates these resources but does not add them to
        dotnet publish. Keep the actual publish output complete, not only bin. -->

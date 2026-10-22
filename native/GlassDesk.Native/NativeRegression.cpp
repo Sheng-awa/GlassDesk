@@ -85,7 +85,7 @@ TypographyResult CheckTypography(void* context,TypographyApi const& api,gd::Host
         &&offsetof(GDOpV2,textFlags)==84&&offsetof(GDOpV2,localeName)==88&&sizeof(GDNativeAbiInfo)==24
         &&sizeof(GDTextMetrics)==24&&sizeof(GDTypographyCacheStats)==40,"typography ABI sizes and offsets");
     GDNativeAbiInfo abi{sizeof(GDNativeAbiInfo)};check_hresult(api.abi(&abi));
-    Require(abi.version==2&&abi.v1Size==64&&abi.v2Size==96&&(abi.capabilities&15)==15&&abi.reserved==0,"V2 ABI negotiation/capabilities");
+    Require(abi.version==2&&abi.v1Size==64&&abi.v2Size==96&&(abi.capabilities&31)==31&&abi.reserved==0,"V2 ABI negotiation/capabilities including clock faces");
     Require(api.abi(nullptr)==E_POINTER,"ABI info null pointer");GDNativeAbiInfo badAbi{};
     Require(api.abi(&badAbi)==E_INVALIDARG,"ABI info caller size is required");
     Require(api.configure(context,3,1,nullptr)==E_INVALIDARG&&api.configure(context,0,2,nullptr)==E_INVALIDARG,"bad profile/revision rejection");
@@ -95,6 +95,20 @@ TypographyResult CheckTypography(void* context,TypographyApi const& api,gd::Host
     GDOpV2 op{};op.legacy={2,8,4,800,90,0,25,0xff20252c,0,0,L"08:08"};op.fontWeight=400;op.textRole=1;op.lineHeightDip=32;op.textFlags=1;op.localeName=L"en-US";
     GDTextMetrics metrics{};check_hresult(api.measure(context,&op,sizeof(op),&metrics));
     Require(metrics.advance>0&&metrics.widthIncludingTrailingWhitespace>=metrics.advance&&metrics.lineCount==1&&metrics.lineHeight==32,"V2 semantic metrics");
+    for(uint32_t face=0;face<=0x300;face+=0x100)
+    {
+        auto sample=op;sample.textFlags=1|face;float smallest=1000,largest=0;
+        for(auto digits:{L"00:00",L"11:11",L"23:59",L"08:08"})
+        {
+            sample.legacy.text=digits;GDTextMetrics clock{};check_hresult(api.measure(context,&sample,sizeof(sample),&clock));
+            Require(clock.advance>0&&clock.advance<96&&clock.height<=32.1f,"clock face fits the real narrow clock slot");
+            smallest=std::min(smallest,clock.advance);largest=std::max(largest,clock.advance);
+        }
+        if(largest-smallest>=.25f)std::cerr<<"clock face "<<face<<" width delta "<<(largest-smallest)<<"\n";
+        Require(largest-smallest<.25f,"clock faces retain tabular number width");
+    }
+    auto wrongFaceRole=op;wrongFaceRole.textRole=13;wrongFaceRole.textFlags=0x101;
+    Require(api.measure(context,&wrongFaceRole,sizeof(wrongFaceRole),&metrics)==E_INVALIDARG,"clock face cannot replace body typography");
     GDTypographyCacheStats before{},after{};check_hresult(api.stats(context,&before));
     for(int i=0;i<16;++i)check_hresult(api.measure(context,&op,sizeof(op),&metrics));
     check_hresult(api.stats(context,&after));Require(after.layoutsCreated==before.layoutsCreated&&after.layoutHits>=before.layoutHits+16,"repeated measurement reuses cached layout");

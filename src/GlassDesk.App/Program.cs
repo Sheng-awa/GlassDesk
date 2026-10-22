@@ -32,8 +32,16 @@ internal static class Program
             Trace("options-parsed");
             using var gate=new SingleInstanceGate(options.Identity);
             Trace(gate.IsPrimary?"primary-instance":"secondary-instance");
-            if(options.QuitExisting) { gate.RequestQuit();return; }
-            if(!gate.IsPrimary) { gate.RequestExistingSettings();return; }
+            if(options.QuitExisting) { if(!gate.IsPrimary&&!gate.RequestQuit())Environment.ExitCode=2;return; }
+            if(!gate.IsPrimary)
+            {
+                if(!gate.RequestExistingSettings())
+                {
+                    Environment.ExitCode=2;
+                    if(!qa)FailureReporter.NotifyOnce("已有 GlassDesk 实例暂未响应，请稍后重试或从托盘退出后重新打开。",null,attemptedLog:false);
+                }
+                return;
+            }
             WinRT.ComWrappersSupport.InitializeComWrappers();
             Trace("com-wrappers-ready");
             Application.Start(initializationArgs=>
@@ -47,7 +55,9 @@ internal static class Program
         }
         catch(Exception error)
         {
-            WriteLog("bootstrap-error.txt",$"{DateTimeOffset.UtcNow:O}\n{error.GetType().FullName}\nHRESULT=0x{error.HResult:X8}\n{error.StackTrace}\n");
+            Environment.ExitCode=1;
+            string? path=FailureReporter.Write(errorDirectory,"bootstrap-error.txt",error,preview);
+            if(!qa&&!args.Contains("--quit",StringComparer.Ordinal))FailureReporter.NotifyOnce("GlassDesk 未能启动，请保留诊断文件以便排查。",path);
             Trace("bootstrap-error");
         }
     }

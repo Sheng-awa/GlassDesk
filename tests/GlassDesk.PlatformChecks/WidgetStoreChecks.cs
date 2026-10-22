@@ -22,9 +22,9 @@ internal static class WidgetStoreChecks
             var defaults = await store.LoadAsync().ConfigureAwait(false);
             bool defaultsPersisted = File.Exists(store.SettingsPath);
             string? defaultNotice = store.TakeLoadNotice();
-            check(defaults.Instances.Count == 2 && defaults.Instances.All(i => i.Size == WidgetCardSize.Small)
+            check(defaults.Instances.Count == 1 && defaults.Instances[0].ProviderId == BuiltInWidgetIds.Time && defaults.Instances.All(i => i.Size == WidgetCardSize.Small)
                 && defaultsPersisted && Path.GetFileName(store.SettingsPath) == "widgets.json",
-                $"missing widgets.json creates and persists the balanced offline time/date board [cards={defaults.Instances.Count}, saved={defaultsPersisted}, notice={defaultNotice ?? "none"}, path={store.SettingsPath}]");
+                $"missing widgets.json creates and persists the single offline clock [cards={defaults.Instances.Count}, saved={defaultsPersisted}, notice={defaultNotice ?? "none"}, path={store.SettingsPath}]");
             check((await File.ReadAllBytesAsync(preferencePath).ConfigureAwait(false)).SequenceEqual(preferences),
                 "widget storage does not modify the independent primary settings file");
 
@@ -95,6 +95,7 @@ internal static class WidgetStoreChecks
                 && Directory.GetFiles(root, ".widgets-*.tmp").Length == 0,
                 "invalid or pre-cancelled saves preserve the last complete file and leave no temporary files");
 
+            await ReadFailureChecksAsync(check, store, owned).ConfigureAwait(false);
             await RecoveryChecksAsync(check, store, root).ConfigureAwait(false);
             await AtomicChecksAsync(check, store).ConfigureAwait(false);
             check((await File.ReadAllBytesAsync(preferencePath).ConfigureAwait(false)).SequenceEqual(preferences),
@@ -116,6 +117,30 @@ internal static class WidgetStoreChecks
                 throw new InvalidOperationException("Refusing to remove an unverified widget test directory.");
             if (Directory.Exists(resolved)) Directory.Delete(resolved, recursive: true);
         }
+    }
+
+    private static async Task ReadFailureChecksAsync(Action<bool,string> check,WidgetBoardStore store,WidgetBoardState owned)
+    {
+        await store.SaveAsync(owned);
+        byte[] original=await File.ReadAllBytesAsync(store.SettingsPath);
+        using(var locked=new FileStream(store.SettingsPath,FileMode.Open,FileAccess.Read,FileShare.None))
+        {
+            await store.LoadAsync();
+            check(!store.CanSave,"unreadable board enters protected temporary mode");
+        }
+        bool rejected=false;
+        try{await store.SaveAsync(WidgetBoardData.CreateDefault());}catch(IOException){rejected=true;}
+        check(rejected&&(await File.ReadAllBytesAsync(store.SettingsPath)).SequenceEqual(original),
+            "unlocking a previously unreadable board cannot let temporary defaults overwrite original bytes");
+        var reread=await store.LoadAsync();
+        check(store.CanSave&&reread.Instances.Count==owned.Instances.Count,"explicit successful reload restores edits and original saved instances");
+        byte[] corrupt=Encoding.UTF8.GetBytes("{broken");await File.WriteAllBytesAsync(store.SettingsPath,corrupt);
+        using(var locked=new FileStream(store.SettingsPath,FileMode.Open,FileAccess.Read,FileShare.Read))await store.LoadAsync();
+        rejected=false;
+        try{await store.SaveAsync(WidgetBoardData.CreateDefault());}catch(IOException){rejected=true;}
+        check(rejected&&!store.CanSave&&(await File.ReadAllBytesAsync(store.SettingsPath)).SequenceEqual(corrupt),
+            "failed corruption backup also prevents later default saves after the file unlocks");
+        await store.LoadAsync();
     }
 
     private static async Task RecoveryChecksAsync(Action<bool, string> check, WidgetBoardStore store, string root)
@@ -141,7 +166,7 @@ internal static class WidgetStoreChecks
             var recovered = await store.LoadAsync().ConfigureAwait(false);
             string? notice = store.TakeLoadNotice();
             var added = Directory.GetFiles(root, "widgets.corrupt-*.json").Where(f => !before.Contains(f)).ToArray();
-            allRecovered &= recovered.Instances.Count == 2 && recovered.Instances[0].ProviderId == BuiltInWidgetIds.Time;
+            allRecovered &= recovered.Instances.Count == 1 && recovered.Instances[0].ProviderId == BuiltInWidgetIds.Time;
             allBackedUp &= added.Length == 1 && (await File.ReadAllBytesAsync(added[0]).ConfigureAwait(false)).SequenceEqual(original);
             allNotices &= notice is not null && store.TakeLoadNotice() is null;
         }
@@ -161,38 +186,50 @@ internal static class WidgetStoreChecks
         var restored = await store.LoadAsync().ConfigureAwait(false);
         var newest = Directory.GetFiles(root, "widgets.corrupt-*.json")
             .Single(f => new FileInfo(f).Length == oversized.Length);
-        check(restored.Instances.Count == 2 && store.TakeLoadNotice() is not null
+        check(restored.Instances.Count == 1 && store.TakeLoadNotice() is not null
             && (await File.ReadAllBytesAsync(newest).ConfigureAwait(false)).SequenceEqual(oversized),
             "files larger than 256 KiB are rejected before unbounded reading and preserved in a backup");
     }
 
     private static async Task AtomicChecksAsync(Action<bool, string> check, WidgetBoardStore store)
     {
-        var errors = new ConcurrentQueue<string>(); int readCount = 0;
+        var errors = new ConcurrentQueue<string>();
+        var retryStatuses = new ConcurrentQueue<string>(); int readCount = 0;
         using var stop = new CancellationTokenSource();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var reader = Task.Run(async () =>
         {
             while (!stop.IsCancellationRequested)
             {
-                try
+                // Replacement may briefly deny opening a new handle on Windows. Retry only
+                // missing/share/lock statuses; malformed or partial JSON is always a failure.
+                for (int attempt = 0; attempt < 5; attempt++)
                 {
-                    await using var stream = new FileStream(store.SettingsPath, FileMode.Open, FileAccess.Read,
-                        FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
-                    using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
-                    if (document.RootElement.GetProperty("version").GetInt32() != 1
-                        || document.RootElement.GetProperty("instances").ValueKind != JsonValueKind.Array)
-                        errors.Enqueue("incomplete structure");
-                    Interlocked.Increment(ref readCount); started.TrySetResult();
+                    try
+                    {
+                        await using var stream = new FileStream(store.SettingsPath, FileMode.Open, FileAccess.Read,
+                            FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+                        using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+                        if (document.RootElement.GetProperty("version").GetInt32() != 1
+                            || document.RootElement.GetProperty("instances").ValueKind != JsonValueKind.Array)
+                            errors.Enqueue("incomplete structure");
+                        Interlocked.Increment(ref readCount); started.TrySetResult(); break;
+                    }
+                    catch (IOException error) when (attempt < 4 && (error.HResult & 0xFFFF) is 2 or 3 or 32 or 33)
+                    {
+                        retryStatuses.Enqueue($"0x{error.HResult:X8}");
+                        await Task.Delay(1 << attempt).ConfigureAwait(false);
+                    }
+                    catch (Exception error) when (error is IOException or JsonException)
+                    { errors.Enqueue($"{error.GetType().Name}:0x{error.HResult:X8}:{error.Message}"); started.TrySetResult(); break; }
                 }
-                catch (Exception error) when (error is IOException or JsonException) { errors.Enqueue(error.GetType().Name); started.TrySetResult(); }
                 try { await Task.Delay(1, stop.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
             }
         });
-        await started.Task.ConfigureAwait(false);
         try
         {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             await Task.WhenAll(Enumerable.Range(0, 12).Select(n => store.SaveAsync(new(1,
             [new("revision" + n, BuiltInWidgetIds.Time, WidgetCardSize.Small, 0, BuiltInWidgetProviders.ToJson(new TimeWidgetSettings(ShowSeconds: n % 2 == 0)))]))))
                 .ConfigureAwait(false);
@@ -201,6 +238,6 @@ internal static class WidgetStoreChecks
         var final = await store.LoadAsync().ConfigureAwait(false);
         check(errors.IsEmpty && readCount > 0 && final.Instances.Count == 1
             && Directory.GetFiles(store.DirectoryPath, ".widgets-*.tmp").Length == 0,
-            "serialized atomic widget writes expose complete JSON to concurrent readers and remove temporary files");
+            $"serialized atomic widget writes expose complete JSON to concurrent readers and remove temporary files [reads={readCount}, boundedOpenRetries={retryStatuses.Count}, statuses={string.Join(",", retryStatuses)}, errors={string.Join("; ", errors)}]");
     }
 }

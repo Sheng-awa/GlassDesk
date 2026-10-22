@@ -144,7 +144,7 @@ struct Host : std::enable_shared_from_this<Host>
     winrt::Windows::System::DispatcherQueueController queue{nullptr};
     Compositor compositor{nullptr}; DesktopWindowTarget target{nullptr};
     ContainerVisual root{nullptr},content{nullptr};
-    SpriteVisual glass{nullptr},tint{nullptr},grain{nullptr};
+    SpriteVisual glass{nullptr},liquidOverlay{nullptr},tint{nullptr},grain{nullptr};
     ShapeVisual border{nullptr};CompositionRoundedRectangleGeometry clipGeometry{nullptr},borderGeometry{nullptr};
     CompositionSpriteShape borderShape{nullptr};
     CompositionEffectBrush backdrop{nullptr};
@@ -297,6 +297,10 @@ struct Host : std::enable_shared_from_this<Host>
         backdrop=compositor.CreateEffectFactory(effect.as<IGraphicsEffect>(),{L"GlassBlur.BlurAmount"}).CreateBrush();
         backdrop.SetSourceParameter(L"Backdrop",compositor.CreateHostBackdropBrush());
         glass=compositor.CreateSpriteVisual();glass.Brush(backdrop);root.Children().InsertAtTop(glass);
+        // Keep the real frosted backdrop as the base. Liquid glass is an optical
+        // overlay, not a replacement that restores sharp desktop text underneath.
+        liquidOverlay=compositor.CreateSpriteVisual();liquidOverlay.Opacity(.34f);
+        liquidOverlay.IsVisible(false);root.Children().InsertAtTop(liquidOverlay);
         // The real host backdrop supplies the material color and blur. Keep
         // its tint to a single veil at the caller's exact opacity; edge light
         // belongs to the thin border rather than another white shell layer.
@@ -334,6 +338,7 @@ struct Host : std::enable_shared_from_this<Host>
         if(!materialApplied||solid!=materialSolid)
         {
             glass.IsVisible(!solid);
+            liquidOverlay.IsVisible(!solid&&liquidReady);
             tint.Brush(solid?solidTintBrush.as<CompositionBrush>():tintBrush.as<CompositionBrush>());
             borderShape.StrokeBrush(solid?solidBorderBrush.as<CompositionBrush>():borderBrush.as<CompositionBrush>());
         }
@@ -375,7 +380,7 @@ struct Host : std::enable_shared_from_this<Host>
         if(width!=cachedWidth||height!=cachedHeight||radius!=cachedRadius||dpi!=cachedDpi)
         {
             auto size=winrt::Windows::Foundation::Numerics::float2{float(width),float(height)};
-            glass.Size(size);tint.Size(size);grain.Size(size);border.Size(size);
+            glass.Size(size);liquidOverlay.Size(size);tint.Size(size);grain.Size(size);border.Size(size);
             clipGeometry.Size(size);clipGeometry.CornerRadius({radius,radius});
             borderGeometry.Offset({scale*.5f,scale*.5f});borderGeometry.Size({std::max(0.0f,width-scale),std::max(0.0f,height-scale)});
             borderGeometry.CornerRadius({std::max(0.0f,radius-scale*.5f),std::max(0.0f,radius-scale*.5f)});borderShape.StrokeThickness(scale);
@@ -410,7 +415,8 @@ struct Host : std::enable_shared_from_this<Host>
                 if(!liquidBrush){liquidBrush=compositor.CreateSurfaceBrush();liquidBrush.Stretch(CompositionStretch::Fill);}
                 liquidBrush.Surface(surface);liquidSurface=surface;
             }
-            if(ready!=liquidReady){glass.Brush(ready?liquidBrush.as<CompositionBrush>():backdrop.as<CompositionBrush>());liquidReady=ready;}
+            if(ready!=liquidReady){liquidOverlay.Brush(ready?liquidBrush.as<CompositionBrush>():CompositionBrush{nullptr});liquidReady=ready;}
+            liquidOverlay.IsVisible(ready);
             if(!ready){liquidSurface=nullptr;if(liquidBrush)liquidBrush.Surface(nullptr);}
         }
         if(shouldRun)SetTimer(window,LiquidTimer,34,nullptr);else KillTimer(window,LiquidTimer);
@@ -505,7 +511,8 @@ struct Host : std::enable_shared_from_this<Host>
             ||!std::isfinite(op.radius)||!std::isfinite(op.fontSize)||(op.kind!=4&&(op.width<0||op.height<0))
             ||operation.fontWeight<0||operation.fontWeight>999||!std::isfinite(operation.trackingEm)
             ||!std::isfinite(operation.lineHeightDip)||!std::isfinite(operation.baselineDip)
-            ||operation.lineHeightDip<0||operation.baselineDip<0||operation.textRole>22||(operation.textFlags&~3u))throw hresult_invalid_argument();
+            ||operation.lineHeightDip<0||operation.baselineDip<0||operation.textRole>22||(operation.textFlags&~0x303u))throw hresult_invalid_argument();
+        if((operation.textFlags&0x300u)&&operation.textRole!=1&&operation.textRole!=2&&operation.textRole!=4)throw hresult_invalid_argument();
         bool newText=(op.kind==2||op.kind==7)&&operation.textRole!=0;
         if(!newText&&(operation.textRole!=0||operation.fontWeight!=0||operation.trackingEm!=0||operation.lineHeightDip!=0
             ||operation.baselineDip!=0||operation.textFlags!=0||(operation.localeName&&operation.localeName[0])))throw hresult_invalid_argument();
@@ -679,7 +686,7 @@ struct Host : std::enable_shared_from_this<Host>
         try{if(target)target.Root(nullptr);}catch(...){}
         try{if(root)root.Children().RemoveAll();}catch(...){}
         images.clear();grainSurface=nullptr;graphics=nullptr;
-        content=nullptr;glass=nullptr;tint=nullptr;grain=nullptr;border=nullptr;borderGeometry=nullptr;borderShape=nullptr;clipGeometry=nullptr;
+        content=nullptr;glass=nullptr;liquidOverlay=nullptr;tint=nullptr;grain=nullptr;border=nullptr;borderGeometry=nullptr;borderShape=nullptr;clipGeometry=nullptr;
         tintBrush=nullptr;borderBrush=nullptr;solidTintBrush=nullptr;solidBorderBrush=nullptr;
         backdrop=nullptr;root=nullptr;target=nullptr;
         try{if(compositor)compositor.Close();}catch(...){}
@@ -967,7 +974,7 @@ extern "C" __declspec(dllexport) HRESULT __stdcall GDRenderSurface(void* context
 extern "C" __declspec(dllexport) HRESULT __stdcall GDGetNativeAbiInfo(GDNativeAbiInfo* result)
 {
     if(!result)return E_POINTER;if(result->size!=sizeof(GDNativeAbiInfo))return E_INVALIDARG;
-    *result={sizeof(GDNativeAbiInfo),2,sizeof(GDOp),sizeof(GDOpV2),1u|2u|4u|8u,0};return S_OK;
+    *result={sizeof(GDNativeAbiInfo),2,sizeof(GDOp),sizeof(GDOpV2),1u|2u|4u|8u|16u,0};return S_OK;
 }
 extern "C" __declspec(dllexport) HRESULT __stdcall GDConfigureTypographyV2(void* context,uint32_t profile,uint32_t tokenRevision,wchar_t const* qaFontPath)
 {

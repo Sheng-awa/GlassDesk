@@ -1,4 +1,6 @@
-#define AppVersion "0.2.0"
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
 #endif
@@ -16,7 +18,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22621
 DisableProgramGroupPage=yes
 OutputDir=..\artifacts\installer
-OutputBaseFilename=GlassDesk-0.2.0-win-x64-setup
+OutputBaseFilename=GlassDesk-{#AppVersion}-win-x64-setup
+SetupIconFile=..\src\GlassDesk.App\Assets\GlassDesk.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

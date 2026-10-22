@@ -9,6 +9,8 @@ public sealed class PreferenceStore : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private string? _loadNotice;
+    private volatile bool _canSave = true;
+    public bool CanSave => _canSave;
     public string DirectoryPath { get; }
     public string SettingsPath => Path.Combine(DirectoryPath, "settings.json");
 
@@ -19,7 +21,7 @@ public sealed class PreferenceStore : IDisposable
     public WidgetPreferences Load()
     {
         _loadNotice = null;
-        if (!File.Exists(SettingsPath)) return new();
+        _canSave = true;
         try
         {
             var info = new FileInfo(SettingsPath);
@@ -29,6 +31,8 @@ public sealed class PreferenceStore : IDisposable
             if (preferences.Version is not (1 or 2 or 3 or 4)) throw new InvalidDataException("Unsupported preferences version.");
             return Normalize(preferences);
         }
+        catch (FileNotFoundException) { return new(); }
+        catch (DirectoryNotFoundException) { return new(); }
         catch (Exception error) when (error is JsonException or IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
         {
             // Preserve the evidence once, then restore usable defaults. Do not silently delete user data.
@@ -41,7 +45,8 @@ public sealed class PreferenceStore : IDisposable
                 backedUp = true;
             }
             catch (Exception backupError) when (backupError is IOException or UnauthorizedAccessException) { }
-            _loadNotice = backedUp ? "配置文件无法读取，已保留备份并恢复默认设置。" : "配置文件无法读取，已使用默认设置；原文件仍保留。";
+            _canSave = backedUp;
+            _loadNotice = backedUp ? "配置文件无法读取，已保留备份并恢复默认设置。" : "配置文件无法读取，当前使用临时设置；为保护原文件已禁止保存，请恢复访问后重启。";
             return new();
         }
     }
@@ -54,6 +59,7 @@ public sealed class PreferenceStore : IDisposable
         string? temporary = null;
         try
         {
+            if (!_canSave) throw new IOException("原设置尚未成功读取或备份，为保护原文件已阻止保存。");
             Directory.CreateDirectory(DirectoryPath);
             temporary = Path.Combine(DirectoryPath, $".settings-{Guid.NewGuid():N}.tmp");
             var bytes = JsonSerializer.SerializeToUtf8Bytes(Normalize(preferences), JsonOptions);

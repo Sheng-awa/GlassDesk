@@ -52,6 +52,7 @@ public sealed record WidgetPreferences
     public bool ClockShowTime {get;init;}=true;
     public bool ClockShowDate {get;init;}
     public bool ClockShowWeekday {get;init;}
+    public string ClockFontId {get;init;}=ClockFontCatalog.System;
     public bool ReducedMotion {get;init;}
     public int HoverDelayMs {get;init;}=350;
     public int LeaveDelayMs {get;init;}=450;
@@ -70,7 +71,7 @@ public sealed record WidgetPreferences
     public string CompanionAppearanceId {get;init;}=CompanionAppearanceIds.Original;
     public bool LiquidGlassEnabled {get;init;}
     public PluginEnableMap PluginEnabled {get;init;}=new();
-    public WidgetPreferences Validated()=>this with {Version=4,LastDetailsPageId=Version<4?DetailsPageController.Music:DetailsPageController.Normalize(LastDetailsPageId),Blur=Math.Clamp(Blur,0,40),TintOpacity=Math.Clamp(TintOpacity,.10f,.90f),HoverDelayMs=Math.Clamp(HoverDelayMs,100,1500),LeaveDelayMs=Math.Clamp(LeaveDelayMs,100,1500),AnchorX=double.IsFinite(AnchorX)?Math.Clamp(AnchorX,0,1):.5,AnchorY=double.IsFinite(AnchorY)?Math.Max(0,AnchorY):24,CompanionColor=CompanionColor|0xff000000,CompanionAppearanceId=CompanionAppearanceIds.Normalize(CompanionAppearanceId),PluginEnabled=PluginEnabled is null?new():new(PluginEnabled)};
+    public WidgetPreferences Validated()=>this with {Version=4,LastDetailsPageId=Version<4?DetailsPageController.Music:DetailsPageController.Normalize(LastDetailsPageId),Blur=Math.Clamp(Blur,0,40),TintOpacity=Math.Clamp(TintOpacity,.10f,.90f),HoverDelayMs=Math.Clamp(HoverDelayMs,100,1500),LeaveDelayMs=Math.Clamp(LeaveDelayMs,100,1500),AnchorX=double.IsFinite(AnchorX)?Math.Clamp(AnchorX,0,1):.5,AnchorY=double.IsFinite(AnchorY)?Math.Max(0,AnchorY):24,CompanionColor=CompanionColor|0xff000000,CompanionAppearanceId=CompanionAppearanceIds.Normalize(CompanionAppearanceId),ClockFontId=ClockFontCatalog.Normalize(ClockFontId),PluginEnabled=PluginEnabled is null?new():new(PluginEnabled)};
 }
 public readonly record struct ScreenRect(int X,int Y,int Width,int Height)
 {
@@ -89,5 +90,5 @@ public static class WidgetActions
     public const int HomeNavToggle=320, HomeNavFirst=321, HomeNavCount=3;
     public const int HomeFolderFirst=330, HomeFolderCount=3;
     public const int HomePreviewFirst=340, HomePreviewCount=3;
-    public const int HomeOpenFolder=350, HomeClosePopover=351;
+    public const int HomeOpenFolder=350, HomeClosePopover=351, HomePopupBody=352, HomeBack=353;
 }

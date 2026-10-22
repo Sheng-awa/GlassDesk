@@ -7,6 +7,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -19,27 +20,44 @@ namespace GlassDesk.App;
 /// <summary>One reusable light settings window; normal Close hides it.</summary>
 public sealed class SettingsWindow : Window, IDisposable
 {
-    // The fixed acrylic (SettingsAcrylicBackdrop) supplies the pane material, so
-    // the pane itself only adds a fallback fill when acrylic is unavailable.
-    const uint CanvasColor = 0x00FFFFFF;
+    // Quiet light material: pale canvas, white grouped surfaces, translucent sidebar.
+    const uint CanvasColor = 0xFFF5F5F7;
     const uint FallbackCanvasColor = 0xFFF0F2F5;
-    const uint PaneBorderColor = 0x78FFFFFF;
-    // Cards are a 4.5 % ink well on the light material; hairlines are 8 % ink.
-    const uint SurfaceColor = 0x0B20252C;
-    const uint BorderColor = 0x1420252C;
-    // The fixed material is almost white, so the pointer/pressed fills are ink
-    // tints: the plan's white alphas were tuned against the old grey acrylic and
-    // would be invisible here. Normal keeps the planned 0x86 white chip.
-    const uint ButtonColor = 0x86FFFFFF;
+    const uint SidebarColor = 0xBAF0F1F4;
+    const uint SurfaceColor = 0xFCFFFFFF;
+    const uint BorderColor = 0xFFE3E4E8;
+    // Local pointer fills do not add a second glass surface to every setting.
+    const uint ButtonColor = 0xFFFFFFFF;
     const uint ButtonPointerOverColor = 0x1420252C;
     const uint ButtonPressedColor = 0x2420252C;
     const uint ButtonDisabledColor = 0x40FFFFFF;
     const uint AccentFill = 0xFF1689F9;
     const uint InkColor = 0xFF20252C;
-    const double ContentWidth = 760;
+    const double ContentWidth = 680;
     static readonly AccessibilitySettings HighContrast = new();
     static readonly UISettings SystemColors = new();
-    static readonly string[] PageTitles = ["外观", "交互", "陪伴", "插件", "通用"];
+    static readonly string[] PageTitles = ["外观", "时间", "交互", "陪伴", "插件", "通用"];
+    const int TimePage = 1, PluginPage = 4;
+    static ControlTemplate? _optionTemplate;
+    static ControlTemplate OptionTemplate => _optionTemplate ??= (ControlTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
+        <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="RadioButton">
+          <Border x:Name="OptionRoot" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+            <VisualStateManager.VisualStateGroups>
+              <VisualStateGroup x:Name="CommonStates">
+                <VisualState x:Name="Normal"/>
+                <VisualState x:Name="PointerOver"><VisualState.Setters><Setter Target="OptionRoot.Opacity" Value="0.9"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Target="OptionRoot.Opacity" Value="0.75"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Disabled"><VisualState.Setters><Setter Target="OptionRoot.Opacity" Value="0.4"/></VisualState.Setters></VisualState>
+              </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+        """);
     readonly UISettings _uiSettings = new();
     readonly ISettingsCoordinator _coordinator;
     readonly DispatcherQueueTimer _changeTimer;
@@ -82,11 +100,16 @@ public sealed class SettingsWindow : Window, IDisposable
     readonly Microsoft.UI.Xaml.Shapes.Path _companionPreview = new() { StrokeThickness = 1 };
     readonly Microsoft.UI.Xaml.Shapes.Ellipse _previewLeftEye = new() { Width = 8, Height = 12 };
     readonly Microsoft.UI.Xaml.Shapes.Ellipse _previewRightEye = new() { Width = 8, Height = 12 };
-    SettingsFloatingNavigation? _tabs;
-    Grid? _floatingRoot;
-    Grid? _settingsPane;
-    XamlRoot? _shapeXamlRoot;
-    SettingsWindowShape? _windowShape;
+    NavigationView? _navigation;
+    readonly List<NavigationViewItem> _navigationItems = [];
+    SettingsPageDeck? _deck;
+    SettingsCapsulePreview? _capsuleLayoutPreview;
+    SettingsCapsulePreview? _clockLayoutPreview;
+    readonly List<(string Id, RadioButton Button)> _clockFontChoices = [];
+    readonly List<Action> _switchRefresh = [];
+    readonly List<RadioButton> _appearanceChoices = [];
+    readonly List<(uint Color, Button Button)> _colorPresets = [];
+    readonly TextBlock _saveHint = Description("更改会自动保存");
     string? _pluginsKey;
     readonly TextBlock _blurLabel = Label();
     readonly TextBlock _transparencyLabel = Label();
@@ -110,6 +133,7 @@ public sealed class SettingsWindow : Window, IDisposable
     bool _shutdown;
     bool _disposed;
     bool _updating;
+    internal bool LastSaveFailed {get;private set;}
     bool _shown;
     bool _hexDirty, _writingHex;
     long _appearanceRevision, _pendingAppearanceRevision;
@@ -128,6 +152,12 @@ public sealed class SettingsWindow : Window, IDisposable
         try
         {
             Title = _coordinator.IsUiPreview ? "GlassDesk UI Preview 设置" : "GlassDesk 设置";
+            string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "GlassDesk.ico");
+            if (File.Exists(iconPath))
+            {
+                try { AppWindow.SetIcon(iconPath); }
+                catch { /* Branding must not prevent the settings from opening. */ }
+            }
             Trace("settings-window-created");
             _changeTimer = timer = DispatcherQueue.CreateTimer();
             _changeTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -147,10 +177,11 @@ public sealed class SettingsWindow : Window, IDisposable
             _tracedRoot = (FrameworkElement)Content;
             _tracedRoot.Loaded += OnContentLoaded;
             _tracedRoot.LayoutUpdated += OnFirstLayoutUpdated;
-            // The XAML root must exist before WinUI connects the backdrop to its target.
-            if (useBackdrop && _floatingRoot is not null && _settingsPane is not null && _tabs is not null)
-                SystemBackdrop = new SettingsAcrylicBackdrop();
-            Trace(useBackdrop ? "settings-backdrop-connected" : "settings-backdrop-disabled");
+            if (useBackdrop && !HighContrast.HighContrast && SettingsAcrylicBackdrop.IsSupported)
+            {
+                try { SystemBackdrop = new SettingsAcrylicBackdrop(); Trace("settings-sidebar-acrylic"); }
+                catch { SystemBackdrop = null; Trace("settings-backdrop-fallback"); }
+            }
             if (!minimalContent) BindEvents();
             ResizeToWorkArea();
             Refresh();
@@ -189,21 +220,6 @@ public sealed class SettingsWindow : Window, IDisposable
     void OnContentLoaded(object sender, RoutedEventArgs args)
     {
         Trace("settings-content-loaded");
-        if (_floatingRoot?.XamlRoot is { } xamlRoot && _shapeXamlRoot != xamlRoot)
-        {
-            if (_shapeXamlRoot is not null) _shapeXamlRoot.Changed -= OnSettingsXamlRootChanged;
-            _shapeXamlRoot = xamlRoot; xamlRoot.Changed += OnSettingsXamlRootChanged;
-        }
-        UpdateWindowShape();
-    }
-
-    void OnSettingsXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateWindowShape();
-
-    void UpdateWindowShape()
-    {
-        if (_disposed || _floatingRoot is null || _settingsPane is null || _tabs is null) return;
-        _windowShape ??= new SettingsWindowShape(WinRT.Interop.WindowNative.GetWindowHandle(this));
-        if (!_windowShape.Update(_floatingRoot, _settingsPane, _tabs)) Trace("settings-shape-unavailable");
     }
     void OnFirstLayoutUpdated(object? sender, object args)
     {
@@ -249,8 +265,7 @@ public sealed class SettingsWindow : Window, IDisposable
         Refresh();
         AppWindow.Show();
         _shown = true;
-        _tabs?.Resume();
-        UpdateWindowShape();
+        _deck?.StopTransition();
         if (!_minimalContent) _statusTimer.Start();
         Trace("settings-appwindow-shown");
         Activate();
@@ -260,7 +275,7 @@ public sealed class SettingsWindow : Window, IDisposable
     public void ShowPlugins()
     {
         Show();
-        _tabs?.Select(3);
+        if (_navigation is not null) _navigation.SelectedItem = _navigationItems[PluginPage];
     }
 
     void BuildMinimalContent()
@@ -281,7 +296,7 @@ public sealed class SettingsWindow : Window, IDisposable
     {
         if (_disposed) return;
         _shown = false;
-        _tabs?.Pause();
+        _deck?.StopTransition();
         _statusTimer.Stop();
         AppWindow.Hide();
         _ = FlushPendingAsync();
@@ -289,69 +304,71 @@ public sealed class SettingsWindow : Window, IDisposable
 
     void BuildContent()
     {
-        var root = _floatingRoot = new Grid { RequestedTheme = ElementTheme.Light, Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)) };
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        var pane = _settingsPane = new Grid
+        var root = new Grid { RequestedTheme = ElementTheme.Light, Background = Brush(SidebarColor) };
+        _navigation = new NavigationView
         {
-            CornerRadius = new CornerRadius(UiRadius.Shell), Margin = new Thickness(16, 0, 16, 16),
-            // The fixed acrylic is the pane material; a fallback fill only appears
-            // when the system acrylic controller is unavailable.
-            Background = Brush(SettingsAcrylicBackdrop.IsSupported ? CanvasColor : FallbackCanvasColor),
-            BorderBrush = Brush(PaneBorderColor), BorderThickness = new Thickness(1)
+            PaneDisplayMode = NavigationViewPaneDisplayMode.Left, OpenPaneLength = 190,
+            IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed, IsSettingsVisible = false,
+            IsPaneToggleButtonVisible = false, IsTitleBarAutoPaddingEnabled = false,
+            Background = new SolidColorBrush(Colors.Transparent), IsPaneOpen = true
         };
-        pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        pane.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Grid.SetRow(pane, 1); root.Children.Add(pane);
-        // The header carries the current page name only; the old "GlassDesk"
-        // wordmark duplicated the window identity and made the chin heavy.
-        var header = new Grid { Padding = new Thickness(20, 8, 16, 8), ColumnSpacing = 8 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleDragRegion = new Grid { Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), MinHeight = 40 };
-        titleDragRegion.Children.Add(_pageTitle);
-        header.Children.Add(titleDragRegion);
-        titleDragRegion.PointerPressed += (_, args) =>
+        _navigation.Resources["NavigationViewDefaultPaneBackground"] = Brush(SidebarColor);
+        _navigation.Resources["NavigationViewContentBackground"] = Brush(CanvasColor);
+        if (!HighContrast.HighContrast)
         {
-            if (!args.GetCurrentPoint(titleDragRegion).Properties.IsLeftButtonPressed) return;
-            args.Handled = true;
-            SettingsWindowShape.BeginDrag(WinRT.Interop.WindowNative.GetWindowHandle(this));
-        };
+            foreach (var key in new[] { "NavigationViewItemBackgroundSelected", "NavigationViewItemBackgroundSelectedPointerOver", "NavigationViewItemBackgroundSelectedPressed" })
+                _navigation.Resources[key] = Brush(AccentFill);
+            _navigation.Resources["NavigationViewSelectionIndicatorForeground"] = new SolidColorBrush(Colors.Transparent);
+        }
+        var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(16, 22, 8, 24) };
+        var logo = new Image { Width = 38, Height = 38, Stretch = Stretch.Uniform,
+            Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/GlassDesk-logo.png")) };
+        Name(logo, "GlassDesk 标志");
+        brand.Children.Add(new Border { Child = logo, CornerRadius = new CornerRadius(10), Background = Brush(ButtonColor), Padding = new Thickness(2) });
+        var brandText = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var wordmark = SettingsTypography.Apply(new TextBlock { Text = "GlassDesk" }, TextRole.PageTitle, InkRole.Primary);
+        wordmark.FontSize = 18;
+        brandText.Children.Add(wordmark);
+        brandText.Children.Add(Description("桌面陪伴"));
+        brand.Children.Add(brandText);
+        _navigation.PaneHeader = brand;
+        string[] glyphs = ["\uE790", "\uE823", "\uE7C2", "\uE76E", "\uEA86", "\uE713"];
+        for (int index = 0; index < PageTitles.Length; index++)
+        {
+            var label = SettingsTypography.Apply(new TextBlock { Text = PageTitles[index] }, TextRole.NavigationSettings, InkRole.Primary);
+            var item = new NavigationViewItem
+            {
+                Content = label, Icon = new FontIcon { Glyph = glyphs[index], FontSize = 16 },
+                Tag = index, MinHeight = 40, Margin = new Thickness(8, 2, 8, 2),
+                CornerRadius = new CornerRadius(8)
+            };
+            Name(item, PageTitles[index]);
+            _navigationItems.Add(item); _navigation.MenuItems.Add(item);
+        }
         var visibilityContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         visibilityContent.Children.Add(new FontIcon { Glyph = "\uE890", FontSize = 16 });
-        SettingsTypography.Apply(_visibilityText, TextRole.Label, InkRole.Primary);
-        visibilityContent.Children.Add(_visibilityText);
-        _visibility.Content = visibilityContent;
-        _visibility.Height = 32; _visibility.MinHeight = 32;
-        _visibility.Padding = new Thickness(12, 0, 12, 0);
-        _visibility.CornerRadius = new CornerRadius(UiRadius.Full(32));
-        _visibility.Background = Brush(ButtonColor); _visibility.BorderBrush = Brush(BorderColor);
-        _visibility.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(_visibility, 1);
-        header.Children.Add(_visibility);
-        var closePane = new Button
-        {
-            Content = new FontIcon { Glyph = "\uE8BB", FontSize = 14 }, Width = 40, Height = 40, MinWidth = 40,
-            Padding = new Thickness(0), CornerRadius = new CornerRadius(UiRadius.Full(40)), Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor)
-        };
-        Name(closePane, "关闭设置"); ToolTipService.SetToolTip(closePane, "关闭设置"); closePane.Click += (_, _) => Hide();
-        Grid.SetColumn(closePane, 2); header.Children.Add(closePane);
-        pane.Children.Add(header);
-
-        var body = new Grid();
-        _tabs = new SettingsFloatingNavigation(PageTitles, () => CurrentPreferences.ReducedMotion || !_uiSettings.AnimationsEnabled)
-        { Margin = new Thickness(16, 16, 16, 12) };
+        SettingsTypography.Apply(_visibilityText, TextRole.CaptionSettings, InkRole.Secondary);
+        visibilityContent.Children.Add(_visibilityText); _visibility.Content = visibilityContent;
+        _visibility.MinHeight = 40; _visibility.Padding = new Thickness(12, 8, 12, 8);
+        _visibility.CornerRadius = new CornerRadius(8);
+        _visibility.Background = null; _visibility.BorderThickness = new Thickness(0);
+        _visibility.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _visibility.Margin = new Thickness(12, 8, 12, 16);
+        _navigation.PaneFooter = _visibility;
+        root.Children.Add(_navigation);
         var content = new Grid
         {
-            RowSpacing = 16, Padding = new Thickness(24, 12, 24, 12), MaxWidth = ContentWidth + 48,
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            RowSpacing = 12, Padding = new Thickness(32, 18, 28, 0),
+            MaxWidth = ContentWidth + 60, Background = Brush(CanvasColor), HorizontalAlignment = HorizontalAlignment.Stretch
         };
         content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        body.Children.Add(content);
-        Grid.SetRow(body, 1); pane.Children.Add(body);
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        SettingsTypography.ApplySettingsTitle(_pageTitle);
+        content.Children.Add(_pageTitle);
+        Grid.SetRow(_feedback, 1);
+        _navigation.Content = content;
 
         var onboardingContent = new Grid { ColumnSpacing = 12 };
         onboardingContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -384,23 +401,41 @@ public sealed class SettingsWindow : Window, IDisposable
         _onboarding.BorderThickness = new Thickness(1);
         content.Children.Add(_feedback);
 
-        var appearance = Section("调整桌面组件的玻璃质感与动画。");
-        appearance.Children.Add(new SettingsColumns([
-            Group(SliderRow("模糊强度", _blurLabel, _blur)),
-            Group(SliderRow("透明度", _transparencyLabel, _transparency, "透出背后的桌面")),
-            Group(ToggleRow("简化动画", _reducedMotion), ToggleRow("真实音频波浪条", _audio)),
-            Group(ToggleRow("显示时间", _clockTime), ToggleRow("显示日期", _clockDate), ToggleRow("显示星期", _clockWeekday))]));
+        var appearance = Section("调整桌面组件的材质、内容与动态。");
+        _capsuleLayoutPreview = new SettingsCapsulePreview();
+        appearance.Children.Add(_capsuleLayoutPreview);
+        appearance.Children.Add(SectionHeading("材质"));
+        appearance.Children.Add(Group(SliderRow("模糊强度", _blurLabel, _blur),
+            SliderRow("透明度", _transparencyLabel, _transparency)));
+        appearance.Children.Add(SectionHeading("动态"));
+        appearance.Children.Add(Group(ToggleRow("简化动画", _reducedMotion),
+            ToggleRow("真实音频波浪条", _audio, "仅在展示音乐频谱时采集。")));
         appearance.Children.Add(_audioStatus);
         var restore = CommandButton("恢复默认外观", "\uE777");
-        restore.Click += (_, _) => QueuePreferences(CurrentPreferences with { Blur = 20, TintOpacity = .24f, ReducedMotion = false,
-            ClockShowTime = true, ClockShowDate = false, ClockShowWeekday = false });
+        restore.Click += (_, _) => QueuePreferences(CurrentPreferences with { Blur = 20, TintOpacity = .24f, ReducedMotion = false });
         appearance.Children.Add(restore);
         appearance.Children.Add(_onboarding);
 
+        var time = Section("让时间有自己的样子。");
+        _clockLayoutPreview = new SettingsCapsulePreview();
+        time.Children.Add(_clockLayoutPreview);
+        time.Children.Add(SectionHeading("数字字体"));
+        time.Children.Add(BuildClockFontChoices());
+        time.Children.Add(Description("应用于胶囊与小展开的时间数字，日期和星期保持清晰的系统字体。"));
+        time.Children.Add(SectionHeading("显示内容"));
+        time.Children.Add(Group(ToggleRow("时间", _clockTime), ToggleRow("日期", _clockDate), ToggleRow("星期", _clockWeekday)));
+        var restoreClock = CommandButton("恢复默认时间样式", "\uE777");
+        restoreClock.Click += (_, _) => QueuePreferences(CurrentPreferences with { ClockShowTime = true,
+            ClockShowDate = false, ClockShowWeekday = false, ClockFontId = ClockFontCatalog.System });
+        time.Children.Add(restoreClock);
+
         var interaction = Section("调整悬停、离开与全屏时的行为。");
-        interaction.Children.Add(new SettingsColumns([
-            Group(SliderRow("悬停展开延迟", _hoverLabel, _hover), SliderRow("离开收起延迟", _leaveLabel, _leave)),
-            Group(ToggleRow("全屏时自动隐藏", _fullscreen, "进入全屏应用时，组件会暂时隐藏。"))]));
+        interaction.Children.Add(SectionHeading("展开与收起"));
+        interaction.Children.Add(Group(SliderRow("悬停展开延迟", _hoverLabel, _hover),
+            SliderRow("离开收起延迟", _leaveLabel, _leave)));
+        interaction.Children.Add(SectionHeading("专注当前任务"));
+        interaction.Children.Add(Group(ToggleRow("全屏时自动隐藏", _fullscreen,
+            "进入游戏或全屏视频时，暂时隐藏桌面组件。")));
         var resetPosition = CommandButton("重置位置", "\uE7C2");
         resetPosition.Click += (_, _) => { _coordinator.ResetPosition(); ShowFeedback("位置已重置。"); };
         interaction.Children.Add(resetPosition);
@@ -409,8 +444,9 @@ public sealed class SettingsWindow : Window, IDisposable
         var companion = Section("安静的原创小球，用表情和视线回应你。");
         companion.Children.Add(Group(ToggleRow("陪伴球", _companion, "回应指针、音乐和展开动作，并自然眨眼；隐藏时休息。"),
             ToggleRow("陪伴球跟随鼠标", _companionFollowMouse, "收起时也能望向胶囊外的鼠标；关闭后立即停止跟随。")));
-        var colors = new StackPanel { Spacing = 12, Padding = new Thickness(16) };
-        colors.Children.Add(SettingTitle("球体颜色"));
+        var colors = new StackPanel { Spacing = 12 };
+        colors.Children.Add(SectionHeading("球体颜色"));
+        colors.Children.Add(BuildColorPresets());
         colors.Children.Add(Description("眼睛会自动使用清晰的浅色或深色。"));
         Name(_colorPicker, "陪伴颜色，RGB 不透明取色器");
         // Keep the compact well, but let the complete picker template scroll
@@ -427,7 +463,8 @@ public sealed class SettingsWindow : Window, IDisposable
         };
         _colorPickerHost.Clip = _colorPickerClip;
         _colorPickerHost.SizeChanged += (_, args) => ClipColorPicker(args.NewSize);
-        colors.Children.Add(_colorPickerHost);
+        colors.Children.Add(new Expander { Header = "更多颜色", Content = _colorPickerHost,
+            HorizontalAlignment = HorizontalAlignment.Stretch, IsExpanded = false });
         var customRow = new Grid { ColumnSpacing = 8 };
         customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -438,20 +475,25 @@ public sealed class SettingsWindow : Window, IDisposable
         Grid.SetColumn(applyColor, 1); customRow.Children.Add(applyColor); WrapActions(customRow, _customColor, applyColor);
         colors.Children.Add(customRow);
         _colorFeedback.Visibility = Visibility.Collapsed; colors.Children.Add(_colorFeedback);
-        var form = new StackPanel { Spacing = 12, Padding = new Thickness(16) };
-        form.Children.Add(SettingTitle("形式"));
+        var form = new StackPanel { Spacing = 12 };
+        form.Children.Add(SectionHeading("形式"));
         _companionForm.Items.Add(new ComboBoxItem { Content = "原生", Tag = CompanionAppearanceIds.Original });
         _companionForm.Items.Add(new ComboBoxItem { Content = "猫娘", Tag = CompanionAppearanceIds.CatEar });
         _companionForm.Items.Add(new ComboBoxItem { Content = "恶魔", Tag = CompanionAppearanceIds.Devil });
-        Name(_companionForm, "陪伴形式"); form.Children.Add(_companionForm);
+        Name(_companionForm, "陪伴形式"); form.Children.Add(BuildCompanionChoices());
         form.Children.Add(Description("猫娘使用宽根猫耳；恶魔使用向内收尖的弯角。保留当前颜色。"));
         var preview = new Canvas { Width = 96, Height = 100, HorizontalAlignment = HorizontalAlignment.Center, IsHitTestVisible = false };
         preview.Children.Add(_companionPreview);
         Canvas.SetLeft(_previewLeftEye, 31.7); Canvas.SetTop(_previewLeftEye, 45.1);
         Canvas.SetLeft(_previewRightEye, 56.3); Canvas.SetTop(_previewRightEye, 45.1);
         preview.Children.Add(_previewLeftEye); preview.Children.Add(_previewRightEye);
-        form.Children.Add(preview); form.Children.Add(Description("当前形式与颜色 · 静态预览"));
-        companion.Children.Add(new SettingsColumns([Surface(colors), Surface(form)]));
+        var characterPreview = new Border
+        {
+            Child = preview, Background = Brush(0xFFF0F2F5), CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 8, 16, 8), IsHitTestVisible = false
+        };
+        companion.Children.Insert(1, characterPreview);
+        companion.Children.Add(form); companion.Children.Add(colors);
 
         var plugins = Section("安装本地功能插件，分别控制各项贡献。");
         plugins.Children.Add(Group(ToggleRow("液态玻璃", _liquidGlass, "为外壳加入真实背景折射；内容保持清晰。")));
@@ -494,7 +536,7 @@ public sealed class SettingsWindow : Window, IDisposable
 
         var startup = Section();
         startup.Children.Add(Group(ToggleRow("登录 Windows 后启动", _startup, "下次登录时自动启动 GlassDesk。")));
-        var hotkeySettings = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
+        var hotkeySettings = new StackPanel { Spacing = 10, Padding = new Thickness(0) };
         hotkeySettings.Children.Add(SettingTitle("显示 / 隐藏快捷键"));
         var binding = new Grid { ColumnSpacing = 12 };
         binding.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -510,7 +552,7 @@ public sealed class SettingsWindow : Window, IDisposable
         startup.Children.Add(Surface(hotkeySettings));
 
         var connection = Section();
-        var connectionSettings = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
+        var connectionSettings = new StackPanel { Spacing = 10, Padding = new Thickness(0) };
         SettingsTypography.Apply(_connection, TextRole.SectionTitle, InkRole.Primary);
         connectionSettings.Children.Add(_connection); connectionSettings.Children.Add(_capabilities); connectionSettings.Children.Add(_status);
         var connectionActions = new Grid { ColumnSpacing = 8 };
@@ -538,7 +580,7 @@ public sealed class SettingsWindow : Window, IDisposable
         connectionSettings.Children.Add(_connectionHelp);
         connection.Children.Add(Surface(connectionSettings));
 
-        var about = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
+        var about = new StackPanel { Spacing = 10, Padding = new Thickness(0) };
         about.Children.Add(SettingTitle("GlassDesk"));
         string version = typeof(SettingsWindow).Assembly
             .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
@@ -570,53 +612,251 @@ public sealed class SettingsWindow : Window, IDisposable
         var general = Section("启动、快捷键、音乐连接与诊断。");
         // Keep the existing live-save and connection controls in one concise page.
         general.Children.Add(startup); general.Children.Add(connection);
-        var sections = new[] { appearance, interaction, companion, plugins, general };
+        var sections = new[] { appearance, time, interaction, companion, plugins, general };
         // One page-level 16 DIP tail plus the deck's 8 DIP padding keeps the last
         // card clear of the footer (the plan's ≥24 DIP bottom inset per page).
-        foreach (var page in sections) page.Padding = new Thickness(0, 0, 0, 16);
-        var deck = new SettingsPageDeck(sections);
-        Grid.SetRow(deck, 1); content.Children.Add(deck);
-        _tabs.SelectionChanged += selected =>
-        {
-            deck.SetSelectedIndex(selected);
-            if (selected >= 0 && selected < PageTitles.Length) _pageTitle.Text = PageTitles[selected];
-        };
-        _tabs.ProgressChanged += progress => deck.SetProgress(progress);
+        foreach (var page in sections) { page.Padding = new Thickness(0, 0, 0, 16); page.MaxWidth = ContentWidth; }
+        _deck = new SettingsPageDeck(sections, () => CurrentPreferences.ReducedMotion || !_uiSettings.AnimationsEnabled);
+        Grid.SetRow(_deck, 2); content.Children.Add(_deck);
+        _navigation.SelectionChanged += OnNavigationSelectionChanged;
+        _navigation.SelectedItem = _navigationItems[0];
 
-        var footer = new Grid { Padding = new Thickness(22, 8, 22, 12) };
-        var saveHint = Description("更改会自动保存");
-        saveHint.VerticalAlignment = VerticalAlignment.Center;
-        footer.Children.Add(saveHint);
-        Grid.SetRow(footer, 2);
-        pane.Children.Add(footer);
-        Grid.SetRow(_tabs, 0); root.Children.Add(_tabs);
-        // Esc is the keyboard half of the close affordance; the visible footer
-        // button is gone so the window keeps a single close entry point (X).
+        var footer = new Grid
+        {
+            Padding = new Thickness(0, 8, 0, 12), MinHeight = 36,
+            BorderBrush = Brush(BorderColor), BorderThickness = new Thickness(0, 1, 0, 0)
+        };
+        SettingsTypography.Apply(_saveHint, TextRole.Caption, InkRole.Caption);
+        footer.Children.Add(_saveHint);
+        Grid.SetRow(footer, 3); content.Children.Add(footer);
         root.KeyDown += (_, args) =>
         {
             if (args.Key != VirtualKey.Escape) return;
-            args.Handled = true;
-            Hide();
+            // Recording/editing fields and open flyouts handle Escape first.
+            if (_hotkey.FocusState != FocusState.Unfocused) return;
+            args.Handled = true; Hide();
         };
-        root.SizeChanged += (_, _) => UpdateWindowShape();
-        pane.SizeChanged += (_, _) => UpdateWindowShape();
-        _tabs.SizeChanged += (_, _) => UpdateWindowShape();
+        root.SizeChanged += (_, args) =>
+        {
+            bool top = args.NewSize.Width < 620;
+            _navigation.PaneDisplayMode = top ? NavigationViewPaneDisplayMode.Top : NavigationViewPaneDisplayMode.Left;
+            _navigation.OpenPaneLength = args.NewSize.Width < 820 ? 176 : 200;
+            if (!top) _navigation.IsPaneOpen = true;
+            _navigation.PaneHeader = top ? null : brand;
+            content.Padding = new Thickness(args.NewSize.Width < 820 ? 20 : 32, 16, 20, 0);
+        };
         ConfigureGlassControls(root);
         Content = root;
         ExtendsContentIntoTitleBar = false;
-        if (AppWindow.Presenter is OverlappedPresenter presenter) presenter.SetBorderAndTitleBar(false, false);
-        SettingsWindowShape.ConfigureFrame(WinRT.Interop.WindowNative.GetWindowHandle(this));
-        Name(_blur, "玻璃强度"); Name(_transparency, "玻璃透明度");
+        // A conventional complete HWND replaces the old disconnected rounded regions.
+        // Keep Windows caption buttons, resizing and Snap instead of emulating them.
+        if (AppWindow.Presenter is OverlappedPresenter presenter) presenter.SetBorderAndTitleBar(true, true);
+        Name(_blur, "模糊强度"); Name(_transparency, "玻璃透明度");
         Name(_hover, "悬停展开延迟，毫秒"); Name(_leave, "离开收起延迟，毫秒");
         Name(_hotkey, "显示或隐藏快捷键，聚焦后按组合键绑定");
         Name(_diagnosticPath, "已导出的诊断文件路径");
-        Name(_reducedMotion, "简化动画");
-        Name(_fullscreen, "全屏时自动隐藏");
-        Name(_startup, "登录 Windows 后启动");
-        Name(_audio, "真实音频波浪条"); Name(_companion, "陪伴球"); Name(_liquidGlass, "液态玻璃");
+        Name(_reducedMotion, "简化动画"); Name(_fullscreen, "全屏时自动隐藏");
+        Name(_startup, "登录 Windows 后启动"); Name(_audio, "真实音频波浪条");
+        Name(_companion, "陪伴球"); Name(_liquidGlass, "液态玻璃");
         Name(_companionFollowMouse, "陪伴球跟随鼠标");
         Name(_clockTime, "显示时间"); Name(_clockDate, "显示日期"); Name(_clockWeekday, "显示星期");
     }
+
+    void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is not NavigationViewItem { Tag: int index }) return;
+        _deck?.SetSelectedIndex(index);
+        _pageTitle.Text = PageTitles[index];
+        foreach (var item in _navigationItems)
+        {
+            bool active = item.Tag is int page && page == index;
+            var foreground = active && !HighContrast.HighContrast ? new SolidColorBrush(Colors.White) : Brush(InkColor);
+            if (item.Content is TextBlock label) label.Foreground = foreground;
+            if (item.Icon is FontIcon icon) icon.Foreground = foreground;
+        }
+        if (index == 0) _capsuleLayoutPreview?.Present(CurrentPreferences, DateTimeOffset.Now);
+        if (index == TimePage) _clockLayoutPreview?.Present(CurrentPreferences, DateTimeOffset.Now);
+    }
+
+    FrameworkElement BuildClockFontChoices()
+    {
+        var choices = new List<FrameworkElement>();
+        foreach (var face in ClockFontCatalog.All)
+        {
+            var sample = new TextBlock { Text = "10:08", FontFamily = new FontFamily(face.Family), FontSize = 30,
+                Foreground = Brush(InkColor), HorizontalAlignment = HorizontalAlignment.Center };
+            Typography.SetNumeralAlignment(sample, FontNumeralAlignment.Tabular);
+            var content = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+            content.Children.Add(sample);
+            content.Children.Add(Description(face.Name));
+            var choice = new RadioButton { Content = content, GroupName = "ClockFont", MinWidth = 0,
+                MinHeight = 98, HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(12),
+                CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1),
+                Template = OptionTemplate, UseSystemFocusVisuals = true };
+            Name(choice, $"时间字体：{face.Name}，{face.Family}");
+            choice.Checked += (_, _) =>
+            {
+                if (!_refreshing) QueuePreferences(CurrentPreferences with { ClockFontId = face.Id });
+            };
+            _clockFontChoices.Add((face.Id, choice)); choices.Add(choice);
+        }
+        return new SettingsColumns(choices, 4, 125);
+    }
+
+    // Keep the native ToggleSwitch as the sole input/UIA/keyboard target. A
+    // non-interactive drawing underneath replaces only its appearance. There is
+    // no second Click handler or shadow boolean that can drift from IsOn.
+    FrameworkElement CompanionSwitch(ToggleSwitch toggle)
+    {
+        var host = new Grid { Width = 64, Height = 44, VerticalAlignment = VerticalAlignment.Center };
+        var drawing = new Grid { IsHitTestVisible = false };
+        var track = new Border { Height = 30, CornerRadius = new CornerRadius(15), BorderThickness = new Thickness(1),
+            VerticalAlignment = VerticalAlignment.Center, Background = Brush(0xFFE6E8ED), BorderBrush = Brush(0xFFC4C8D0) };
+        drawing.Children.Add(track);
+        var shift = new TranslateTransform();
+        var face = new Grid { Width = 26, Height = 26, HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0), RenderTransform = shift };
+        var press = new ScaleTransform { CenterX = 13, CenterY = 13 };
+        var orb = new Border { CornerRadius = new CornerRadius(13), Background = Brush(0xFF202329), RenderTransform = press };
+        face.Children.Add(orb);
+        var calm = new Canvas { Width = 26, Height = 26 };
+        var happy = new Canvas { Width = 26, Height = 26 };
+        for (int index = 0; index < 2; index++)
+        {
+            var eye = new Border { Width = 3.3, Height = 6.1, CornerRadius = new CornerRadius(1.65), Background = new SolidColorBrush(Colors.White) };
+            Canvas.SetLeft(eye, index == 0 ? 7 : 15.5); Canvas.SetTop(eye, 9.5); calm.Children.Add(eye);
+            // Happy uses the character's tilted, wider eyes and raised lower lid.
+            var smileEye = new Microsoft.UI.Xaml.Shapes.Path { Stroke = new SolidColorBrush(Colors.White), StrokeThickness = 2.3,
+                StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
+                Data = new PathGeometry { Figures = { new PathFigure { StartPoint = new(0, 3.5),
+                    Segments = { new QuadraticBezierSegment { Point1 = new(2.5, -1), Point2 = new(5, 3.5) } } } } } };
+            Canvas.SetLeft(smileEye, index == 0 ? 5.9 : 14.5); Canvas.SetTop(smileEye, 9.7); happy.Children.Add(smileEye);
+        }
+        face.Children.Add(calm); face.Children.Add(happy); drawing.Children.Add(face);
+        var focus = new Border { BorderBrush = Brush(AccentFill), BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(18), Margin = new Thickness(-3, 3, -3, 3), Visibility = Visibility.Collapsed };
+        drawing.Children.Add(focus); host.Children.Add(drawing);
+        toggle.Width = 64; toggle.MinWidth = 64; toggle.Height = 44; toggle.Opacity = 0;
+        host.Children.Add(toggle);
+        Storyboard? transition = null;
+        bool? prior = null;
+        bool motionWasReduced = false;
+        void Present()
+        {
+            bool high = HighContrast.HighContrast;
+            drawing.Visibility = high ? Visibility.Collapsed : Visibility.Visible;
+            toggle.Opacity = high ? 1 : 0;
+            if (high) { transition?.Stop(); prior = null; return; }
+            bool reduced = CurrentPreferences.ReducedMotion || !_uiSettings.AnimationsEnabled;
+            bool changed = prior != toggle.IsOn;
+            bool animate = prior.HasValue && changed && toggle.IsLoaded && !reduced;
+            if (changed || reduced != motionWasReduced)
+            {
+                double current = shift.X, target = toggle.IsOn ? 34 : 0;
+                transition?.Stop(); transition = null; shift.X = animate ? current : target;
+                if (animate)
+                {
+                    var slide = new DoubleAnimation { From = current, To = target, Duration = new Duration(TimeSpan.FromMilliseconds(220)),
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+                    Storyboard.SetTarget(slide, shift); Storyboard.SetTargetProperty(slide, "X");
+                    transition = new Storyboard(); transition.Children.Add(slide); transition.Begin();
+                }
+            }
+            motionWasReduced = reduced;
+            drawing.Opacity = toggle.IsEnabled ? 1 : .4;
+            track.Background = Brush(toggle.IsOn ? AccentFill : 0xFFE6E8ED);
+            track.BorderBrush = Brush(toggle.IsOn ? 0xFF147BE0 : 0xFFC4C8D0);
+            calm.Visibility = toggle.IsOn ? Visibility.Collapsed : Visibility.Visible;
+            happy.Visibility = toggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+            focus.Visibility = toggle.FocusState == FocusState.Keyboard ? Visibility.Visible : Visibility.Collapsed;
+            prior = toggle.IsOn;
+        }
+        toggle.Toggled += (_, _) => Present();
+        toggle.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) =>
+        { if (toggle.IsEnabled) press.ScaleX = press.ScaleY = .94; }), true);
+        void ReleasePress() { press.ScaleX = press.ScaleY = 1; }
+        toggle.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler((_, _) => ReleasePress()), true);
+        toggle.PointerCanceled += (_, _) => ReleasePress(); toggle.PointerCaptureLost += (_, _) => ReleasePress();
+        toggle.GotFocus += (_, _) => Present(); toggle.LostFocus += (_, _) => Present();
+        toggle.RegisterPropertyChangedCallback(Control.IsEnabledProperty, (_, _) => Present());
+        host.Loaded += (_, _) => Present();
+        host.Unloaded += (_, _) => { transition?.Stop(); transition = null; prior = null; };
+        host.PointerEntered += (_, _) => { if (toggle.IsEnabled) orb.Background = Brush(0xFF343840); };
+        host.PointerExited += (_, _) => orb.Background = Brush(0xFF202329);
+        _switchRefresh.Add(Present); Present();
+        return host;
+    }
+
+    FrameworkElement BuildCompanionChoices()
+    {
+        string[] ids = [CompanionAppearanceIds.Original, CompanionAppearanceIds.CatEar, CompanionAppearanceIds.Devil];
+        string[] names = ["原生", "猫娘", "恶魔"];
+        var choices = new List<FrameworkElement>();
+        for (int index = 0; index < ids.Length; index++)
+        {
+            int selected = index;
+            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            content.Children.Add(CompanionThumbnail(ids[index])); content.Children.Add(SettingTitle(names[index]));
+            var radio = new RadioButton
+            {
+                Content = content, GroupName = "GlassDeskCompanionAppearance", MinHeight = 96,
+                HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center,
+                Padding = new Thickness(8), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1),
+                Template = OptionTemplate, UseSystemFocusVisuals = true
+            };
+            Name(radio, "陪伴形式，" + names[index]);
+            radio.Checked += (_, _) => { if (!_refreshing) _companionForm.SelectedIndex = selected; };
+            _appearanceChoices.Add(radio); choices.Add(radio);
+        }
+        return new SettingsColumns(choices, 3, 120);
+    }
+
+    static Canvas CompanionThumbnail(string id)
+    {
+        var canvas = new Canvas { Width = 72, Height = 60, IsHitTestVisible = false };
+        var points = CompanionContour.GetPoints(id, CompanionShapePose.Rounded);
+        var figure = new PathFigure { IsClosed = true, IsFilled = true,
+            StartPoint = new(12 + points[0].X * 2, 8 + points[0].Y * 2) };
+        foreach (var point in points.Skip(1)) figure.Segments.Add(new LineSegment { Point = new(12 + point.X * 2, 8 + point.Y * 2) });
+        var geometry = new PathGeometry(); geometry.Figures.Add(figure);
+        uint body = HighContrast.HighContrast ? Argb(SystemColors.UIElementColor(UIElementType.WindowText)) : 0xFF202329;
+        uint eye = HighContrast.HighContrast ? Argb(SystemColors.UIElementColor(UIElementType.Window)) : 0xFFFFFFFF;
+        canvas.Children.Add(new Microsoft.UI.Xaml.Shapes.Path { Data = geometry, Fill = ColorBrush(body) });
+        for (int index = 0; index < 2; index++)
+        {
+            var shape = new Border { Width = 5.34, Height = 8, CornerRadius = new CornerRadius(2.67), Background = ColorBrush(eye) };
+            Canvas.SetLeft(shape, 12 + (index == 0 ? 6.56 : 14.77) * 2); Canvas.SetTop(shape, 27.4);
+            canvas.Children.Add(shape);
+        }
+        return canvas;
+    }
+
+    FrameworkElement BuildColorPresets()
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (uint color in new uint[] { 0xFF202329, 0xFF5368CB, 0xFF4C8878, 0xFF9071AC, 0xFFC57C6B, 0xFF788798 })
+        {
+            var button = new Button
+            {
+                Width = 32, Height = 36, MinWidth = 32, MinHeight = 36, Padding = new Thickness(4),
+                CornerRadius = new CornerRadius(8), Background = null, BorderThickness = new Thickness(1),
+                Content = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = ColorBrush(color) }
+            };
+            Name(button, $"陪伴颜色 #{color & 0xFFFFFF:X6}");
+            button.Click += (_, _) =>
+            {
+                _hexDirty = false; _colorFeedback.Visibility = Visibility.Collapsed;
+                SetCompanionAppearance(color, CurrentPreferences.CompanionAppearanceId);
+            };
+            _colorPresets.Add((color, button)); panel.Children.Add(button);
+        }
+        return panel;
+    }
+
+    static uint Argb(Color value) => (uint)value.A << 24 | (uint)value.R << 16 | (uint)value.G << 8 | value.B;
+    static TextBlock SectionHeading(string text) => SettingsTypography.Apply(
+        new TextBlock { Text = text, Margin = new Thickness(0, 4, 0, 0) }, TextRole.Caption, InkRole.Secondary);
 
     void BindEvents()
     {
@@ -711,6 +951,7 @@ public sealed class SettingsWindow : Window, IDisposable
     {
         if (_disposed) return;
         _pending = preferences.Validated();
+        _saveHint.Text = "正在保存…";
         _pendingAppearanceRevision = _appearanceRevision;
         Refresh();
         _changeTimer.Stop();
@@ -732,6 +973,8 @@ public sealed class SettingsWindow : Window, IDisposable
             var current = _coordinator.Preferences;
             requested = requested with { MonitorId = current.MonitorId, AnchorX = current.AnchorX, AnchorY = current.AnchorY };
             var result = await _coordinator.UpdatePreferencesAsync(requested);
+            LastSaveFailed = !result.Success;
+            _saveHint.Text = result.Success ? "已保存至本机" : "更改尚未保存，请检查提示";
             if (!result.Success)
             {
                 if (_pending is not null) _pending = RebasePending(_pending, requested, _coordinator.Preferences,
@@ -742,6 +985,8 @@ public sealed class SettingsWindow : Window, IDisposable
         }
         catch (Exception)
         {
+            LastSaveFailed = true;
+            _saveHint.Text = "更改尚未保存，请检查提示";
             if (_pending is not null) _pending = RebasePending(_pending, requested, _coordinator.Preferences,
                 _pendingAppearanceRevision > requestedAppearanceRevision);
             ShowFeedback("设置未能保存，请重试。", error: true);
@@ -753,6 +998,7 @@ public sealed class SettingsWindow : Window, IDisposable
             _updateCompletion?.TrySetResult();
             if (!_disposed)
             {
+                if (_pending is not null) _saveHint.Text = "正在保存…";
                 // A coordinator save can clear its temporary preview. Restore the
                 // newer pending choice before the next presentation frame.
                 if (_pending is { } pending && _pendingAppearanceRevision > requestedAppearanceRevision)
@@ -784,6 +1030,7 @@ public sealed class SettingsWindow : Window, IDisposable
             ClockShowTime = pending.ClockShowTime != requested.ClockShowTime ? pending.ClockShowTime : actual.ClockShowTime,
             ClockShowDate = pending.ClockShowDate != requested.ClockShowDate ? pending.ClockShowDate : actual.ClockShowDate,
             ClockShowWeekday = pending.ClockShowWeekday != requested.ClockShowWeekday ? pending.ClockShowWeekday : actual.ClockShowWeekday,
+            ClockFontId = pending.ClockFontId != requested.ClockFontId ? pending.ClockFontId : actual.ClockFontId,
             AudioVisualizationEnabled = pending.AudioVisualizationEnabled != requested.AudioVisualizationEnabled ? pending.AudioVisualizationEnabled : actual.AudioVisualizationEnabled,
             CompanionEnabled = pending.CompanionEnabled != requested.CompanionEnabled ? pending.CompanionEnabled : actual.CompanionEnabled,
             CompanionFollowMouse = pending.CompanionFollowMouse != requested.CompanionFollowMouse ? pending.CompanionFollowMouse : actual.CompanionFollowMouse,
@@ -831,6 +1078,13 @@ public sealed class SettingsWindow : Window, IDisposable
             _hover.Value = preference.HoverDelayMs; _leave.Value = preference.LeaveDelayMs;
             _reducedMotion.IsOn = preference.ReducedMotion;
             _clockTime.IsOn = preference.ClockShowTime; _clockDate.IsOn = preference.ClockShowDate; _clockWeekday.IsOn = preference.ClockShowWeekday;
+            foreach (var choice in _clockFontChoices)
+            {
+                bool selected = choice.Id == ClockFontCatalog.Normalize(preference.ClockFontId);
+                choice.Button.IsChecked = selected;
+                choice.Button.BorderBrush = selected ? Brush(AccentFill) : Brush(BorderColor);
+                choice.Button.Background = selected ? Brush(0xFFEAF3FF) : Brush(ButtonColor);
+            }
             // The settings material is fixed at 0.86; the "透明度" slider still
             // drives the widget glass through the coordinator only.
             _audio.IsOn = preference.AudioVisualizationEnabled;
@@ -846,12 +1100,25 @@ public sealed class SettingsWindow : Window, IDisposable
             var companionColor = Color.FromArgb(255, (byte)(preference.CompanionColor >> 16), (byte)(preference.CompanionColor >> 8), (byte)preference.CompanionColor);
             if (_colorPicker.Color != companionColor) _colorPicker.Color = companionColor;
             _companionForm.SelectedIndex = preference.CompanionAppearanceId == CompanionAppearanceIds.CatEar ? 1 : preference.CompanionAppearanceId == CompanionAppearanceIds.Devil ? 2 : 0;
+            for (int index = 0; index < _appearanceChoices.Count; index++)
+            {
+                bool selected = index == _companionForm.SelectedIndex;
+                _appearanceChoices[index].IsChecked = selected;
+                _appearanceChoices[index].Background = selected ? Brush(0xFFEAF3FF) : Brush(ButtonColor);
+                _appearanceChoices[index].BorderBrush = selected ? Brush(AccentFill) : Brush(BorderColor);
+            }
+            foreach (var (color, button) in _colorPresets)
+                button.BorderBrush = color == preference.CompanionColor ? Brush(AccentFill) : Brush(0x00FFFFFF);
+            _companionFollowMouse.IsEnabled = preference.CompanionEnabled;
+            _capsuleLayoutPreview?.Present(preference, DateTimeOffset.Now);
+            _clockLayoutPreview?.Present(preference, DateTimeOffset.Now);
+            foreach (var updateSwitch in _switchRefresh) updateSwitch();
             RefreshCompanionPreview(preference.CompanionColor, preference.CompanionAppearanceId);
             _fullscreen.IsOn = preference.AvoidFullscreen; _startup.IsOn = preference.RunAtStartup;
-            _blurLabel.Text = $"{preference.Blur:0} px";
+            _blurLabel.Text = $"{preference.Blur:0}";
             _transparencyLabel.Text = $"{(1 - preference.TintOpacity) * 100:0}%";
-            _hoverLabel.Text = $"{preference.HoverDelayMs / 1000d:0.##} 秒";
-            _leaveLabel.Text = $"{preference.LeaveDelayMs / 1000d:0.##} 秒";
+            _hoverLabel.Text = $"{preference.HoverDelayMs} ms";
+            _leaveLabel.Text = $"{preference.LeaveDelayMs} ms";
             _hotkey.Text = FormatHotkey(preference.HotkeyModifiers, preference.HotkeyKey);
             _onboarding.Visibility = preference.OnboardingSeen ? Visibility.Collapsed : Visibility.Visible;
             string visibilityAction = _coordinator.IsWidgetVisible ? "隐藏组件" : "显示组件";
@@ -905,7 +1172,11 @@ public sealed class SettingsWindow : Window, IDisposable
     void RefreshRuntimeStatus()
     {
         if (_disposed || _minimalContent) return;
-        _tabs?.RefreshAccessibility();
+        if (_navigation?.SelectedItem is NavigationViewItem { Tag: int selected })
+        {
+            if (selected == 0) _capsuleLayoutPreview?.Present(CurrentPreferences, DateTimeOffset.Now);
+            if (selected == TimePage) _clockLayoutPreview?.Present(CurrentPreferences, DateTimeOffset.Now);
+        }
         // Native capture advances independently of preference/scene Changed events.
         // Read its live state and map the raw native wording into user-facing
         // Chinese here; native strings stay untouched.
@@ -965,7 +1236,7 @@ public sealed class SettingsWindow : Window, IDisposable
         _pluginList.Children.Clear(); _pluginPages.Children.Clear();
         foreach (var status in statuses)
         {
-            var panel = new StackPanel { Spacing = 8, Padding = new Thickness(16) };
+            var panel = new StackPanel { Spacing = 8, Padding = new Thickness(0) };
             var heading = new Grid { ColumnSpacing = 16 };
             heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1008,7 +1279,7 @@ public sealed class SettingsWindow : Window, IDisposable
         if (pages.Count > 0) _pluginPages.Children.Add(SettingTitle("插件工具"));
         foreach (var page in pages)
         {
-            var panel = new StackPanel { Spacing = 12, Padding = new Thickness(16) };
+            var panel = new StackPanel { Spacing = 12, Padding = new Thickness(0) };
             panel.Children.Add(SettingTitle(page.Name));
             foreach (var item in page.Items)
             {
@@ -1148,7 +1419,7 @@ public sealed class SettingsWindow : Window, IDisposable
         foreach (var input in new[] { _hotkey, _customColor, _diagnosticPath })
         {
             SettingsTypography.Apply(input, input == _diagnosticPath ? TextRole.CaptionSettings : TextRole.Body, InkRole.Secondary);
-            input.MinHeight = 40; input.CornerRadius = new CornerRadius(UiRadius.Control);
+            input.MinHeight = 40; input.CornerRadius = new CornerRadius(8);
             input.Background = Brush(ButtonColor); input.BorderBrush = Brush(BorderColor);
             input.Padding = new Thickness(14, 8, 14, 8);
         }
@@ -1186,8 +1457,8 @@ public sealed class SettingsWindow : Window, IDisposable
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         double scale = Math.Max(96u, GetDpiForWindow(hwnd)) / 96d;
         var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
-        int width = Math.Min((int)Math.Round(880 * scale), Math.Max(1, area.Width - 48));
-        int height = Math.Min((int)Math.Round(680 * scale), Math.Max(1, area.Height - 64));
+        int width = Math.Min((int)Math.Round(960 * scale), Math.Max(1, area.Width - (int)Math.Round(24 * scale)));
+        int height = Math.Min((int)Math.Round(700 * scale), Math.Max(1, area.Height - (int)Math.Round(24 * scale)));
         AppWindow.Resize(new(width, height));
         AppWindow.Move(new(area.X + (area.Width - width) / 2, area.Y + (area.Height - height) / 2));
     }
@@ -1217,34 +1488,46 @@ public sealed class SettingsWindow : Window, IDisposable
 
     static Border Surface(UIElement child) => new()
     {
-        Child = child, Background = Brush(SurfaceColor), BorderBrush = Brush(BorderColor),
-        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(UiRadius.Card)
+        Child = child, BorderBrush = Brush(BorderColor), Background = Brush(SurfaceColor),
+        CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(16, 4, 16, 4)
     };
 
-    static StackPanel SliderRow(string title, TextBlock value, Slider slider, string? description = null)
+    static Grid SliderRow(string title, TextBlock value, Slider slider, string? description = null)
     {
-        var panel = new StackPanel { Spacing = 6, Padding = new Thickness(16, 12, 16, 10) };
-        var heading = new Grid { ColumnSpacing = 12 };
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleText = SettingTitle(title);
-        heading.Children.Add(titleText);
+        var row = new Grid { ColumnSpacing = 12, RowSpacing = 4, MinHeight = 60, Padding = new Thickness(0, 8, 0, 8) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var labels = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        labels.Children.Add(SettingTitle(title));
+        if (description is not null) labels.Children.Add(Description(description));
+        row.Children.Add(labels);
         SettingsTypography.Apply(value, TextRole.Body, InkRole.Secondary, TextFlags.TabularDigitsOnly);
         value.MinWidth = 64;
         value.TextAlignment = TextAlignment.Right;
         value.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(value, 1); heading.Children.Add(value);
-        panel.Children.Add(heading);
-        if (description is not null) panel.Children.Add(Description(description));
-        slider.MinHeight = 28;
+        Grid.SetColumn(value, 2); row.Children.Add(value);
+        slider.MinHeight = 32; slider.VerticalAlignment = VerticalAlignment.Center;
         slider.IsThumbToolTipEnabled = false;
-        panel.Children.Add(slider);
-        return panel;
+        Grid.SetColumn(slider, 1); row.Children.Add(slider);
+        void Arrange(double width)
+        {
+            bool narrow = width < 440 * Math.Max(1, SystemColors.TextScaleFactor);
+            row.ColumnDefinitions[1].Width = new GridLength(narrow ? 0 : Math.Clamp(width * .34, 150, 220));
+            Grid.SetColumnSpan(labels, narrow ? 3 : 1);
+            Grid.SetRow(slider, narrow ? 1 : 0); Grid.SetColumn(slider, narrow ? 0 : 1);
+            Grid.SetColumnSpan(slider, narrow ? 2 : 1); Grid.SetRow(value, narrow ? 1 : 0);
+        }
+        row.SizeChanged += (_, args) => Arrange(args.NewSize.Width);
+        row.Loaded += (_, _) => Arrange(row.ActualWidth);
+        return row;
     }
 
-    static Grid ToggleRow(string title, ToggleSwitch toggle, string? description = null)
+    Grid ToggleRow(string title, ToggleSwitch toggle, string? description = null)
     {
-        var row = new Grid { ColumnSpacing = 16, MinHeight = 66, Padding = new Thickness(16, 12, 12, 12) };
+        var row = new Grid { ColumnSpacing = 16, MinHeight = 56, Padding = new Thickness(0, 6, 0, 6) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var labels = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
@@ -1252,8 +1535,8 @@ public sealed class SettingsWindow : Window, IDisposable
         if (description is not null) labels.Children.Add(Description(description));
         row.Children.Add(labels);
         toggle.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(toggle, 1); row.Children.Add(toggle);
-        WrapActions(row, labels, toggle);
+        var switchHost = CompanionSwitch(toggle);
+        Grid.SetColumn(switchHost, 1); row.Children.Add(switchHost);
         return row;
     }
 
@@ -1268,7 +1551,7 @@ public sealed class SettingsWindow : Window, IDisposable
         Grid.SetColumn(label, 1); content.Children.Add(label);
         var button = new Button
         {
-            Content = content, CornerRadius = new CornerRadius(UiRadius.Full(40)), MinHeight = 40,
+            Content = content, CornerRadius = new CornerRadius(8), MinHeight = 36,
             Background = Brush(ButtonColor), BorderBrush = Brush(BorderColor), Foreground = Brush(InkColor),
             Padding = new Thickness(16, 8, 16, 8), HorizontalAlignment = HorizontalAlignment.Left
         };
@@ -1289,9 +1572,9 @@ public sealed class SettingsWindow : Window, IDisposable
         {
             var role = argb switch
             {
-                CanvasColor or FallbackCanvasColor or SurfaceColor or ButtonColor or ButtonPointerOverColor
+                CanvasColor or FallbackCanvasColor or SidebarColor or SurfaceColor or 0x121689F9 or 0xFFEAF3FF or ButtonColor or ButtonPointerOverColor
                     or ButtonPressedColor or ButtonDisabledColor or 0xFFEFF6F4 or 0xFFF6F8FB => UIElementType.Window,
-                0xFF28786E => UIElementType.Highlight,
+                0xFF28786E or AccentFill => UIElementType.Highlight,
                 _ => UIElementType.WindowText
             };
             return new(SystemColors.UIElementColor(role));
@@ -1320,11 +1603,8 @@ public sealed class SettingsWindow : Window, IDisposable
         if (_disposed) return;
         _disposed = true;
         _shown = false;
-        _tabs?.Dispose();
-        _tabs = null;
-        if (_shapeXamlRoot is not null) _shapeXamlRoot.Changed -= OnSettingsXamlRootChanged;
-        _shapeXamlRoot = null;
-        _windowShape?.Dispose(); _windowShape = null;
+        _deck?.StopTransition();
+        if (_navigation is not null) _navigation.SelectionChanged -= OnNavigationSelectionChanged;
         _changeTimer.Stop();
         _changeTimer.Tick -= OnChangeTimerTick;
         _statusTimer.Stop();

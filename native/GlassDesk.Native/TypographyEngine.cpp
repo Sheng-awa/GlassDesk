@@ -334,7 +334,9 @@ struct Engine::Impl
         if(!std::isfinite(input.fontSize)||!std::isfinite(input.width)||!std::isfinite(input.height)||!std::isfinite(input.dpi)
             ||!std::isfinite(input.lineHeight)||!std::isfinite(input.baseline)||!std::isfinite(input.trackingEm)
             ||input.fontSize<=0||input.fontSize>512||input.width<=0||input.width>32768||input.height<=0||input.height>32768
-            ||input.dpi<48||input.dpi>768||input.lineHeight<0||input.baseline<0||input.text.size()>65536||input.fontWeight>999||input.cjkWeight>999||(input.flags&~3u))throw winrt::hresult_invalid_argument();
+            ||input.dpi<48||input.dpi>768||input.lineHeight<0||input.baseline<0||input.text.size()>65536||input.fontWeight>999||input.cjkWeight>999||(input.flags&~0x303u))throw winrt::hresult_invalid_argument();
+        uint32_t clockFace=input.flags&0x300u;
+        if(clockFace&&input.role!=1&&input.role!=2&&input.role!=4)throw winrt::hresult_invalid_argument();
         auto const& token=TokenForRole(input.role);auto legacy=profile==Profile::Baseline||input.role==0;
         Optical optical=token.optical;
         // Explicit test sizes and Legacy role follow the optical size thresholds.
@@ -347,6 +349,11 @@ struct Engine::Impl
         uint32_t flags=legacy?(LegacyClock(text)?TabularNumbers:0):input.flags;
         float tracking=legacy||flags||!PureLatin(text)?0:input.trackingEm;
         auto family=legacy&&!input.icon?std::wstring(L"Segoe UI Variable Text"):Family(optical,input.icon);
+        if(!legacy&&clockFace)
+        {
+            auto candidate=clockFace==0x100u?L"Cambria":clockFace==0x200u?L"Bahnschrift":L"Consolas";
+            if(FamilyExists(system.get(),candidate))family=candidate;
+        }
         Key key{uint32_t(profile),revision,input.role,weight,cjk,flags,tracking,input.fontSize,legacy?0:input.lineHeight,legacy?0:input.baseline,input.width,input.height,input.dpi,input.bold,input.icon,input.wrap,input.center,input.trim,input.paragraphCenter,family,locale,text};
         auto found=std::find_if(layouts.begin(),layouts.end(),[&](auto const& entry){return entry.key==key;});
         if(found!=layouts.end()){++counters.layoutHits;auto value=found->value;layouts.splice(layouts.begin(),layouts,found);return value;}
@@ -377,7 +384,7 @@ struct Engine::Impl
             result->scripts=std::move(analysis->runs);
             if(tracking!=0)check_hresult(layout.as<IDWriteTextLayout1>()->SetCharacterSpacing(0,tracking*key.size,0,{0,UINT32(text.size())}));
         }
-        if(flags)
+        if(flags&3u)
         {
             com_ptr<IDWriteTypography> typography;check_hresult(factory->CreateTypography(typography.put()));
             check_hresult(typography->AddFontFeature({DWRITE_FONT_FEATURE_TAG_TABULAR_FIGURES,1}));

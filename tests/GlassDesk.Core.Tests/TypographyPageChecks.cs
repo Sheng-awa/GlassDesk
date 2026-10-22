@@ -4,6 +4,15 @@ static class TypographyPageChecks
 {
     public static void Run(Action<bool,string> check)
     {
+        var oldSettings=System.Text.Json.JsonSerializer.Deserialize<WidgetPreferences>("{\"ClockShowTime\":true}")!.Validated();
+        check(oldSettings.ClockFontId==ClockFontCatalog.System, "existing settings acquire the system clock face without resetting other values");
+        check(new WidgetPreferences { ClockFontId="unknown",Blur=13 }.Validated() is {ClockFontId:"system",Blur:13},
+            "invalid clock font IDs fall back without resetting material");
+        check(ClockFontCatalog.All.All(face=>System.Text.Json.JsonSerializer.Deserialize<WidgetPreferences>(
+            System.Text.Json.JsonSerializer.Serialize(new WidgetPreferences {ClockFontId=face.Id}))!.Validated().ClockFontId==face.Id),
+            "all four clock font choices survive save and reload");
+        check(ClockFontCatalog.IsClockRole(TextRole.ClockWhiteplate)&&!ClockFontCatalog.IsClockRole(TextRole.MediaPeekTitle)
+            &&!ClockFontCatalog.IsClockRole(TextRole.ClockLegacyAux), "clock fonts exclude song titles, dates and auxiliary labels");
         var title=TypographyCatalog.Get(TextRole.MediaDetailsTitle);
         check(title is {FontSizeDip:20,LineHeightDip:28,LatinWeight:600,CjkWeight:500}
             && TypographyCatalog.Get(TextRole.ClockWhiteplate) is {FontSizeDip:16,LineHeightDip:26},

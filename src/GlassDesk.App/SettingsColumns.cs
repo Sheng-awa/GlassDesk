@@ -4,17 +4,22 @@ using Windows.Foundation;
 
 namespace GlassDesk.App;
 
-/// <summary>Settings controls keep the reference's two columns and stack on a narrow pane.</summary>
+/// <summary>Only related choices share columns; ordinary settings stay in one reading column.</summary>
 internal sealed class SettingsColumns : Panel
 {
     int _columns;
     const double Gap = 12;
-    public SettingsColumns(IEnumerable<FrameworkElement> controls)
-    { foreach (var control in controls) Children.Add(control); }
+    readonly int _maximumColumns;
+    readonly double _minimumColumnWidth;
+    public SettingsColumns(IEnumerable<FrameworkElement> controls, int maximumColumns = 2, double minimumColumnWidth = 300)
+    {
+        _maximumColumns = Math.Max(1, maximumColumns); _minimumColumnWidth = Math.Max(44, minimumColumnWidth);
+        foreach (var control in controls) Children.Add(control);
+    }
     protected override Size MeasureOverride(Size available)
     {
         double width = double.IsFinite(available.Width) ? available.Width : 760;
-        _columns = width >= 300 * 2 + Gap ? 2 : 1;
+        _columns = Math.Clamp((int)Math.Floor((width + Gap) / (_minimumColumnWidth + Gap)), 1, _maximumColumns);
         double itemWidth = Math.Max(0, (width - Gap * (_columns - 1)) / _columns), height = 0;
         for (int row = 0; row < Children.Count; row += _columns)
         {

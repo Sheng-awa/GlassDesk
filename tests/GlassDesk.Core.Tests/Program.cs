@@ -124,5 +124,7 @@ ClockStructuredChecks.Run(Check);
 HiddenWidgetChecks.Run(Check);
 CompactLayoutChecks.Run(Check);
 HomeLayoutChecks.Run(Check);
+HomePresentationChecks.Run(Check);
+HomePopupChecks.Run(Check);
 
 Console.WriteLine($"{checks} checks passed.");

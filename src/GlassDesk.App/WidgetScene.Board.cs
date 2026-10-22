@@ -26,7 +26,7 @@ public sealed partial class WidgetScene
     WidgetBoardRenderResult? _boardRender;
     public bool WidgetsPage => _detailsPageId == DetailsPageController.Widgets;
     public bool HomePage => _detailsPageId == DetailsPageController.Home;
-    public float CurrentPageScroll => WidgetsPage ? _boardScroll : _detailsScroll;
+    public float CurrentPageScroll => HomePage ? _homeScroll : WidgetsPage ? _boardScroll : _detailsScroll;
     internal WidgetBoardRenderResult? BoardRender => _boardRender;
     internal WidgetBoardState SavedBoard => _savedBoard;
     internal bool BoardHiddenPanelOpen => _boardHiddenPanelOpen;
@@ -86,6 +86,7 @@ public sealed partial class WidgetScene
         _board = WidgetBoardData.TimeOnlyForPresentation(_savedBoard); _boardResults = results; _boardRevision = revision;
         _boardEditing = editing; _boardAddMenu = addMenuOpen;
         _boardScroll = float.IsFinite(scrollOffset) ? Math.Max(0,scrollOffset) : 0;
+        if (HomePage) _homeScroll = _boardScroll;
         if(!WidgetsPage)_detailsScroll=_boardScroll;
         _chrome.SetCurrentPage(_detailsPageId);
         if (changed) _drawingInvalidated = true;

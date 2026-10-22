@@ -199,7 +199,8 @@ public sealed class PluginHost : IAsyncDisposable
                 {
                     if(!value.Visible&&entry.State==PluginRunState.Running)await PauseAsync(entry);
                     else if(value.Visible&&entry.State is PluginRunState.Paused or PluginRunState.Disabled or PluginRunState.Stopped)await StartAsync(entry);
-                    entry.Context?.Publish(value);
+                    if(entry.Context is not null)
+                        await InvokePluginAsync(entry,()=>{entry.Context?.Publish(value);return Task.CompletedTask;},TimeSpan.FromSeconds(5));
                 }
                 catch(Exception error){await FaultAsync(entry,error);}
             }
@@ -214,29 +215,50 @@ public sealed class PluginHost : IAsyncDisposable
             entry.State=PluginRunState.Starting;entry.Reason=null;
             if(entry.Plugin is null)
             {
-                if(entry.Factory is not null)entry.Plugin=entry.Factory();
-                else
+                entry.Context=new(this,entry);
+                await InvokePluginAsync(entry,()=>
                 {
-                    string path=PluginPackage.SafePath(entry.Path!,entry.Manifest.EntryAssembly);
-                    entry.LoadContext=new(path);
-                    var assembly=entry.LoadContext.LoadFromAssemblyPath(path);
-                    var type=assembly.GetType(entry.Manifest.EntryType,true)!;
-                    if(!typeof(IGlassDeskPlugin).IsAssignableFrom(type)||type.IsAbstract)throw new InvalidDataException("插件入口没有实现 IGlassDeskPlugin。");
-                    entry.Plugin=(IGlassDeskPlugin)Activator.CreateInstance(type)!;
-                }
-                entry.Context=new(this,entry);entry.Plugin.Initialize(entry.Context);
-                entry.Contributions=entry.Plugin.RegisterContributions().ToArray();
-                if(entry.Contributions.Count>128||entry.Contributions.Any(p=>p.Id.Length is <1 or >80)||entry.Contributions.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=entry.Contributions.Count)
-                    throw new InvalidDataException("插件贡献标识无效或重复。");
+                    if(entry.Factory is not null)entry.Plugin=entry.Factory();
+                    else
+                    {
+                        string path=PluginPackage.SafePath(entry.Path!,entry.Manifest.EntryAssembly);
+                        entry.LoadContext=new(path);
+                        var assembly=entry.LoadContext.LoadFromAssemblyPath(path);
+                        var type=assembly.GetType(entry.Manifest.EntryType,true)!;
+                        if(!typeof(IGlassDeskPlugin).IsAssignableFrom(type)||type.IsAbstract)throw new InvalidDataException("插件入口没有实现 IGlassDeskPlugin。");
+                        entry.Plugin=(IGlassDeskPlugin)Activator.CreateInstance(type)!;
+                    }
+                    entry.Plugin.Initialize(entry.Context!);
+                    entry.Contributions=entry.Plugin.RegisterContributions().Take(129).ToArray();
+                    if(entry.Contributions.Count>128||entry.Contributions.Any(p=>p.Id.Length is <1 or >80)||entry.Contributions.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=entry.Contributions.Count)
+                        throw new InvalidDataException("插件贡献标识无效或重复。");
+                    return Task.CompletedTask;
+                },TimeSpan.FromSeconds(5));
             }
             entry.Cancellation=new();entry.Context!.Active=true;
-            entry.InFlight=entry.Plugin.StartAsync(entry.Cancellation.Token).AsTask();
-            try{await entry.InFlight.WaitAsync(TimeSpan.FromSeconds(5));}
-            catch(TimeoutException){entry.UnsafeUnload=true;entry.Cancellation.Cancel();throw;}
-            finally{if(entry.InFlight.IsCompleted)entry.InFlight=null;}
+            await InvokePluginAsync(entry,()=>entry.Plugin!.StartAsync(entry.Cancellation.Token).AsTask(),TimeSpan.FromSeconds(5));
             entry.State=PluginRunState.Running;
         }
         catch(Exception error){await FaultAsync(entry,error);}
+    }
+    static async Task InvokePluginAsync(Entry entry,Func<Task> invocation,TimeSpan timeout)
+    {
+        // Third-party synchronous prefixes and constructors cannot block the UI.
+        // In-process code is still trusted: a timed-out task is quarantined, never forcibly unloaded.
+        var task=entry.Factory is null?Task.Run(invocation):invocation();
+        entry.InFlight=task;
+        _=task.ContinueWith(completed=>{_=completed.Exception;},CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted|TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
+        try{await task.WaitAsync(timeout);}
+        catch(TimeoutException){entry.UnsafeUnload=true;entry.Cancellation?.Cancel();throw;}
+        finally{if(task.IsCompleted)entry.InFlight=null;}
+    }
+    void Quarantine(Entry entry)
+    {
+        entry.UnsafeUnload=true;entry.Context?.Revoke();entry.Cancellation?.Cancel();
+        Clear(entry);entry.State=PluginRunState.RestartRequired;
+        entry.Reason="插件任务仍在运行，已撤销其贡献；请重启后再更新或移除。";
+        // Keep the context/plugin/ALC pinned while its code may still be executing.
     }
     void Clear(Entry entry)
     {
@@ -251,20 +273,29 @@ public sealed class PluginHost : IAsyncDisposable
     {
         if(entry.Context is not null)entry.Context.Active=false;
         entry.Cancellation?.Cancel();
-        try{if(entry.Plugin is not null)await entry.Plugin.PauseAsync(CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(5));}
+        try{if(entry.Plugin is not null)await InvokePluginAsync(entry,()=>entry.Plugin.PauseAsync(CancellationToken.None).AsTask(),TimeSpan.FromSeconds(5));}
         catch(Exception error){await FaultAsync(entry,error);return;}
         entry.Cancellation?.Dispose();entry.Cancellation=null;
         Clear(entry);entry.State=PluginRunState.Paused;
     }
     async Task StopAsync(Entry entry)
     {
-        if(entry.Plugin is null){if(!entry.UnsafeUnload)entry.State=PluginRunState.Disabled;return;}
+        if(entry.InFlight is {IsCompleted:false}){Quarantine(entry);return;}
+        if(entry.Plugin is null)
+        {
+            entry.Context?.Revoke();entry.Context=null;
+            entry.UnsafeUnload|=entry.LoadContext?.NativeLoaded==true;
+            entry.PendingUnload=DetachLoadContext(entry);Clear(entry);
+            entry.State=entry.UnsafeUnload?PluginRunState.RestartRequired:PluginRunState.Disabled;return;
+        }
         entry.Context!.Active=false;entry.Cancellation?.Cancel();
         bool failed=false;
-        try{await entry.Plugin.StopAsync(CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(5));}
+        try{await InvokePluginAsync(entry,()=>entry.Plugin.StopAsync(CancellationToken.None).AsTask(),TimeSpan.FromSeconds(5));}
         catch(Exception error){entry.Reason="停止失败："+error.GetType().Name;failed=true;}
-        try{await entry.Plugin.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));}
+        if(entry.InFlight is {IsCompleted:false}){Quarantine(entry);return;}
+        try{await InvokePluginAsync(entry,()=>entry.Plugin.DisposeAsync().AsTask(),TimeSpan.FromSeconds(5));}
         catch(Exception error){entry.Reason="释放失败："+error.GetType().Name;failed=true;}
+        if(entry.InFlight is {IsCompleted:false}){Quarantine(entry);return;}
         entry.Context.Revoke();entry.Context=null;entry.Contributions=[];entry.Plugin=null;
         entry.Cancellation?.Dispose();entry.Cancellation=null;Clear(entry);
         bool native=entry.LoadContext?.NativeLoaded==true||entry.Manifest.RequiresRestart;
@@ -299,10 +330,7 @@ public sealed class PluginHost : IAsyncDisposable
             var command=entry.Contributions.OfType<PluginCommand>().SingleOrDefault(c=>c.Id==commandId)??throw new KeyNotFoundException("插件操作不存在。");
             try
             {
-                entry.InFlight=command.Execute(entry.Cancellation!.Token).AsTask();
-                try{await entry.InFlight.WaitAsync(TimeSpan.FromSeconds(10));}
-                catch(TimeoutException){entry.UnsafeUnload=true;entry.Cancellation.Cancel();throw;}
-                finally{if(entry.InFlight.IsCompleted)entry.InFlight=null;}
+                await InvokePluginAsync(entry,()=>command.Execute(entry.Cancellation!.Token).AsTask(),TimeSpan.FromSeconds(10));
             }
             catch(Exception error){await FaultAsync(entry,error);throw new InvalidOperationException(entry.Reason,error);}
         }
@@ -310,30 +338,88 @@ public sealed class PluginHost : IAsyncDisposable
     }
     public async Task<string> ImportAsync(string packagePath)
     {
+        ObjectDisposedException.ThrowIf(disposed,this);
         await gate.WaitAsync();string? staging=null,backup=null,target=null;bool moved=false;
+        Entry? previous=null,installed=null;
         try
         {
-            Directory.CreateDirectory(root);staging=Path.Combine(root,".install-"+Guid.NewGuid().ToString("N"));
-            var manifest=PluginPackage.Extract(Path.GetFullPath(packagePath),staging);
-            if(entries.TryGetValue(manifest.Id,out var previous))
+            ObjectDisposedException.ThrowIf(disposed,this);
+            staging=Path.Combine(root,".install-"+Guid.NewGuid().ToString("N"));
+            string stage=staging,package=Path.GetFullPath(packagePath);
+            var manifest=await Task.Run(()=>{Directory.CreateDirectory(root);return PluginPackage.Extract(package,stage);});
+            ObjectDisposedException.ThrowIf(disposed,this);
+            if(entries.TryGetValue(manifest.Id,out previous))
             {
                 await StopAsync(previous);
                 await RequireUnloadedAsync(previous);
             }
             target=Path.Combine(root,manifest.Id);
-            if(Directory.Exists(target)){backup=Path.Combine(root,".backup-"+Guid.NewGuid().ToString("N"));Directory.Move(target,backup);}
-            Directory.Move(staging,target);staging=null;moved=true;
-            var entry=new Entry(manifest,target,null){Enabled=previous?.Enabled??false};entries[manifest.Id]=entry;
-            if(entry.Enabled&&scene.Visible)await StartAsync(entry);
-            if(backup is not null){Directory.Delete(backup,true);backup=null;}
+            if(Directory.Exists(target))
+            {
+                backup=Path.Combine(root,".backup-"+Guid.NewGuid().ToString("N"));
+                string old=target,saved=backup;await Task.Run(()=>Directory.Move(old,saved));
+            }
+            string destination=target;await Task.Run(()=>Directory.Move(stage,destination));staging=null;moved=true;
+            installed=new Entry(manifest,target,null){Enabled=previous?.Enabled??false};entries[manifest.Id]=installed;
+            if(installed.Enabled&&scene.Visible)
+            {
+                await StartAsync(installed);
+                if(installed.State!=PluginRunState.Running)throw new InvalidOperationException(installed.Reason??"新版本插件未能启动。");
+            }
+            if(backup is not null)
+            {
+                try{string obsolete=backup;await Task.Run(()=>Directory.Delete(obsolete,true));backup=null;}
+                catch(Exception error)when(error is IOException or UnauthorizedAccessException)
+                {installed.Reason="新版本已启用，旧包备份暂未清理。";}
+            }
             return manifest.Id;
         }
-        catch
+        catch(Exception original)
         {
-            if(!moved&&backup is not null&&target is not null&&!Directory.Exists(target)){Directory.Move(backup,target);backup=null;}
+            if(backup is not null&&target is not null)
+            {
+                try
+                {
+                    string? rejected=null;
+                    if(moved&&installed is not null)
+                    {
+                        await StopAsync(installed);await RequireUnloadedAsync(installed);
+                        rejected=Path.Combine(root,".failed-"+Guid.NewGuid().ToString("N"));
+                        string current=target,failed=rejected;await Task.Run(()=>Directory.Move(current,failed));
+                    }
+                    if(!Directory.Exists(target))
+                    {
+                        string saved=backup,destination=target;await Task.Run(()=>Directory.Move(saved,destination));backup=null;
+                    }
+                    if(previous is not null)
+                    {
+                        entries[previous.Manifest.Id]=previous;
+                        if(previous.Enabled&&scene.Visible&&!disposed)await StartAsync(previous);
+                    }
+                    if(rejected is not null)
+                    {
+                        try{string failed=rejected;await Task.Run(()=>Directory.Delete(failed,true));}
+                        catch(Exception error)when(error is IOException or UnauthorizedAccessException){ }
+                    }
+                }
+                catch(Exception recovery)
+                {throw new InvalidOperationException($"插件更新失败，旧包已保留在 {backup??target}；请退出后恢复。",new AggregateException(original,recovery));}
+                throw new InvalidOperationException("插件更新失败，已恢复之前的版本，原配置保留。",original);
+            }
             throw;
         }
-        finally{if(staging is not null&&Directory.Exists(staging))Directory.Delete(staging,true);gate.Release();Changed?.Invoke();}
+        finally
+        {
+            try
+            {
+                if(staging is not null&&Directory.Exists(staging))
+                {
+                    try{string abandoned=staging;await Task.Run(()=>Directory.Delete(abandoned,true));}
+                    catch(Exception error)when(error is IOException or UnauthorizedAccessException){ }
+                }
+            }
+            finally{gate.Release();Changed?.Invoke();}
+        }
     }
     public async Task RemoveAsync(string id)
     {

@@ -1,6 +1,7 @@
 param([string]$CompilerPath,[switch]$SkipStress)
 $ErrorActionPreference='Stop'
 $taskRoot=Split-Path -Parent $PSScriptRoot
+$taskVersion=([xml](Get-Content -LiteralPath (Join-Path $taskRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
 Push-Location -LiteralPath $taskRoot
 try {
     $taskPublishPath=Join-Path $taskRoot 'artifacts\publish'
@@ -47,11 +48,11 @@ try {
     Copy-Item -LiteralPath '.\licenses' -Destination $taskLicenseDestination -Recurse -Force
     if (-not $CompilerPath) {$CompilerPath=Join-Path $taskRoot '.tools\innosetup-7.1.0\ISCC.exe'}
     if (-not (Test-Path -LiteralPath $CompilerPath)) {throw 'Inno Setup 7.1.0 x64 ISCC.exe is required. Pass -CompilerPath or provision the documented portable compiler.'}
-    & $CompilerPath --quiet '.\installer\GlassDesk.iss'
+    & $CompilerPath --quiet "/DAppVersion=$taskVersion" '.\installer\GlassDesk.iss'
     if ($LASTEXITCODE -ne 0) {throw 'Installer build failed.'}
-    $taskInstaller=Join-Path $taskRoot 'artifacts\installer\GlassDesk-0.2.0-win-x64-setup.exe'
+    $taskInstaller=Join-Path $taskRoot "artifacts\installer\GlassDesk-$taskVersion-win-x64-setup.exe"
     $taskHash=(Get-FileHash -LiteralPath $taskInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$taskHash  GlassDesk-0.2.0-win-x64-setup.exe" | Set-Content -LiteralPath (Join-Path (Split-Path -Parent $taskInstaller) 'SHA256SUMS.txt') -Encoding utf8
+    "$taskHash  GlassDesk-$taskVersion-win-x64-setup.exe" | Set-Content -LiteralPath (Join-Path (Split-Path -Parent $taskInstaller) 'SHA256SUMS.txt') -Encoding utf8
     Write-Output $taskInstaller
 } finally {Pop-Location}
 

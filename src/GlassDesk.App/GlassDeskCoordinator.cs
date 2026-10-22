@@ -32,7 +32,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     readonly ProcessAudioVisualizationSource audio;
     readonly PluginHost plugins;
     readonly CapsuleContentPolicy contentPolicy=new();
-    readonly DispatcherQueueTimer motionTimer,clockTimer,timelineTimer,graphicsRetryTimer,pauseTimer,materialSnapshotTimer,cursorTimer,textToneTimer;
+    readonly DispatcherQueueTimer motionTimer,clockTimer,timelineTimer,graphicsRetryTimer,pauseTimer,materialSnapshotTimer,cursorTimer,textToneTimer,mediaStateTimer;
     HostContext? textToneContext;
     nint textToneForeground;
     bool lightText;
@@ -116,21 +116,19 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             var next=WidgetTextToneProbe.ReadPolicy(host.Context,scene.TextBackgroundY,Preferences.TintOpacity,
                 false,lightText,scene.BodyUsesLargeClock?3:4.5,scene.BodyHasRequiredSecondary);
             clockReadability=controller.Form==WidgetForm.Peek
-                ?WidgetTextToneProbe.ReadPolicy(host.Context,scene.ClockPlateBackgroundY,Preferences.TintOpacity,true,clockReadability.LightInk,
+                ?WidgetTextToneProbe.ReadPolicy(host.Context,scene.ClockPlateBackgroundY,Preferences.TintOpacity,scene.ClockHasWhiteplate,clockReadability.LightInk,
                     scene.ClockPlateUsesLargeClock?3:4.5,scene.ClockPlateHasRequiredSecondary)
                 :next;
             readability=next;lightText=next.LightInk;
-            // The Details canvas always sits on the app's own dark glass, while the probe
-            // samples the desktop outside the card. A bright wallpaper/window beside the
-            // card would therefore pick dark ink for text that is actually on dark glass;
-            // keep the Details pages on the light-ink hierarchy until the probe can sample
-            // the composed card surface itself.
-            if(controller.Form==WidgetForm.Details){lightText=true;readability=readability with {LightInk=true};}
+            // Text directly on the adjustable shell follows its observed material.
+            // Panels with their own light film keep their separate panel ink.
             bool textChanged=ApplySceneInk();
             if(textChanged)Render();
         };
         pauseTimer=queue.CreateTimer();pauseTimer.IsRepeating=false;pauseTimer.Tick+=(_,_)=>{if(contentPolicy.Tick(Now)){Render();WakeMotion();}UpdateContentTimers();};
         timelineTimer=queue.CreateTimer();timelineTimer.Interval=TimeSpan.FromMilliseconds(250);timelineTimer.Tick+=(_,_)=>TryScene(()=>scene.UpdateTimeline(Media,Stopwatch.GetTimestamp()));
+        mediaStateTimer=queue.CreateTimer();mediaStateTimer.Interval=TimeSpan.FromMilliseconds(500);
+        mediaStateTimer.Tick+=(_,_)=>{if(!disposed&&!quitting&&controller.Visible&&Media.Connected)media.RefreshPlaybackState();};
         graphicsRetryTimer=queue.CreateTimer();graphicsRetryTimer.Interval=TimeSpan.FromSeconds(2);graphicsRetryTimer.IsRepeating=false;graphicsRetryTimer.Tick+=(_,_)=>Render();
         materialSnapshotTimer=queue.CreateTimer();materialSnapshotTimer.Interval=TimeSpan.FromSeconds(1);materialSnapshotTimer.IsRepeating=false;
         materialSnapshotTimer.Tick+=(_,_)=>
@@ -142,18 +140,11 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         plugins.MaterialChanged+=(id,active)=>{if(!disposed&&id=="liquidglass"){try{host.SetLiquidGlassEnabled(active);if(active&&options.QaMaterialFrame is not null){materialSnapshotAttempts=0;materialSnapshotTimer.Start();}}catch(Exception error){diagnostics.RecordError("liquidglass",error);}Changed?.Invoke();}};
         controller.FormChanged+=form=>
         {
-            if(form!=WidgetForm.Details)CommitBoardOnLeave();
+            homeBackPressed=false;homePressedAction=-1;homeConsumeRelease=false;
+            if(form!=WidgetForm.Details){CommitBoardOnLeave();CancelHomeFolderRead();}
             if(form==WidgetForm.Details)
             {
-                // The Home page is the landing page of an expanded session for now. Music /
-                // widget page memory stays within the session; a capsule collapse resets to
-                // Home until the home-entry contract is finalised.
-                if(pages.CurrentPageId!=DetailsPageController.Home)
-                {
-                    pages.Select(DetailsPageController.Home);
-                    Preferences=pages.ApplyTo(Preferences);
-                    pageSaveTimer?.Start();
-                }
+                // Opening a new presentation resets transient UI, not the last real page.
                 // Never carry a transient hover/popover animation into a fresh expansion.
                 scene.ResetHomeState();
             }
@@ -200,12 +191,14 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         {
             foreground.Start();foreground.Refresh();
             widgetLoadTask=LoadWidgetBoardAsync();await widgetLoadTask;
+            if(disposed||quitting)return;
             await media.StartAsync();
+            if(disposed||quitting)return;
             contentPolicy.Update(Media,Now);
             await plugins.ApplyPreferencesAsync(Preferences);
             await plugins.UpdateSceneAsync(PluginScene());
             Render();
-            if(disposed)return;
+            if(disposed||quitting)return;
             if(options.QaSnapshotRequest is { } snapshotRequest)snapshotRequests=new(host,queue,snapshotRequest);
             if(!options.NoSettings && !Preferences.OnboardingSeen)
             {
@@ -219,7 +212,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
             catch(Exception error) { diagnostics.RecordError("qa-start",error); }
         }
     }
-    void WakeMotion(){if(disposed)return;if(controller.NeedsTick||scene.SceneMotionActive){companionIdleTimer.Stop();if(!motionTimer.IsRunning)motionTimer.Start();}else ScheduleCompanionIdle();}
+    void WakeMotion(){if(disposed||quitting)return;if(controller.NeedsTick||scene.SceneMotionActive){companionIdleTimer.Stop();if(!motionTimer.IsRunning)motionTimer.Start();}else ScheduleCompanionIdle();}
     void ScheduleCompanionIdle()
     {
         companionIdleTimer.Stop();
@@ -273,7 +266,7 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         !solid&&clockReadability.LightInk,!solid&&clockReadability.PromoteSecondary);
     void Render()
     {
-        if(disposed)return;
+        if(disposed||quitting)return;
         try
         {
             contentPolicy.Tick(Now);
@@ -323,12 +316,15 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     }
     void UpdateContentTimers()
     {
+        bool reconcileMedia=!disposed&&!quitting&&controller.Visible&&Media.Connected;
+        if(reconcileMedia&&!mediaStateTimer.IsRunning){mediaStateTimer.Start();media.RefreshPlaybackState();}
+        else if(!reconcileMedia)mediaStateTimer.Stop();
         bool clock=controller.Visible&&(controller.Form==WidgetForm.Peek||controller.Form==WidgetForm.Capsule&&contentPolicy.ForForm(controller.Form)==CapsuleContentMode.Clock);
         clockTimer.Stop();
         if(clock){var current=DateTimeOffset.Now;clockTimer.Interval=TimeSpan.FromMilliseconds(Math.Max(10,60000-current.Second*1000-current.Millisecond));clockTimer.Start();}
         pauseTimer.Stop();
         if(controller.Visible&&contentPolicy.NeedsTick){pauseTimer.Interval=TimeSpan.FromMilliseconds(Math.Max(1,contentPolicy.RemainingDelay(Now)));pauseTimer.Start();}
-        bool waveform=controller.Visible&&!(controller.Form==WidgetForm.Details&&pages.CurrentPageId==DetailsPageController.Widgets)&&contentPolicy.ForForm(controller.Form)==CapsuleContentMode.Music&&Preferences.AudioVisualizationEnabled;
+        bool waveform=controller.Visible&&controller.Form!=WidgetForm.Details&&contentPolicy.ForForm(controller.Form)==CapsuleContentMode.Music&&Preferences.AudioVisualizationEnabled;
         audio.SetTarget(Media,waveform);
         bool progress=controller.Visible&&controller.Form==WidgetForm.Details&&pages.CurrentPageId==DetailsPageController.Music&&Media.Timeline?.Valid==true&&Media.State==PlaybackState.Playing;
         if(progress&&!timelineTimer.IsRunning)timelineTimer.Start();else if(!progress)timelineTimer.Stop();
@@ -339,7 +335,11 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         }
         else
         {
-            cursorTimer.Stop();TryScene(()=>scene.ClearCompanionPointerGaze());
+            cursorTimer.Stop();
+            // Expanded forms receive gaze from native pointer events. A normal render
+            // must not reset those eyes just because capsule polling is stopped.
+            if(!controller.Visible || !Preferences.CompanionEnabled || !Preferences.CompanionFollowMouse || EffectivePreferences.ReducedMotion)
+                TryScene(()=>scene.ClearCompanionPointerGaze());
         }
     }
     void UpdateCursorGaze()
@@ -352,6 +352,9 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     void OnPointer(HostPointerEvent e)
     {
         if(disposed||quitting)return;
+        // Lifecycle requests belong to the host, before any page consumes pointer input.
+        if(e.Kind==HostEventKind.Quit){Quit();return;}
+        if(e.Kind==HostEventKind.OpenSettings){ShowSettings();return;}
         int id=e.Kind is HostEventKind.Invoke or HostEventKind.RangeValue?e.ControlId:scene.HitTest(e.X,e.Y);
         if(e.Kind is HostEventKind.Enter or HostEventKind.Move or HostEventKind.Leave or HostEventKind.CaptureLost)
             TryScene(()=>scene.UpdateCompanionGaze(e));
@@ -360,10 +363,29 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         else if(e.Kind==HostEventKind.Up)CompanionReact(CompanionInteraction.Release);
         else if(e.Kind==HostEventKind.CaptureLost)CompanionReact(CompanionInteraction.None);
         qa?.RecordPointer(e,id,host.Context);
+        if(controller.Form==WidgetForm.Details&&(id==WidgetActions.HomeBack||homeBackPressed))
+        {
+            if(e.Kind is HostEventKind.Enter or HostEventKind.Move)
+            {scene.SetPointerFeedback(id==WidgetActions.HomeBack?id:-1,homeBackPressed&&id==WidgetActions.HomeBack);return;}
+            if(e.Kind==HostEventKind.Leave){scene.SetPointerFeedback(-1);return;}
+            if(e.Kind==HostEventKind.Invoke){SelectDetailsPage(DetailsPageController.Home);return;}
+            if(e.Kind==HostEventKind.Down){homeBackPressed=true;scene.SetPointerFeedback(id,true);return;}
+            if(e.Kind is HostEventKind.Up or HostEventKind.CaptureLost)
+            {
+                bool activate=homeBackPressed&&id==WidgetActions.HomeBack&&e.Kind==HostEventKind.Up;
+                homeBackPressed=false;scene.SetPointerFeedback(-1);
+                if(activate)SelectDetailsPage(DetailsPageController.Home);
+            }
+            return;
+        }
         bool homePageVisible=scene.HomePage&&controller.Form==WidgetForm.Details;
         bool homeHoverChanged=false;
         if(homePageVisible)
         {
+            if(e.Kind==HostEventKind.Wheel&&!scene.HomePopoverOpen)
+            {
+                scene.ScrollHome(-(float)e.Value*40);pages.SetScrollOffset(scene.CurrentPageScroll);return;
+            }
             if(e.Kind is HostEventKind.Enter or HostEventKind.Move)homeHoverChanged=scene.UpdateHomePointer(e.X,e.Y);
             else if(e.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)homeHoverChanged=scene.ClearHomeHover();
         }
@@ -420,8 +442,6 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         }
         else if(e.Kind is HostEventKind.Leave or HostEventKind.CaptureLost)
         {TryScene(()=>scene.SetPointerFeedback(-1,false));if(e.Kind==HostEventKind.CaptureLost){pointerDown=false;pressedAction=-1;seeking=false;TryScene(()=>scene.SetSeekPreview(null));}}
-        else if(e.Kind==HostEventKind.OpenSettings){ShowSettings();return;}
-        else if(e.Kind==HostEventKind.Quit){Quit();return;}
         bool wasDragging=controller.IsDragging;
         controller.HandlePointer(e,id,Now);
         if(!wasDragging&&controller.IsDragging)CompanionReact(CompanionInteraction.Drag);
@@ -541,11 +561,9 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
         catch(Exception error)
         {
             diagnostics.RecordError("settings-open",error);
-            if(options.DataDirectory is not null)
-                File.WriteAllText(Path.Combine(store.DirectoryPath,"settings-open-error.txt"),$"{DateTimeOffset.UtcNow:O}\n{error}\n");
+            string? failurePath=FailureReporter.Write(store.DirectoryPath,"settings-open-error.txt",error,options.UiPreview);
             notice="设置暂时无法打开，请稍后重试。";
-            if(options.QaReport is not null)
-                File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"qa-settings-error.txt"),$"{DateTimeOffset.UtcNow:O}\n{error.GetType().FullName}\nHRESULT=0x{error.HResult:X8}\n{error.StackTrace}");
+            if(options.QaReport is null)FailureReporter.NotifyOnce(notice,failurePath);
             Render();Changed?.Invoke();
         }
     }
@@ -584,27 +602,63 @@ internal sealed partial class GlassDeskCoordinator : ISettingsCoordinator,IDispo
     public async void Quit()
     {
         if(quitting||disposed)return;quitting=true;
-        CommitBoardOnLeave();widgetTimer.Stop();pageSaveTimer.Stop();
-        motionTimer.Stop();clockTimer.Stop();timelineTimer.Stop();graphicsRetryTimer.Stop();pauseTimer.Stop();materialSnapshotTimer.Stop();cursorTimer.Stop();textToneTimer.Stop();companionIdleTimer.Stop();outside.Update(null);
-        if(settings is not null){settings.Hide();await settings.FlushPendingAsync();}
-        await preferenceGate.WaitAsync();
-        try{await store.SaveAsync(pages.ApplyTo(Preferences));}catch(Exception error){diagnostics.RecordError("quit-save",error);}
-        finally{preferenceGate.Release();}
-        await widgetSaveTail;
-        await widgetLoadTask;
-        if(boardReady)
-            try{await widgetStore.SaveAsync(boardEditor.State);}
-            catch(Exception error){diagnostics.RecordError("widget-quit-save",error);}
-        await plugins.DisposeAsync();Dispose();exit();
+        try
+        {
+            CommitBoardOnLeave();widgetTimer.Stop();pageSaveTimer.Stop();StopRuntimeTimers();outside.Update(null);
+            bool saved=true;
+            if(settings is not null){settings.Hide();await settings.FlushPendingAsync();saved=!settings.LastSaveFailed;}
+            await preferenceGate.WaitAsync();
+            try{if(store.CanSave)await store.SaveAsync(pages.ApplyTo(Preferences));}
+            catch(Exception error){diagnostics.RecordError("quit-save",error);saved=false;}
+            finally{preferenceGate.Release();}
+            await widgetSaveTail;
+            await widgetLoadTask;
+            if(boardReady&&widgetStore.CanSave)
+                try{await widgetStore.SaveAsync(boardEditor.State);pageSaveNotice=null;}
+                catch(Exception error){diagnostics.RecordError("widget-quit-save",error);saved=false;}
+            if(!saved&&options.QaReport is null&&!FailureReporter.ConfirmExitWithoutSaving())
+            {
+                quitting=false;notice="配置尚未保存，请检查数据目录后重试。";
+                ShowSettings();Render();UpdateOutsideGeometry();ScheduleTextTone();WakeMotion();
+                if(pages.SavePending){pageSaveTimer.Stop();pageSaveTimer.Start();}
+                UpdatePlugins();Changed?.Invoke();return;
+            }
+            var pluginShutdown=plugins.DisposeAsync().AsTask();
+            _=pluginShutdown.ContinueWith(task=>{_=task.Exception;},CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted|TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
+            try{await pluginShutdown.WaitAsync(TimeSpan.FromSeconds(8));}
+            catch(Exception error){diagnostics.RecordError("plugin-quit",error);}
+        }
+        catch(Exception error)
+        {
+            diagnostics.RecordError("quit",error);
+            string? path=FailureReporter.Write(store.DirectoryPath,"quit-error.txt",error,options.UiPreview);
+            if(options.QaReport is null)FailureReporter.NotifyOnce("退出时发生错误，部分更改可能尚未保存。",path);
+        }
+        finally
+        {
+            if(quitting)
+            {
+                try{Dispose();}
+                finally{exit();}
+            }
+        }
+    }
+    void StopRuntimeTimers()
+    {
+        motionTimer.Stop();clockTimer.Stop();timelineTimer.Stop();graphicsRetryTimer.Stop();pauseTimer.Stop();
+        materialSnapshotTimer.Stop();cursorTimer.Stop();textToneTimer.Stop();companionIdleTimer.Stop();mediaStateTimer.Stop();
     }
     public void Dispose()
     {
-        if(disposed)return;disposed=true;motionTimer.Stop();clockTimer.Stop();timelineTimer.Stop();graphicsRetryTimer.Stop();pauseTimer.Stop();materialSnapshotTimer.Stop();cursorTimer.Stop();textToneTimer.Stop();companionIdleTimer.Stop();outside.Update(null);
-        DisposeWidgetBoard();
-        qa?.Dispose();snapshotRequests?.Dispose();
+        if(disposed)return;disposed=true;StopRuntimeTimers();outside.Update(null);
+        void Clean(Action cleanup){try{cleanup();}catch(Exception error){diagnostics.RecordError("dispose",error);}}
+        Clean(DisposeWidgetBoard);
+        Clean(()=>qa?.Dispose());Clean(()=>snapshotRequests?.Dispose());
         if(effectsSubscribed)uiSettings.AdvancedEffectsEnabledChanged-=OnAdvancedEffects;
         if(animationsSubscribed)uiSettings.AnimationsEnabledChanged-=OnAnimations;
         if(powerSubscribed)PowerManager.EnergySaverStatusChanged-=OnPower;
-        outside.Dispose();companionIdleTimer.Stop();audio.Dispose();settings?.Dispose();foreground.Dispose();media.Dispose();system.Dispose();scene.Dispose();host.Dispose();store.Dispose();preferenceGate.Dispose();
+        Clean(outside.Dispose);Clean(audio.Dispose);Clean(()=>settings?.Dispose());Clean(foreground.Dispose);
+        Clean(media.Dispose);Clean(system.Dispose);Clean(scene.Dispose);Clean(host.Dispose);Clean(store.Dispose);Clean(preferenceGate.Dispose);
     }
 }
