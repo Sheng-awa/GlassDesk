@@ -1,0 +1,3 @@
+# These archived SDK files are cryptographic compatibility fixtures.
+# Preserve their original bytes, including line endings, on every checkout.
+/tests/Fixtures/LegacySdk/Archived/*.cs -text

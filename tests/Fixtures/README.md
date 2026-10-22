@@ -8,6 +8,8 @@ a fresh public checkout. Every tracked SDK source file must still match its
 recorded SHA-256. If the full ZIP is available, its hash and original entries are
 checked as additional provenance evidence. A CI run without that ZIP verifies
 the tracked snapshot fingerprints, not the identity of an unavailable archive.
+`.gitattributes` disables text conversion for these fingerprinted source files:
+Windows `core.autocrlf` must not alter their bytes during checkout.
 
 `LegacySdk` builds an independent assembly named `GlassDesk.Core`, version
 `0.2.0.0`, with the old contract and without `CompanionVisualState.AppearanceId`.
